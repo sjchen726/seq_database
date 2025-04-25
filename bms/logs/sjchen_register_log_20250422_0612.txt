@@ -1,0 +1,10 @@
+
+>>> Registered Sequences:
+  Duplex: AAGUUGACUAGACACUUUUUGGC, CAAAAAGUGUCUAGUCAACUU
+  AS: AAGUUGACUAGACACUUUUUGGC
+  SS: CAAAAAGUGUCUAGUCAACUU
+========================================================================
+
+>>> Created Relationships:
+  关系建立: AAGUUGACUAGACACUUUUUGGC <-> CAAAAAGUGUCUAGUCAACUU <-> AAGUUGACUAGACACUUUUUGGC, CAAAAAGUGUCUAGUCAACUU
+========================================================================

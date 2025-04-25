@@ -1,0 +1,5 @@
+2025-04-06 13:06:07,200 - INFO - 用户 admin 在 2025-04-06 21:05:00+00:00 编辑了项目 BPR-3M01中ID为 968159 的序列 ，修改内容为: 
+Remarks: test2 → test3
+========================================================================
+
+2025-04-06 14:10:41,622 - INFO - /Users/gutou/Documents/seq_database2/bms/app01/views.py changed, reloading.
