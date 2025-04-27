@@ -131,7 +131,7 @@
                         </a>
                         <ul>
                             <li><a href="/register_seq/">序列注册</a></li>
-                       <!--     <li><a href="/seq_info/">序列信息上传</a></li>  -->
+                            <li><a href="/reg_seq_list/">注册序列列表</a></li>
                             <li><a href="/seq_delivery/">序列信息上传</a></li>
                             <li><a href="/seq_list/">序列信息列表</a></li>
                         </ul>
@@ -194,6 +194,7 @@
                                 <th>Strand_MWs</th>
                                 <th>Parents</th>
                                 <th>Remarks</th>
+                                <th style="white-space: nowrap;">Update Time</th>   
                                 <th>操作</th>
                             </tr>
                         </thead>
@@ -257,6 +258,8 @@
                                                                 rgb(200, 200, 200); /* 黄色 */
                                                             {% elif item.type == 'ss' %}
                                                                 rgb(232, 228, 0); /* 黄色 */
+                                                            {% elif item.type == 'moe' %}
+                                                                rgb(249, 208, 255); /* 黄色 */
                                                             {% elif item.type == 'unknown' %}
                                                                 #9e9e9e; /* 灰色 */
                                                             {% endif %}"
@@ -314,6 +317,7 @@
                                         <td>{{ delivery.Strand_MWs | default_if_none:"" }}</td>
                                         <td>{{ seq.Parents | default_if_none:"" }}</td>
                                         <td>{{ seq.Remark | default_if_none:"" }}</td>
+                                        <td>{{ seq.formatted_update_time | default_if_none:"" }}</td>
                                         <td class="text-center">
                                             <a class="btn btn-info btn-sm" href="/edit_seq/?id={{ seq.rm_code }}&strand_MWs={{ delivery.Strand_MWs }}"><i class="fa fa-pencil fa-fw" aria-hidden="true"></i>编辑</a>
                                             <a class="btn btn-danger btn-sm" href="/cor_seq/?id={{ seq.rm_code }}&prefix={{ seq.seq_prefix }}"><i class="fa fa-trash-o fa-fw" aria-hidden="true"></i>关联序列</a>

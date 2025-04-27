@@ -27,6 +27,7 @@ urlpatterns = [
     re_path(r'^register/', views.register_view),     # 用户注册页面
 
     re_path(r'^seq_list/', views.get_sequence_info, name='seq_list'),     # 序列列表视图
+    re_path(r'^reg_seq_list/', views.reg_seq_list, name='reg_seq_list'),     # 注册序列列表视图
 
     re_path(r'^register_seq/', views.register_seq, name='register_seq'),     # 注册序列
 

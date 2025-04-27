@@ -19,7 +19,7 @@ LmsUser = get_user_model()
 import re
 import logging
 from django.utils import timezone
-import io
+from io import StringIO
 from django.conf import settings
 
 
@@ -67,7 +67,7 @@ def get_delivery_colored(seq: str):
 # ✅ 生成修饰序列的颜色标记
 def get_modify_seq_colored(seq, seq_type):
     sequence = re.findall(
-        r'G\(MOE\)|U\(MOE\)|C\(MOE\)|C\(moe\)|A\(MOE\)|ss|Af|Cf|Uf|Gf|Am|Cm|Um|Gm|dA|dT|dG|dC|dU|s|ss|o|[ACGU]|.', seq or ""
+        r'G\(moe\)|U\(moe\)|C\(moe\)|A\(moe\)|ss|Af|Cf|Uf|Gf|Am|Cm|Um|Gm|dA|dT|dG|dC|dU|s|ss|o|[ACGU]|.', seq or ""
     )
 
     if seq_type == 'AS':
@@ -93,7 +93,7 @@ def get_modify_seq_colored(seq, seq_type):
             "char": char,
             "type": (
                 "evp" if char == '(EVP)' else
-                "moe" if char in ['G(MOE)', 'U(MOE)', 'C(MOE)', 'C(moe)', 'A(MOE)'] else
+                "moe" if char in ['G(moe)', 'U(moe)', 'C(moe)', 'A(moe)'] else
                 "d" if char in ['dA', 'dT', 'dG', 'dC', 'dU'] else
                 "f" if char in ['Af', 'Cf', 'Uf', 'Gf'] else
                 "m" if char in ['Am', 'Cm', 'Um', 'Gm'] else
@@ -535,8 +535,8 @@ def edit_seq(request):
 
         # **如果有变化，则更新数据库**
         if changes:
-            seqinfo.created_at = new_datetime  # 更新时间
-            seqinfo.save()
+            delivery.created_at = new_datetime  # 更新时间
+            delivery.save()
             if delivery:
                 delivery.save()
 
@@ -593,14 +593,6 @@ def setPassword(password):
     """
     return make_password(password)
 
-# 注册序列
-import os
-import io
-import pandas as pd
-from datetime import datetime
-from django.conf import settings
-from django.contrib import messages
-from django.shortcuts import render, redirect
 
 # 定义 clean_value，防止脏数据，比如 NaN/null，并处理 int 转换
 def clean_value(value):
@@ -625,10 +617,14 @@ def register_seq(request):
             return render(request, 'register_seq.html')
 
         try:
-            # 读取 CSV 文件
-            df = pd.read_csv(uploaded_file, encoding='utf-8')
-            df = df.fillna('')  # 防止空值问题
-            print(df.columns.to_list())
+            # Read the file, decode bytes to string if necessary
+            file_content = uploaded_file.read().decode('utf-8', errors='replace')  # Decode the file content
+
+            # Automatically detect the delimiter (space or tab or comma)
+            
+            df = pd.read_csv(StringIO(file_content), sep=None, engine='python', encoding='utf-8')  # Auto-detect delimiter
+            df = df.fillna('')  # Handle empty values by replacing them with an empty string
+            print(df.columns.to_list())  # Print the columns to check
 
             # 检查必需列
             required_columns = ['SS', 'AS', 'Transcript', 'Target', 'Pos', 'Parents', 'Remarks']
@@ -1005,8 +1001,14 @@ def upload_delivery_info(request):
             return render(request, 'upload_delivery_info.html')
 
         try:
-            # 使用 pandas 读取 CSV 文件
-            df = pd.read_csv(uploaded_file)
+            # Read the file, decode bytes to string if necessary
+            file_content = uploaded_file.read().decode('utf-8', errors='replace')  # Decode the file content
+
+            # Automatically detect the delimiter (space or tab or comma)
+            
+            df = pd.read_csv(StringIO(file_content), sep=None, engine='python', encoding='utf-8')  # Auto-detect delimiter
+            df = df.fillna('')  # Handle empty values by replacing them with an empty string
+            print(df.columns.to_list())  # Print the columns to check
 
             # 检查必需列
             required_columns = ['Project','modify_seq','Strand_MWs', 'Remarks']
@@ -1077,12 +1079,12 @@ def upload_delivery_info(request):
                     upload_meg.append(f"{modify_seq_full}")
             
             if duplicate_meg:
-                messages.error(request, f"{'; '.join(duplicate_meg)}，递送修饰相同，如需修改请点击编辑！")
+                messages.error(request, f"重复序列信息：{len(duplicate_meg)} 条：{'; '.join(duplicate_meg)}。\n如需修改，请点击编辑！")
             if upload_meg:
-                messages.success(request, f"递送信息上传成功：{'; '.join(upload_meg)}")
+                messages.success(request, f"共{len(upload_meg)} 条序列信息成功上传！")
                 return render(request, 'upload_delivery_info.html', {'success': True})
             else:
-                messages.error(request, "无新的递送信息上传！")
+                messages.error(request, "无新的序列信息上传！")
                 return render(request, 'upload_delivery_info.html')
                 #return redirect('/upload_books/')  # 上传成功后跳转到 book_list.html
 
@@ -1106,6 +1108,10 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq):
     if not deliveries:
         deliveries = [{'delivery5': None, 'delivery3': None, 'date': None}]
 
+     # 假设 deliveries 和 seqinfo 是已经定义的对象
+    update_time = get_attr(deliveries[0], 'created_at') if deliveries else None
+    formatted_update_time = update_time.strftime('%Y-%m-%d %H:%M') if update_time else None
+
     remark = (
         f"{seqinfo.Remark}\n{get_attr(deliveries[0], 'Remark')}"
         if seqinfo and deliveries else
@@ -1128,6 +1134,8 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq):
         'Pos': seqinfo.Pos if seqinfo else None,
         'Target': seqinfo.Target if seqinfo else None,
         'Remark': remark, 
+        'formatted_update_time': formatted_update_time,  # 已经格式化的时间
+
         'Project': get_attr(deliveries[0], 'project') if deliveries else None,
 
         # ✅ 这里就只用传进来的单个 linker_seq
@@ -1181,8 +1189,8 @@ def get_sequence_info(request):
     # --------------------------
     # 3. 批量查出 Sequence 和 SeqInfo
     # --------------------------
-    rm_codes = list(rmcode_to_seqid.keys())
-    sequence_ids = list(set(rmcode_to_seqid.values()))
+    rm_codes = list(rmcode_to_seqid.keys())  #d.id
+    sequence_ids = list(set(rmcode_to_seqid.values()))  # d.sequence_id
  #   print(f"rm_codes: {rm_codes}")
   #  print(f"sequence_ids: {sequence_ids}")
 
@@ -1354,3 +1362,41 @@ def cor_seq(request):
         'sequence_list': seq_list,
         'query_id': query_id,
     })
+
+def reg_seq_list(request):
+
+     # 获取所有不包含 seq_type 为 'duplex' 的 Sequence 数据
+    sequences = Sequence.objects.exclude(seq_type='duplex')
+
+    sequence_list = []
+
+    for seq in sequences:
+        # 根据 seq_type 判断前缀
+        if seq.seq_type == 'SS' or seq.seq_type == 'RS':
+            seq_prefix = 'RS_'
+        elif seq.seq_type == 'AS':
+            seq_prefix = 'RA_'
+        else:
+            seq_prefix = ''  # 如果没有匹配的 seq_type，设为空
+
+        # 根据 rm_code 获取 SeqInfo 的 Remark
+        seq_info = SeqInfo.objects.filter(sequence_id=seq.rm_code).first()
+        remark = seq_info.Remark if seq_info else ''  # 如果没有找到匹配的 SeqInfo，则 Remark 为空
+
+        # 格式化日期
+        formatted_date = seq.created_at.strftime('%Y-%m-%d %H:%M') if seq.created_at else ''
+
+        # 构建字典数据
+        sequence_dict = {
+            'rm_code': seq.rm_code,
+            'seq_prefix': seq_prefix,
+            'seq': seq.seq,
+            'remark': remark,
+            'reg_date': formatted_date,  # 假设 Sequence 模型中有 created_at 字段
+        }
+
+        # 将数据加入到 sequence_list
+        sequence_list.append(sequence_dict)
+
+    # 渲染页面并传递数据
+    return render(request, 'reg_seq_list.html', {'sequence_list': sequence_list})

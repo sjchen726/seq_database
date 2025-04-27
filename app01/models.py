@@ -51,6 +51,7 @@ class SeqInfo(models.Model):
     seq = models.CharField('Sequence', max_length=100, null=True)  # 存储序列（如 AUGC）
     Target = models.CharField('Target', max_length=64, null=True)
     Pos = models.CharField('Pos', max_length=64, null=True)
+    project = models.CharField('项目', max_length=64, null=True)  # 项目号
    # Strand_MWs = models.CharField('Strand_MWs', max_length=64, null=True)
     Transcript = models.CharField('Transcription', max_length=64, null=True)
     parents = models.CharField('parents', max_length=200, null=True)  

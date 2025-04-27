@@ -39,3 +39,13 @@ Remarks: S11;S13 â†’ S11123
 
 2025-04-22 09:51:44,171 - WARNING - Not Found: /bootstrap/js/bootstrap.min.js
 2025-04-22 09:51:44,173 - WARNING - Not Found: /js/custom.js
+2025-04-27 16:01:05,891 - INFO - ÓÃ»§ admin ÔÚ 2025-04-27 16:00:00+00:00 ±à¼­ÁËÏîÄ¿ BPR-3M01ÖĞIDÎª 377379 µÄĞòÁĞ £¬ĞŞ¸ÄÄÚÈİÎª: 
+Strand MWs: 123.8 ¡ú 88.8
+========================================================================
+
+2025-04-27 16:02:50,165 - INFO - G:\Projects\Database\seq_database\bms\app01\views.py changed, reloading.
+2025-04-27 16:03:01,690 - INFO - ÓÃ»§ admin ÔÚ 2025-04-27 16:02:00+00:00 ±à¼­ÁËÏîÄ¿ BPR-3M01ÖĞIDÎª 377379 µÄĞòÁĞ £¬ĞŞ¸ÄÄÚÈİÎª: 
+Strand MWs: 88.8 ¡ú 1082
+========================================================================
+
+2025-04-27 16:04:18,986 - INFO - G:\Projects\Database\seq_database\bms\app01\views.py changed, reloading.
