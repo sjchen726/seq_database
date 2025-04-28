@@ -165,7 +165,8 @@
                             <label><input type="checkbox" class="toggle-vis" data-column="8" checked> Strand_MWs</label>
                             <label><input type="checkbox" class="toggle-vis" data-column="9" checked> Parents</label>
                             <label><input type="checkbox" class="toggle-vis" data-column="10" checked> Remarks</label>
-                            <label><input type="checkbox" class="toggle-vis" data-column="11" checked> 操作</label>
+                            <label><input type="checkbox" class="toggle-vis" data-column="11" checked> Update Time</label>
+                            <label><input type="checkbox" class="toggle-vis" data-column="12" checked> 操作</label>
                                 
                         </div>
                     <div>
@@ -260,6 +261,12 @@
                                                                 rgb(232, 228, 0); /* 黄色 */
                                                             {% elif item.type == 'moe' %}
                                                                 rgb(249, 208, 255); /* 黄色 */
+                                                            {% elif item.type == 'OCF3' %}
+                                                                rgb(255, 131, 135); /* 黄色 */
+                                                            {% elif item.type == 'GNA' %}
+                                                                rgb(64, 105, 255); /* 黄色 */
+                                                            {% elif item.type == 'TNA' %}
+                                                                rgb(232, 175, 71); /* 黄色 */
                                                             {% elif item.type == 'unknown' %}
                                                                 #9e9e9e; /* 灰色 */
                                                             {% endif %}"

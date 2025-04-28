@@ -67,7 +67,7 @@ def get_delivery_colored(seq: str):
 # ✅ 生成修饰序列的颜色标记
 def get_modify_seq_colored(seq, seq_type):
     sequence = re.findall(
-        r'G\(moe\)|U\(moe\)|C\(moe\)|A\(moe\)|ss|Af|Cf|Uf|Gf|Am|Cm|Um|Gm|dA|dT|dG|dC|dU|s|ss|o|[ACGU]|.', seq or ""
+        r'G\(moe\)|U\(moe\)|C\(moe\)|A\(moe\)|G\(OCF3\)|U\(OCF3\)|C\(OCF3\)|A\(OCF3\)|GA02|GU02|GC02|TA12|TC12|TG12|TU0|ss|Af|Cf|Uf|Gf|Am|Cm|Um|Gm|dA|dT|dG|dC|dU|s|ss|o|[ACGU]|.', seq or ""
     )
 
     if seq_type == 'AS':
@@ -94,6 +94,9 @@ def get_modify_seq_colored(seq, seq_type):
             "type": (
                 "evp" if char == '(EVP)' else
                 "moe" if char in ['G(moe)', 'U(moe)', 'C(moe)', 'A(moe)'] else
+                "OCF3" if char in ['G(OCF3)', 'U(OCF3)', 'C(OCF3)', 'A(OCF3)'] else
+                "GNA" if char in ['GA02', 'GU02', 'GC02'] else
+                "TNA" if char in ['TA12', 'TC12', 'TG12', 'TU0'] else
                 "d" if char in ['dA', 'dT', 'dG', 'dC', 'dU'] else
                 "f" if char in ['Af', 'Cf', 'Uf', 'Gf'] else
                 "m" if char in ['Am', 'Cm', 'Um', 'Gm'] else
@@ -959,26 +962,40 @@ def add_o_to_all_rules(modify_seq):
         if char in ['m', 'f'] and not (i + 1 < len(modify_seq) and modify_seq[i + 1] == 's'):
             linker_seq += char + 'o'
 
-        # 2. "(EVP)A/U/C/G/T" 后面加 "o"
+        # 2. "(EVP)A/U/C/G/T/A(moe)/U(moe)/C(moe)/G(moe)后面加 "o"
         elif i + 5 < len(modify_seq) and modify_seq[i:i+6].upper() in [
-            '(EVP)A', '(EVP)U', '(EVP)C', '(EVP)G', '(EVP)T'
+            '(EVP)A', '(EVP)U', '(EVP)C', '(EVP)G', '(EVP)T','A(MOE)', 'U(MOE)', 'C(MOE)', 'G(MOE)', 'T(MOE)', 
         ]:
             linker_seq += modify_seq[i:i+6] + 'o'
             i += 5
 
-        # 3. A(moe)/U(moe)/C(moe)/G(moe) 后面加 "o"
-        elif i + 5 < len(modify_seq) and modify_seq[i:i+6].upper() in [
-            'A(MOE)', 'U(MOE)', 'C(MOE)', 'G(MOE)', 'T(MOE)',
+        # 3. GA02/GC02/GU02/TA12/TG12/TC12 后面加 "o"
+        elif i + 3 < len(modify_seq) and modify_seq[i:i+4].upper() in [
+            'GA02', 'GC02', 'GU02','TA12','TC12','TG12'
         ]:
-            linker_seq += modify_seq[i:i+6] + 'o'
-            i += 5
+            linker_seq += modify_seq[i:i+4] + 'o'
+            i += 3
 
-        # 4. dA/dT/dU/dG/dC 后面加 "o"
+        # 4. TU0 后面加 "o"
+        elif i + 2 < len(modify_seq) and modify_seq[i:i+3].upper() in [
+            'TU0'
+        ]:
+            linker_seq += modify_seq[i:i+3] + 'o'
+            i += 2
+
+        # 5. dA/dT/dU/dG/dC 后面加 "o"
         elif i + 1 < len(modify_seq) and modify_seq[i:i+2] in [
             'dA', 'dT', 'dU', 'dG', 'dC'
         ]:
             linker_seq += modify_seq[i:i+2] + 'o'
             i += 1
+
+        # 6. A(OCF3)/U(OCF3)/C(OCF3)/G(OCF3) 后面加 "o"
+        elif i + 6 < len(modify_seq) and modify_seq[i:i+7].upper() in [
+            'A(OCF3)', 'U(OCF3)', 'C(OCF3)', 'G(OCF3)', 'T(OCF3)',
+        ]:
+            linker_seq += modify_seq[i:i+7] + 'o'
+            i += 6
 
         else:
             linker_seq += char
@@ -1044,11 +1061,24 @@ def upload_delivery_info(request):
                 linker_seq= add_o_to_all_rules(modify_seq)  # 添加连接子序列
           #      print(linker_seq)
 
-                # 提取裸序列（仅保留大写AUGCT字符）
-                naked_seq = ''.join(re.findall(r'[AUGCT]', modify_seq.upper()))
-           #     print(f'naked_seq:{naked_seq}')
-                naked_length = len(naked_seq)
+                # 提取裸序列（处理所有特殊标记，不改动modify_seq本身）
+                tmp_seq = modify_seq.upper()
+                # 处理特殊标记
+                tmp_seq = re.sub(r'GA02', 'A', tmp_seq)
+                tmp_seq = re.sub(r'GC02', 'C', tmp_seq)
+                tmp_seq = re.sub(r'GU02', 'U', tmp_seq)
+                tmp_seq = re.sub(r'TA12', 'A', tmp_seq)
+                tmp_seq = re.sub(r'TC12', 'C', tmp_seq)
+                tmp_seq = re.sub(r'TG12', 'G', tmp_seq)
+                tmp_seq = re.sub(r'TU0', 'U', tmp_seq)
 
+                # 删除括号及括号内内容
+                tmp_seq = re.sub(r'\(.*?\)', '', tmp_seq)
+                
+                # 提取裸序列（仅保留大写AUGCT字符）只提取AUGCT
+                naked_seq = ''.join(re.findall(r'[AUGCT]', tmp_seq))
+                print(f'naked_seq:{naked_seq}')
+                naked_length = len(naked_seq)
 
                 if not Sequence.objects.filter(seq=naked_seq).exists():
                     messages.error(request, f"未注册的序列：{naked_seq}，请先注册！")
