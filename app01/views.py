@@ -67,13 +67,15 @@ def get_delivery_colored(seq: str):
 # ✅ 生成修饰序列的颜色标记
 def get_modify_seq_colored(seq, seq_type):
     sequence = re.findall(
-        r'G\(moe\)|U\(moe\)|C\(moe\)|A\(moe\)|G\(OCF3\)|U\(OCF3\)|C\(OCF3\)|A\(OCF3\)|GA02|GU02|GC02|TA12|TC12|TG12|TU0|ss|Af|Cf|Uf|Gf|Am|Cm|Um|Gm|dA|dT|dG|dC|dU|s|ss|o|[ACGU]|.', seq or ""
+        r'G\(moe\)|U\(moe\)|C\(moe\)|A\(moe\)|G\(OCF3\)|U\(OCF3\)|C\(OCF3\)|A\(OCF3\)|I|invab|GA02|GU02|GC02|TA12|TC12|TG12|TU0|ss|Af|Cf|Uf|Gf|Am|Cm|Um|Gm|dA|dT|dG|dC|dU|s|ss|o|[ACGU]|.', seq or ""
     )
+
+    delivery=Delivery.objects.filter(linker_seq=seq).first()
 
     if seq_type == 'AS':
         counter = 0
     elif seq_type == 'SS':
-        counter = 22
+        counter = int(delivery.naked_length) + 1 if delivery and delivery.naked_length else 22
     else:
         counter = 0
 
@@ -100,6 +102,8 @@ def get_modify_seq_colored(seq, seq_type):
                 "d" if char in ['dA', 'dT', 'dG', 'dC', 'dU'] else
                 "f" if char in ['Af', 'Cf', 'Uf', 'Gf'] else
                 "m" if char in ['Am', 'Cm', 'Um', 'Gm'] else
+                "I" if char in ['I'] else
+                "invab" if char in ['invab'] else
                 "normal" if char in ['A', 'C', 'G', 'U'] else
                 "o" if char == 'o' else
                 "s" if char == 's' else
@@ -809,7 +813,7 @@ def register_seq(request):
                         log_file.write(f"========================================================================\n")
 
                 # 成功消息
-                messages.success(request, f"注册完成！成功: {len(register_meg)} 条, 重复: {len(duplicate_meg)} 条")
+                messages.success(request, f"注册完成！成功: {len(register_meg)} 条（含duplex), 重复: {len(duplicate_meg)} 条")
                 return redirect('register_seq')
 
         except Exception as e:
@@ -856,7 +860,7 @@ def upload_seq_info(request):
                 Pos = cleaned_row['Pos']
                 parents = cleaned_row['Parents']
           #      Remarks = cleaned_row['Remarks']
-                created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # 获取当前时间
+                created_at = timezone.now().strftime('%Y-%m-%d %H:%M:%S')  # 获取当前时间
                 
      #           print(seq_input, project, Transcript, Target, Pos, parents, Remarks)
 
@@ -958,8 +962,11 @@ def add_o_to_all_rules(modify_seq):
     while i < len(modify_seq):
         char = modify_seq[i]
 
-        # 1. "m" 或 "f" 后面加 "o"，但不是 "ms" 或 "fs"
-        if char in ['m', 'f'] and not (i + 1 < len(modify_seq) and modify_seq[i + 1] == 's'):
+        # 1. "I" 后面加 "o"
+        if char == 'I':
+            linker_seq += char + 'o'
+
+        elif char in ['m', 'f'] and not (i + 1 < len(modify_seq) and modify_seq[i + 1] == 's'):
             linker_seq += char + 'o'
 
         # 2. "(EVP)A/U/C/G/T/A(moe)/U(moe)/C(moe)/G(moe)后面加 "o"
@@ -996,6 +1003,13 @@ def add_o_to_all_rules(modify_seq):
         ]:
             linker_seq += modify_seq[i:i+7] + 'o'
             i += 6
+
+        # 7. "invab "o"
+        elif i + 4 < len(modify_seq) and modify_seq[i:i+5].upper() in [
+            'INVAB', 
+        ]:
+            linker_seq += modify_seq[i:i+5] + 'o'
+            i += 4
 
         else:
             linker_seq += char
@@ -1044,6 +1058,7 @@ def upload_delivery_info(request):
                 Strand_MWs = cleaned_row['Strand_MWs']
                 Remarks = cleaned_row['Remarks']
                 created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # 获取当前时间
+               # print(created_at)
 
                  # 使用正则提取 delivery5、delivery3 和裸序列
                 delivery5_match = re.search(r'^\[([^\[\]]*)\]', modify_seq_full)
@@ -1075,10 +1090,13 @@ def upload_delivery_info(request):
                 # 删除括号及括号内内容
                 tmp_seq = re.sub(r'\(.*?\)', '', tmp_seq)
                 
-                # 提取裸序列（仅保留大写AUGCT字符）只提取AUGCT
-                naked_seq = ''.join(re.findall(r'[AUGCT]', tmp_seq))
-                print(f'naked_seq:{naked_seq}')
-                naked_length = len(naked_seq)
+                # 优先匹配 'invab'，再匹配 'AUGCTI' 中的字符
+                # 提取 invab（大写）或单个字母 A/U/G/C/T/I
+                matches = re.findall(r'(INVAB|[AUGCTI])', tmp_seq)
+                naked_seq = ''.join(matches)
+                naked_length = sum(1 for _ in matches)  # 每个 INVAB 或单个字母计为 1
+                print(f'naked_seq: {naked_seq}, {naked_length}')
+
 
                 if not Sequence.objects.filter(seq=naked_seq).exists():
                     messages.error(request, f"未注册的序列：{naked_seq}，请先注册！")

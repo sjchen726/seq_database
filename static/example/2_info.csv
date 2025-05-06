@@ -1,5 +1,4 @@
 Project,modify_seq,Strand_MWs,Remarks
-BPR-3M01,CmsCmsUmGmGmAmdAUmAfUfUfAmGmAmUmGmCmCmUmUmUm,123.4,R1
-BPR-3M01,CmsCmsUmG(moe)GmAmdAUmAfUfUfAmGmAmUmGmCmCmUmUmUm,123.8,R2
-BPR-3M01,[L96]AmsAfsAmGmdGCmdAUmCmUmAmAmUmAfUmUfCmCmAmGmGmsAmsCm[P98],234.5,R3
-BPR-3M02,CmsCmsUmGmGmAmdAUmAfUfUfAmGmAmUmGmCmCmAmA(moe)Um[L96],266.6,R4
+BPR-3M01,CmsCmsUmG(moe)GmAmdAUmAfUfUfAmGmAmUmGmCmCmUmUmUm,123.8,R1
+BPR-3M01,CmsCmsUmG(moe)GmAmdAUmAfUfUfAmGmAmUmGmCmCmUmUmI,125.9,R2
+BPR-3M01,CmsCmsUmG(moe)GmAmdAUmAfUfUfAmGmAmUmGmCmCmUmUminvab,234.5,R3
