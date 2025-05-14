@@ -503,11 +503,12 @@ def edit_seq(request):
         # 将前端传递的字符串日期转换为 naive datetime
         naive_datetime = datetime.strptime(edit_date, "%Y-%m-%dT%H:%M")
         # 将 naive datetime 转换为 aware datetime（带时区）
-        new_datetime = timezone.make_aware(naive_datetime)
+        #new_datetime = timezone.make_aware(naive_datetime)
+        new_datetime = naive_datetime
     
     # **检查是否有字段修改**
         changes = []
-        if delivery.project != edit_project:
+        if delivery and delivery.project != edit_project:
      #       print(delivery.project)
      #       print(edit_project)
             changes.append(f"Project: {delivery.project} → {edit_project}")
@@ -521,10 +522,10 @@ def edit_seq(request):
         if delivery and delivery.delivery3 != edit_delivery3:
             changes.append(f"3' Delivery: {delivery.delivery3} → {edit_delivery3}")
             delivery.delivery3 = edit_delivery3
-        if seqinfo.Transcript != edit_transcript:
+        if seqinfo and seqinfo.Transcript != edit_transcript:
             changes.append(f"Transcript: {seqinfo.Transcript} → {edit_transcript}")
             seqinfo.Transcript = edit_transcript
-        if seqinfo.Target != edit_target:
+        if seqinfo and seqinfo.Target != edit_target:
             changes.append(f"Target: {seqinfo.Target} → {edit_target}")
             seqinfo.Target = edit_target
         if seqinfo.Pos != edit_position:
@@ -533,19 +534,20 @@ def edit_seq(request):
         if delivery and delivery.Strand_MWs != edit_strand_mws:
             changes.append(f"Strand MWs: {delivery.Strand_MWs} → {edit_strand_mws}")
             delivery.Strand_MWs = edit_strand_mws
-        if seqinfo.parents != edit_parents:
-            changes.append(f"Parents: {seqinfo.parents} → {edit_parents}")
-            seqinfo.parents = edit_parents
+        if delivery and delivery.parents != edit_parents:
+            changes.append(f"Parents: {delivery.parents} → {edit_parents}")
+            delivery.parents = edit_parents
         if delivery.Remark != edit_remark:
             changes.append(f"Remarks: {delivery.Remark} → {edit_remark}")
             delivery.Remark = edit_remark
 
         # **如果有变化，则更新数据库**
         if changes:
-            delivery.created_at = new_datetime  # 更新时间
+            # 更新 SeqInfo 对象 和 delivery 对象
+            seqinfo.created_at = new_datetime  # 更新时间
+            delivery.created_at = new_datetime  # 更新时
             delivery.save()
-            if delivery:
-                delivery.save()
+            seqinfo.save()
 
              # 记录修改日志
             log_directory = 'bms/logs'  # 日志文件夹
@@ -634,7 +636,7 @@ def register_seq(request):
             print(df.columns.to_list())  # Print the columns to check
 
             # 检查必需列
-            required_columns = ['SS', 'AS', 'Transcript', 'Target', 'Pos', 'Parents', 'Remarks']
+            required_columns = ['SS', 'AS', 'Transcript', 'Target', 'Position', 'Remarks']
             if not all(col in df.columns for col in required_columns):
                 messages.error(request, f"文件格式错误，必须包含列: {', '.join(required_columns)}")
                 return render(request, 'register_seq.html')
@@ -663,8 +665,8 @@ def register_seq(request):
                     duplex = f"{AS}, {SS}"
                     Transcript = cleaned_row['Transcript']
                     Target = cleaned_row['Target']
-                    Pos = cleaned_row['Pos']
-                    Parents = cleaned_row['Parents']
+                    Pos = cleaned_row['Position']
+              #      Parents = cleaned_row['Parents']
                     Remarks = cleaned_row['Remarks']
 
                     # 创建 Duplex
@@ -711,14 +713,14 @@ def register_seq(request):
                             "Transcript": set(seqinfo_SS.Transcript.split(', ')) if seqinfo_SS.Transcript else set(),
                             "Target": set(seqinfo_SS.Target.split(', ')) if seqinfo_SS.Target else set(),
                             "Pos": set(seqinfo_SS.Pos.split(', ')) if seqinfo_SS.Pos else set(),
-                            "Parents": set(seqinfo_SS.parents.split(', ')) if seqinfo_SS.parents else set(),
+                   #         "Parents": set(seqinfo_SS.parents.split(', ')) if seqinfo_SS.parents else set(),
                             "Remarks": set(seqinfo_SS.Remark.split(', ')) if seqinfo_SS.Remark else set()
                         }
                         new_fields = {
                             "Transcript": set(Transcript.split(';')) if Transcript else set(),
                             "Target": set(Target.split(';')) if Target else set(),
                             "Pos": set(Pos.split(';')) if Pos else set(),
-                            "Parents": set(Parents.split(';')) if Parents else set(),
+                 #           "Parents": set(Parents.split(';')) if Parents else set(),
                             "Remarks": set(Remarks.split(';')) if Remarks else set()
                         }
                         for field in new_fields:
@@ -733,7 +735,7 @@ def register_seq(request):
                             Transcript=Transcript,
                             Target=Target,
                             Pos=Pos,
-                            parents=Parents,
+                   #         parents=Parents,
                             Remark=Remarks,
                             created_at=created_at
                         )
@@ -745,14 +747,14 @@ def register_seq(request):
                             "Transcript": set(seqinfo_AS.Transcript.split(', ')) if seqinfo_AS.Transcript else set(),
                             "Target": set(seqinfo_AS.Target.split(', ')) if seqinfo_AS.Target else set(),
                             "Pos": set(seqinfo_AS.Pos.split(', ')) if seqinfo_AS.Pos else set(),
-                            "Parents": set(seqinfo_AS.parents.split(', ')) if seqinfo_AS.parents else set(),
+                 #           "Parents": set(seqinfo_AS.parents.split(', ')) if seqinfo_AS.parents else set(),
                             "Remarks": set(seqinfo_AS.Remark.split(', ')) if seqinfo_AS.Remark else set()
                         }
                         new_fields = {
                             "Transcript": set(Transcript.split(';')) if Transcript else set(),
                             "Target": set(Target.split(';')) if Target else set(),
                             "Pos": set(Pos.split(';')) if Pos else set(),
-                            "Parents": set(Parents.split(';')) if Parents else set(),
+                    #        "Parents": set(Parents.split(';')) if Parents else set(),
                             "Remarks": set(Remarks.split(';')) if Remarks else set()
                         }
                         for field in new_fields:
@@ -767,7 +769,7 @@ def register_seq(request):
                             Transcript=Transcript,
                             Target=Target,
                             Pos=Pos,
-                            parents=Parents,
+                            # parents=Parents,
                             Remark=Remarks,
                             created_at=created_at
                         )
@@ -963,7 +965,7 @@ def add_o_to_all_rules(modify_seq):
         char = modify_seq[i]
 
         # 1. "I" 后面加 "o"
-        if char == 'I':
+        if char == 'I' and not (i + 1 < len(modify_seq) and modify_seq[i + 1] == 's'):
             linker_seq += char + 'o'
 
         elif char in ['m', 'f'] and not (i + 1 < len(modify_seq) and modify_seq[i + 1] == 's'):
@@ -973,42 +975,67 @@ def add_o_to_all_rules(modify_seq):
         elif i + 5 < len(modify_seq) and modify_seq[i:i+6].upper() in [
             '(EVP)A', '(EVP)U', '(EVP)C', '(EVP)G', '(EVP)T','A(MOE)', 'U(MOE)', 'C(MOE)', 'G(MOE)', 'T(MOE)', 
         ]:
-            linker_seq += modify_seq[i:i+6] + 'o'
+            # 判断紧跟  后面那个字符是不是 's'
+            if i + 6 >= len(modify_seq) or modify_seq[i + 6] != 's':
+                linker_seq += modify_seq[i:i+6] + 'o'
+            else:
+                linker_seq += modify_seq[i:i+6]  # 不加 'o'
             i += 5
 
         # 3. GA02/GC02/GU02/TA12/TG12/TC12 后面加 "o"
         elif i + 3 < len(modify_seq) and modify_seq[i:i+4].upper() in [
             'GA02', 'GC02', 'GU02','TA12','TC12','TG12'
         ]:
-            linker_seq += modify_seq[i:i+4] + 'o'
+            # 判断紧跟后面那个字符是不是 's'
+            if i + 4 >= len(modify_seq) or modify_seq[i + 4] != 's':
+                linker_seq += modify_seq[i:i+4] + 'o'
+            else:
+                linker_seq += modify_seq[i:i+4]  # 不加 'o'
             i += 3
 
         # 4. TU0 后面加 "o"
         elif i + 2 < len(modify_seq) and modify_seq[i:i+3].upper() in [
             'TU0'
         ]:
-            linker_seq += modify_seq[i:i+3] + 'o'
+             # 判断紧跟后面那个字符是不是 's'
+            if i + 3 >= len(modify_seq) or modify_seq[i + 3] != 's':
+                linker_seq += modify_seq[i:i+3] + 'o'
+            else:
+                linker_seq += modify_seq[i:i+3]  # 不加 'o'
             i += 2
 
-        # 5. dA/dT/dU/dG/dC 后面加 "o"
+        # 5. dA/dT/dU/dG/dC 后面加 "o"，除非 i+2 是 's'
         elif i + 1 < len(modify_seq) and modify_seq[i:i+2] in [
             'dA', 'dT', 'dU', 'dG', 'dC'
         ]:
-            linker_seq += modify_seq[i:i+2] + 'o'
+            # 判断紧跟 dX 后面那个字符是不是 's'
+            if i + 2 >= len(modify_seq) or modify_seq[i + 2] != 's':
+                linker_seq += modify_seq[i:i+2] + 'o'
+            else:
+                linker_seq += modify_seq[i:i+2]  # 不加 'o'
             i += 1
+
 
         # 6. A(OCF3)/U(OCF3)/C(OCF3)/G(OCF3) 后面加 "o"
         elif i + 6 < len(modify_seq) and modify_seq[i:i+7].upper() in [
             'A(OCF3)', 'U(OCF3)', 'C(OCF3)', 'G(OCF3)', 'T(OCF3)',
         ]:
-            linker_seq += modify_seq[i:i+7] + 'o'
+             # 判断紧跟后面那个字符是不是 's'
+            if i + 7 >= len(modify_seq) or modify_seq[i + 7] != 's':
+                linker_seq += modify_seq[i:i+7] + 'o'
+            else:
+                linker_seq += modify_seq[i:i+7]  # 不加 'o'
             i += 6
 
         # 7. "invab "o"
         elif i + 4 < len(modify_seq) and modify_seq[i:i+5].upper() in [
             'INVAB', 
         ]:
-            linker_seq += modify_seq[i:i+5] + 'o'
+             # 判断紧跟后面那个字符是不是 's'
+            if i + 5 >= len(modify_seq) or modify_seq[i + 5] != 's':
+                linker_seq += modify_seq[i:i+5] + 'o'
+            else:
+                linker_seq += modify_seq[i:i+5]  # 不加 'o'
             i += 4
 
         else:
@@ -1042,7 +1069,7 @@ def upload_delivery_info(request):
             print(df.columns.to_list())  # Print the columns to check
 
             # 检查必需列
-            required_columns = ['Project','modify_seq','Strand_MWs', 'Remarks']
+            required_columns = ['Project','modify_seq','Strand_MWs', 'Parents','Remarks']
             if not all(col in df.columns for col in required_columns):
                 messages.error(request, f"文件格式错误，必须包含列: {', '.join(required_columns)}")
                 return render(request, 'upload_delivery_info.html')
@@ -1052,10 +1079,11 @@ def upload_delivery_info(request):
 
             # 遍历并保存数据到数据库
             for _, row in df.iterrows():
-                cleaned_row = {col: clean_value(row[col]) for col in ['Project', 'modify_seq','Strand_MWs', 'Remarks']}
+                cleaned_row = {col: clean_value(row[col]) for col in ['Project', 'modify_seq','Strand_MWs', 'Parents', 'Remarks']}
                 project = cleaned_row['Project']  # 项目名称
                 modify_seq_full = cleaned_row['modify_seq']  # 用户输入的序列
                 Strand_MWs = cleaned_row['Strand_MWs']
+                parents = cleaned_row['Parents']
                 Remarks = cleaned_row['Remarks']
                 created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # 获取当前时间
                # print(created_at)
@@ -1118,6 +1146,7 @@ def upload_delivery_info(request):
                         linker_seq = linker_seq,
                         naked_length = naked_length,
                         project = project,
+                        parents = parents,
                         delivery5 = delivery5,
                         delivery3 = delivery3,
                         Strand_MWs = Strand_MWs,
@@ -1178,7 +1207,7 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq):
         ),
         'seq': sequence.seq if sequence else None,
         'Transcript': seqinfo.Transcript if seqinfo else None,
-        'Parents': seqinfo.parents if seqinfo else None,
+    #    'Parents': seqinfo.parents if seqinfo else None,
         'Pos': seqinfo.Pos if seqinfo else None,
         'Target': seqinfo.Target if seqinfo else None,
         'Remark': remark, 
@@ -1192,6 +1221,7 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq):
 
         'deliveries': [
             {
+                'Parents': getattr(d, 'parents', None),
                 'delivery5': getattr(d, 'delivery5', None),
                 'delivery3': getattr(d, 'delivery3', None),
                 'Strand_MWs': getattr(d, 'Strand_MWs', None),

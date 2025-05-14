@@ -54,7 +54,7 @@ class SeqInfo(models.Model):
     project = models.CharField('项目', max_length=64, null=True)  # 项目号
    # Strand_MWs = models.CharField('Strand_MWs', max_length=64, null=True)
     Transcript = models.CharField('Transcription', max_length=64, null=True)
-    parents = models.CharField('parents', max_length=200, null=True)  
+   # parents = models.CharField('parents', max_length=200, null=True)  
     Remark = models.CharField('Remark', max_length=64, null=True, blank=True, default='') #备注
 
     created_at = models.DateTimeField('Created At',  blank=True, null=True)  # 创建时间
@@ -87,6 +87,7 @@ class Delivery(models.Model):
     Strand_MWs = models.CharField('Strand_MWs', max_length=64, null=True) # 分子量
     project = models.CharField('项目', max_length=64, null=True)  # 项目号
     created_at = models.DateTimeField('Created At',  blank=True, null=True)  # 创建时间
+    parents = models.CharField('parents', max_length=200, null=True)  
     Remark = models.CharField('Remark', max_length=64, null=True, blank=True, default='') #备注
     
 
