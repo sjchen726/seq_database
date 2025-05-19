@@ -636,7 +636,7 @@ def register_seq(request):
             print(df.columns.to_list())  # Print the columns to check
 
             # 检查必需列
-            required_columns = ['SS', 'AS', 'Transcript', 'Target', 'Position', 'Remarks']
+            required_columns = ['SS', 'AS', 'Transcript', 'Position', 'Remarks']
             if not all(col in df.columns for col in required_columns):
                 messages.error(request, f"文件格式错误，必须包含列: {', '.join(required_columns)}")
                 return render(request, 'register_seq.html')
@@ -664,9 +664,9 @@ def register_seq(request):
                     AS = cleaned_row['AS']
                     duplex = f"{AS}, {SS}"
                     Transcript = cleaned_row['Transcript']
-                    Target = cleaned_row['Target']
                     Pos = cleaned_row['Position']
               #      Parents = cleaned_row['Parents']
+              #      Target = cleaned_row['Target']
                     Remarks = cleaned_row['Remarks']
 
                     # 创建 Duplex
@@ -711,14 +711,14 @@ def register_seq(request):
                     if seqinfo_SS:
                         existing_fields = {
                             "Transcript": set(seqinfo_SS.Transcript.split(', ')) if seqinfo_SS.Transcript else set(),
-                            "Target": set(seqinfo_SS.Target.split(', ')) if seqinfo_SS.Target else set(),
+                    #       "Target": set(seqinfo_SS.Target.split(', ')) if seqinfo_SS.Target else set(),
                             "Pos": set(seqinfo_SS.Pos.split(', ')) if seqinfo_SS.Pos else set(),
-                   #         "Parents": set(seqinfo_SS.parents.split(', ')) if seqinfo_SS.parents else set(),
+                    #         "Parents": set(seqinfo_SS.parents.split(', ')) if seqinfo_SS.parents else set(),
                             "Remarks": set(seqinfo_SS.Remark.split(', ')) if seqinfo_SS.Remark else set()
                         }
                         new_fields = {
                             "Transcript": set(Transcript.split(';')) if Transcript else set(),
-                            "Target": set(Target.split(';')) if Target else set(),
+                 #            "Target": set(Target.split(';')) if Target else set(),
                             "Pos": set(Pos.split(';')) if Pos else set(),
                  #           "Parents": set(Parents.split(';')) if Parents else set(),
                             "Remarks": set(Remarks.split(';')) if Remarks else set()
@@ -733,7 +733,7 @@ def register_seq(request):
                             sequence=ss_obj,
                             seq=SS,
                             Transcript=Transcript,
-                            Target=Target,
+                   #         Target=Target,
                             Pos=Pos,
                    #         parents=Parents,
                             Remark=Remarks,
@@ -745,14 +745,14 @@ def register_seq(request):
                     if seqinfo_AS:
                         existing_fields = {
                             "Transcript": set(seqinfo_AS.Transcript.split(', ')) if seqinfo_AS.Transcript else set(),
-                            "Target": set(seqinfo_AS.Target.split(', ')) if seqinfo_AS.Target else set(),
+                 #           "Target": set(seqinfo_AS.Target.split(', ')) if seqinfo_AS.Target else set(),
                             "Pos": set(seqinfo_AS.Pos.split(', ')) if seqinfo_AS.Pos else set(),
                  #           "Parents": set(seqinfo_AS.parents.split(', ')) if seqinfo_AS.parents else set(),
                             "Remarks": set(seqinfo_AS.Remark.split(', ')) if seqinfo_AS.Remark else set()
                         }
                         new_fields = {
                             "Transcript": set(Transcript.split(';')) if Transcript else set(),
-                            "Target": set(Target.split(';')) if Target else set(),
+                  #          "Target": set(Target.split(';')) if Target else set(),
                             "Pos": set(Pos.split(';')) if Pos else set(),
                     #        "Parents": set(Parents.split(';')) if Parents else set(),
                             "Remarks": set(Remarks.split(';')) if Remarks else set()
@@ -767,7 +767,7 @@ def register_seq(request):
                             sequence=as_obj,
                             seq=AS,
                             Transcript=Transcript,
-                            Target=Target,
+                       #     Target=Target,
                             Pos=Pos,
                             # parents=Parents,
                             Remark=Remarks,
@@ -1172,20 +1172,16 @@ def upload_delivery_info(request):
     return render(request, 'upload_delivery_info.html')
 
 def get_attr(d, key):
-    """统一从 dict 或 Delivery 对象中安全获取属性"""
     if isinstance(d, dict):
         return d.get(key, '')
     elif isinstance(d, Delivery):
         return getattr(d, key, '')
     return ''
 
-""" 构建 Sequence 的详细数据 """
-def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq): 
-
+def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq):
     if not deliveries:
         deliveries = [{'delivery5': None, 'delivery3': None, 'date': None}]
 
-     # 假设 deliveries 和 seqinfo 是已经定义的对象
     update_time = get_attr(deliveries[0], 'created_at') if deliveries else None
     formatted_update_time = update_time.strftime('%Y-%m-%d %H:%M') if update_time else None
 
@@ -1197,8 +1193,8 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq):
     )
 
     return {
+        'rm_code': rm_code,
         'seq_type': sequence.seq_type if sequence else None,
-        'rm_code': rm_code if rm_code else None,
         'seq_prefix': (
             "RA_" if sequence and sequence.seq_type == "AS"
             else "RS_" if sequence and sequence.seq_type == "SS"
@@ -1206,56 +1202,41 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq):
             else ""
         ),
         'seq': sequence.seq if sequence else None,
-        'Transcript': seqinfo.Transcript if seqinfo else None,
-    #    'Parents': seqinfo.parents if seqinfo else None,
-        'Pos': seqinfo.Pos if seqinfo else None,
-        'Target': seqinfo.Target if seqinfo else None,
-        'Remark': remark, 
-        'formatted_update_time': formatted_update_time,  # 已经格式化的时间
-
         'Project': get_attr(deliveries[0], 'project') if deliveries else None,
-
-        # ✅ 这里就只用传进来的单个 linker_seq
+        'Transcript': seqinfo.Transcript if seqinfo else None,
+        'Target': seqinfo.Pos if seqinfo else None,
+        'Pos': seqinfo.Pos if seqinfo else None,
+        'Remark': remark,
+        'formatted_update_time': formatted_update_time,
         'linker_seq': linker_seq,
         'modify_seq_colored': get_modify_seq_colored(linker_seq, sequence.seq_type) if linker_seq and sequence else None,
-
         'deliveries': [
             {
+                'duplex_id': getattr(d, 'duplex_id', None),
                 'Parents': getattr(d, 'parents', None),
+                'Target': getattr(d, 'Target', None),
                 'delivery5': getattr(d, 'delivery5', None),
                 'delivery3': getattr(d, 'delivery3', None),
                 'Strand_MWs': getattr(d, 'Strand_MWs', None),
                 'delivery3_colored': get_delivery_colored(get_attr(d, 'delivery3')),
                 'delivery5_colored': get_delivery_colored(get_attr(d, 'delivery5')),
-}
+            }
             for d in deliveries
         ]
     }
 
-# 序列列表视图
 def get_sequence_info(request):
-    # --------------------------
-    # 1. 用户权限判断
-    # --------------------------
     permissions_projects = getattr(request.user, 'permissions_project', '')
     user_type = getattr(request.user, 'user_type', 'guest')
- #   print(user_type)
 
     if request.user.is_superuser:
-        # 超级管理员可以查看所有项目
         delivery_qs = Delivery.objects.all()
-        #print("admin")
     elif permissions_projects:
         allowed_projects = [p.strip() for p in permissions_projects.split(',')]
         delivery_qs = Delivery.objects.filter(project__in=allowed_projects)
     else:
         delivery_qs = Delivery.objects.none()
 
-    # --------------------------
-    # 2. 构建映射关系
-    #    - rmcode_to_seqid：rm_code -> sequence_id
-    #    - delivery_map：rm_code -> 所有关联的 deliveries
-    # --------------------------
     rmcode_to_seqid = {}
     delivery_map = defaultdict(list)
 
@@ -1264,26 +1245,18 @@ def get_sequence_info(request):
             rmcode_to_seqid[d.id] = d.sequence_id
             delivery_map[d.id].append(d)
 
-    # --------------------------
-    # 3. 批量查出 Sequence 和 SeqInfo
-    # --------------------------
-    rm_codes = list(rmcode_to_seqid.keys())  #d.id
-    sequence_ids = list(set(rmcode_to_seqid.values()))  # d.sequence_id
- #   print(f"rm_codes: {rm_codes}")
-  #  print(f"sequence_ids: {sequence_ids}")
+    rm_codes = list(rmcode_to_seqid.keys())
+    sequence_ids = list(set(rmcode_to_seqid.values()))
 
     sequence_map = {
         s.rm_code: s for s in Sequence.objects.filter(rm_code__in=sequence_ids)
     }
-
     seqinfo_map = {
         s.sequence_id: s for s in SeqInfo.objects.filter(sequence_id__in=sequence_ids)
     }
 
-    # --------------------------
-    # 4. 构建最终数据列表（每个 linker_seq 拆分成一条记录）
-    # --------------------------
-    seq_list = []
+    # 分组数据结构，key: duplex_id, value: list of items
+    duplex_group_map = defaultdict(list)
 
     for rm_code in rm_codes:
         sequence_id = rmcode_to_seqid[rm_code]
@@ -1291,36 +1264,47 @@ def get_sequence_info(request):
         seqinfo = seqinfo_map.get(sequence_id)
         deliveries = delivery_map.get(rm_code, [])
 
-        # 提取所有非空 linker_seq
-        linker_seqs = [d.linker_seq for d in deliveries if getattr(d, 'linker_seq', None)]
- #       print(linker_seqs)
+        # 按 duplex_id 分组 delivery
+        grouped_deliveries = defaultdict(list)
+        for d in deliveries:
+            grouped_deliveries[getattr(d, 'duplex_id', None)].append(d)
 
-        if linker_seqs:
-            # 每个 linker_seq 独立生成一条记录
-            for linker_seq in linker_seqs:
-                seq_list.append(build_sequence_data(
+        # 生成每个 duplex_id 对应的 items
+        for duplex_id, group_deliveries in grouped_deliveries.items():
+            linker_seqs = [d.linker_seq for d in group_deliveries if getattr(d, 'linker_seq', None)]
+
+            if linker_seqs:
+                # 如果有多个 linker_seq，逐条生成数据
+                for linker_seq in linker_seqs:
+                    item = build_sequence_data(
+                        rm_code=rm_code,
+                        seqinfo=seqinfo,
+                        sequence=sequence,
+                        deliveries=group_deliveries,
+                        linker_seq=linker_seq
+                    )
+                    duplex_group_map[duplex_id].append(item)
+            else:
+                item = build_sequence_data(
                     rm_code=rm_code,
                     seqinfo=seqinfo,
                     sequence=sequence,
-                    deliveries=deliveries,
-                    linker_seq=linker_seq
-                ))
-        else:
-            # 如果没有 linker_seq，也返回一条记录，linker_seq 为 None
-            seq_list.append(build_sequence_data(
-                rm_code=rm_code,
-                seqinfo=seqinfo,
-                sequence=sequence,
-                deliveries=deliveries,
-                linker_seq=None
-            ))
+                    deliveries=group_deliveries,
+                    linker_seq=None
+                )
+                duplex_group_map[duplex_id].append(item)
 
-    # --------------------------
-    # 5. 渲染页面
-    # --------------------------
+    # 组织成前端需要的列表格式
+    sequence_groups = []
+    for duplex_id, items in duplex_group_map.items():
+        sequence_groups.append({
+            'duplex_id': duplex_id,
+            'items': items,
+        })
+
     context = {
         'user_type': user_type,
-        'sequence_list': seq_list,
+        'sequence_groups': sequence_groups,
     }
 
     return render(request, 'seq_list.html', context)

@@ -49,7 +49,7 @@ class DuplexRelationship(models.Model):
 class SeqInfo(models.Model):
     sequence = models.ForeignKey(Sequence, on_delete=models.CASCADE, related_name='target_info')  # 外键关联到Sequence
     seq = models.CharField('Sequence', max_length=100, null=True)  # 存储序列（如 AUGC）
-    Target = models.CharField('Target', max_length=64, null=True)
+  #  Target = models.CharField('Target', max_length=64, null=True)
     Pos = models.CharField('Pos', max_length=64, null=True)
     project = models.CharField('项目', max_length=64, null=True)  # 项目号
    # Strand_MWs = models.CharField('Strand_MWs', max_length=64, null=True)
@@ -77,7 +77,8 @@ class Author(models.Model):
 
 
 class Delivery(models.Model):
-    id = models.CharField('id', max_length=6, primary_key=True, unique=True, default=generate_random_code)  # RM_6编号
+    id = models.CharField('id', max_length=7, primary_key=True, unique=True, default=generate_random_code)  # RM_7编号
+    duplex_id = models.CharField('duplex_id', max_length=6, null=True)  # RM_7编号
     sequence = models.ForeignKey(Sequence, on_delete=models.CASCADE, related_name='deliveries')  # 外键关联到Sequence表
     modify_seq = models.CharField('modify_seq', max_length=100, null=True)  # 存储序列（如 AUGC）
     linker_seq = models.CharField('linker_seq', max_length=100, null=True)  # 存储序列（如 AoUoGo）
@@ -88,6 +89,7 @@ class Delivery(models.Model):
     project = models.CharField('项目', max_length=64, null=True)  # 项目号
     created_at = models.DateTimeField('Created At',  blank=True, null=True)  # 创建时间
     parents = models.CharField('parents', max_length=200, null=True)  
+    Target = models.CharField('Target', max_length=64, null=True)
     Remark = models.CharField('Remark', max_length=64, null=True, blank=True, default='') #备注
     
 
