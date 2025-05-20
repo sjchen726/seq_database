@@ -1069,13 +1069,28 @@ table tbody tr:hover {
 /* 每个 delivery5 项目的样式 */
 
 .delivery-item {
-    padding: 0 5px;
-    height: 20px;
     display: inline-block;
     text-align: center;
-    line-height: 20px;
-    background-color: rgb(236, 247, 84);
-    /* 默认背景色 */
+    line-height: 24px;
+    /* 略高，让内容更居中 */
+    font-size: 16px;
+    /* 稍大一点，清晰易读 */
+    font-weight: 500;
+    /* 半粗体，突出又不沉重 */
+    color: rgb(242, 246, 246);
+    /* 默认字体颜色为白色 */
+    padding: 1px 5px;
+    /* 内边距更精致，左右稍宽 */
+    min-width: max-content;
+    /* 保证内容不压缩 */
+    background-color: #888;
+    /* 默认灰色背景 */
+    margin: 0px 0px;
+    /* 与其他项之间保持一点间距 */
+    border-radius: 2px;
+    /* 轻微圆角，现代感但不浮夸 */
+    vertical-align: middle;
+    white-space: nowrap;
 }
 
 
@@ -1136,9 +1151,10 @@ table {
     font-size: 13px;
     line-height: 1.4;
     border-radius: 8px;
-    overflow: hidden;
     background-color: #fff;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+    table-layout: fixed;
+    /* Ensure the table layout adjusts within the container */
 }
 
 
@@ -1146,13 +1162,11 @@ table {
 
 table th {
     background-color: #f0f4f9;
-    /* 更明亮清爽 */
     color: #2c3e50;
     font-weight: 700;
     text-align: left;
     padding: 12px 14px;
     border-bottom: 2px solid #d0d7e2;
-    /* 明确分界线 */
     font-size: 14px;
     box-shadow: inset 0 -1px 0 #d0d7e2;
     text-align: center;

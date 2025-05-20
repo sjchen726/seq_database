@@ -1060,28 +1060,61 @@ def upload_delivery_info(request):
 
         try:
             # Read the file, decode bytes to string if necessary
-            file_content = uploaded_file.read().decode('utf-8', errors='replace')  # Decode the file content
-
-            # Automatically detect the delimiter (space or tab or comma)
-            
-            df = pd.read_csv(StringIO(file_content), sep=None, engine='python', encoding='utf-8')  # Auto-detect delimiter
-            df = df.fillna('')  # Handle empty values by replacing them with an empty string
-            print(df.columns.to_list())  # Print the columns to check
+            file_content = uploaded_file.read().decode('utf-8', errors='replace')
+            df = pd.read_csv(StringIO(file_content), sep=None, engine='python', encoding='utf-8')
+            df = df.fillna('')  # Fill empty cells with empty string
+            df['__row_id'] = df.index  # 原始行索引
+            print(df['__row_id'].to_list())  # 打印行索引
 
             # 检查必需列
-            required_columns = ['Project','modify_seq','Strand_MWs', 'Parents','Remarks']
+            required_columns = ['Project', 'Modify_seq', 'Strand_MWs', 'Parents', 'Remarks']
             if not all(col in df.columns for col in required_columns):
                 messages.error(request, f"文件格式错误，必须包含列: {', '.join(required_columns)}")
                 return render(request, 'upload_delivery_info.html')
+
+           # ✅ 生成 duplex_id 映射：每两条记录配对，避免重复
+            duplex_id_map = {}
+            df['__row_id'] = df.index  # 原始顺序
+
+            grouped = df.groupby('Batch')
+
+            for batch, group in grouped:
+                group_sorted = group.sort_values(by='__row_id')
+                row_ids = group_sorted['__row_id'].tolist()
+
+                # ✅ 取得当前项目 Project 的所有记录
+                current_project = group_sorted['Project'].iloc[0]
+
+                # ✅ 获取数据库中已有的 duplex_id 最大编号
+                existing_ids = (
+                    Delivery.objects.filter(project=current_project, duplex_id__startswith=f"{int(batch):02d}")
+                    .values_list('duplex_id', flat=True)
+                )
+                existing_numbers = [
+                    int(duplex_id[-4:]) for duplex_id in existing_ids if duplex_id[-4:].isdigit()
+                ]
+                start_number = max(existing_numbers, default=0) + 1
+
+                pair_count = start_number
+                for i in range(0, len(row_ids), 2):
+                    current_rows = row_ids[i:i+2]
+                    duplex_id = f"{int(batch):02d}{pair_count:04d}"
+                    for row_id in current_rows:
+                        duplex_id_map[row_id] = duplex_id
+                    pair_count += 1
+
 
             duplicate_meg = []  # 用于存储重复的序列信息
             upload_meg = []  # 用于存储上传的序列信息
 
             # 遍历并保存数据到数据库
             for _, row in df.iterrows():
-                cleaned_row = {col: clean_value(row[col]) for col in ['Project', 'modify_seq','Strand_MWs', 'Parents', 'Remarks']}
+                cleaned_row = {col: clean_value(row[col]) for col in ['Batch', 'Project', 'Target', 'Seq_type', 'Modify_seq', 'Strand_MWs', 'Parents', 'Remarks']}
+                Target = cleaned_row['Target']
+                Seq_type = cleaned_row['Seq_type']
+              #  Batch = cleaned_row['Batch']
                 project = cleaned_row['Project']  # 项目名称
-                modify_seq_full = cleaned_row['modify_seq']  # 用户输入的序列
+                modify_seq_full = cleaned_row['Modify_seq']  # 用户输入的序列
                 Strand_MWs = cleaned_row['Strand_MWs']
                 parents = cleaned_row['Parents']
                 Remarks = cleaned_row['Remarks']
@@ -1139,36 +1172,36 @@ def upload_delivery_info(request):
                     if not sequence:
                         return HttpResponse("无法找到对应的序列，请检查序列输入！")
 
-                    # 创建 SeqInfo 对象并与 Sequence 关联
-                    Delivery.objects.create(
-                        sequence = sequence,
-                        modify_seq = modify_seq,
-                        linker_seq = linker_seq,
-                        naked_length = naked_length,
-                        project = project,
-                        parents = parents,
-                        delivery5 = delivery5,
-                        delivery3 = delivery3,
-                        Strand_MWs = Strand_MWs,
-                        Remark = Remarks,
-                        created_at = created_at,
-                    )
-                    upload_meg.append(f"{modify_seq_full}")
+                   # ✅ 强制上传，即使重复也上传
+                Delivery.objects.create(
+                    sequence=Sequence.objects.filter(seq=naked_seq).first(),  # 获取对应的 Sequence
+                    modify_seq=modify_seq,
+                    linker_seq=linker_seq,
+                    naked_length=naked_length,
+                    project=project,
+                    parents=parents,
+                    delivery5=delivery5,
+                    delivery3=delivery3,
+                    Strand_MWs=Strand_MWs,
+                    Target=Target,
+                    seq_type=Seq_type,
+                    Remark=Remarks,
+                    duplex_id=duplex_id_map.get(row['__row_id'], ''),  # 获取对应的 duplex_id
+                    created_at=created_at,
+                )
+                upload_meg.append(f"{modify_seq_full}")
             
-            if duplicate_meg:
-                messages.error(request, f"重复序列信息：{len(duplicate_meg)} 条：{'; '.join(duplicate_meg)}。\n如需修改，请点击编辑！")
             if upload_meg:
                 messages.success(request, f"共{len(upload_meg)} 条序列信息成功上传！")
                 return render(request, 'upload_delivery_info.html', {'success': True})
             else:
                 messages.error(request, "无新的序列信息上传！")
                 return render(request, 'upload_delivery_info.html')
-                #return redirect('/upload_books/')  # 上传成功后跳转到 book_list.html
 
         except Exception as e:
             messages.error(request, f"文件处理失败：{e}")
             return render(request, 'upload_delivery_info.html')
-
+ 
     return render(request, 'upload_delivery_info.html')
 
 def get_attr(d, key):
@@ -1194,7 +1227,7 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq):
 
     return {
         'rm_code': rm_code,
-        'seq_type': sequence.seq_type if sequence else None,
+      #  'seq_type': sequence.seq_type if sequence else None,
         'seq_prefix': (
             "RA_" if sequence and sequence.seq_type == "AS"
             else "RS_" if sequence and sequence.seq_type == "SS"
@@ -1204,7 +1237,7 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq):
         'seq': sequence.seq if sequence else None,
         'Project': get_attr(deliveries[0], 'project') if deliveries else None,
         'Transcript': seqinfo.Transcript if seqinfo else None,
-        'Target': seqinfo.Pos if seqinfo else None,
+        #'Target': seqinfo.Pos if seqinfo else None,
         'Pos': seqinfo.Pos if seqinfo else None,
         'Remark': remark,
         'formatted_update_time': formatted_update_time,
@@ -1215,6 +1248,7 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq):
                 'duplex_id': getattr(d, 'duplex_id', None),
                 'Parents': getattr(d, 'parents', None),
                 'Target': getattr(d, 'Target', None),
+                'Seq_type': getattr(d, 'seq_type', None),
                 'delivery5': getattr(d, 'delivery5', None),
                 'delivery3': getattr(d, 'delivery3', None),
                 'Strand_MWs': getattr(d, 'Strand_MWs', None),
