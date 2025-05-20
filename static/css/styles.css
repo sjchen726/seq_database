@@ -982,41 +982,10 @@ body {
 }
 
 
-/* 表格基础样式 */
-
-table {
-    width: 100%;
-    /* 表格自适应容器宽度 */
-    table-layout: auto;
-    /* 让内容宽度自适应 */
-    border-collapse: collapse;
-    /* 合并表格边框 */
-    font-size: 12px;
-    /* 缩小字体 */
-    line-height: 1.2;
-    /* 行高 */
-}
-
-
-/* 让表格的标题和单元格有一致的样式 */
-
-table th,
-table td {
-    padding: 8px 10px;
-    /* 单元格内边距 */
-    border: 1px solid #ddd;
-    /* 添加边框 */
-    text-align: left;
-    /* 左对齐 */
-    word-wrap: break-word;
-    /* 强制内容换行 */
-}
-
-
 /* 为奇偶行添加不同的背景色，使其有条理 */
 
 table .table-striped tbody tr:nth-child(odd) {
-    background-color: #f9f9f9;
+    background-color: transparent !important;
 }
 
 
@@ -1076,7 +1045,7 @@ table tbody tr:hover {
         /* 适当缩小单元格间距 */
     }
     table .table-striped tbody tr:nth-child(odd) {
-        background-color: #fff;
+        background-color: transparent !important;
         /* 去除斑马纹背景 */
     }
 }
@@ -1131,10 +1100,22 @@ table tbody tr:hover {
     justify-content: center;
     white-space: nowrap;
     padding: 2px 4px;
-    min-width: max-content;
     height: auto;
-    width: auto;
     border: none;
+}
+
+
+/* 用于 s 和 o 的宽度 */
+
+.seq-narrow {
+    width: 16px;
+}
+
+
+/* 用于其他字符统一宽度 */
+
+.seq-wide {
+    width: 32px;
 }
 
 .seq-count {
@@ -1144,4 +1125,90 @@ table tbody tr:hover {
     color: red;
     font-size: 12px;
     min-width: max-content;
+}
+
+
+/* ========= 基础表格 ========= */
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    line-height: 1.4;
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+
+/* ========= 表头强化 ========= */
+
+table th {
+    background-color: #f0f4f9;
+    /* 更明亮清爽 */
+    color: #2c3e50;
+    font-weight: 700;
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 2px solid #d0d7e2;
+    /* 明确分界线 */
+    font-size: 14px;
+    box-shadow: inset 0 -1px 0 #d0d7e2;
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+
+/* ========= 单元格 ========= */
+
+table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid #f0f0f0;
+    color: #444;
+    font-weight: 500;
+    text-align: center;
+    vertical-align: middle !important;
+    white-space: nowrap;
+    /* 比 regular 稍显重点 */
+}
+
+
+/* ========= 分组交替背景 ========= */
+
+tr.group-bg-1 {
+    background-color: #f9fafb !important;
+    border-left: 4px solid #4f91ff !important;
+}
+
+tr.group-bg-2 {
+    background-color: #ffffff !important;
+    border-left: 4px solid #4fda84 !important;
+}
+
+
+/* ========= Hover 效果 ========= */
+
+tr.group-bg-1:hover,
+tr.group-bg-2:hover {
+    background-color: #eef3f8 !important;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.05);
+    border-left-color: #f2abe8 !important;
+}
+
+
+/* ========= 去掉最后一行底边 ========= */
+
+table tr:last-child td {
+    border-bottom: none;
+}
+
+.action-buttons {
+    white-space: nowrap;
+}
+
+.action-buttons .btn {
+    display: inline-block;
+    margin-right: 6px;
 }
