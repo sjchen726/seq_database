@@ -1087,7 +1087,7 @@ table tbody tr:hover {
     /* 默认灰色背景 */
     margin: 0px 0px;
     /* 与其他项之间保持一点间距 */
-    border-radius: 2px;
+    border-radius: 0px;
     /* 轻微圆角，现代感但不浮夸 */
     vertical-align: middle;
     white-space: nowrap;
@@ -1181,7 +1181,7 @@ table td {
     padding: 12px 14px;
     border-bottom: 1px solid #f0f0f0;
     color: #444;
-    font-weight: 500;
+    font-weight: 550;
     text-align: center;
     vertical-align: middle !important;
     white-space: nowrap;
@@ -1192,7 +1192,7 @@ table td {
 /* ========= 分组交替背景 ========= */
 
 tr.group-bg-1 {
-    background-color: #f9fafb !important;
+    background-color: #f2f5f8 !important;
     border-left: 4px solid #4f91ff !important;
 }
 

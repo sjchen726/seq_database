@@ -78,7 +78,7 @@ class Author(models.Model):
 
 class Delivery(models.Model):
     id = models.CharField('id', max_length=7, primary_key=True, unique=True, default=generate_random_code)  # RM_7编号
-    duplex_id = models.CharField('duplex_id', max_length=6, null=True)  # duplex_id编号
+    duplex_id = models.CharField('duplex_id', max_length=24, null=True)  # duplex_id编号
     sequence = models.ForeignKey(Sequence, on_delete=models.CASCADE, related_name='deliveries')  # 外键关联到Sequence表，裸序列的相关ID
     modify_seq = models.CharField('modify_seq', max_length=100, null=True)  # 存储序列（如 AUGC）
     linker_seq = models.CharField('linker_seq', max_length=100, null=True)  # 存储序列（如 AoUoGo）

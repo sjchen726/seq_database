@@ -11,7 +11,8 @@ import pandas as pd
 from django.contrib import messages
 from datetime import datetime
 from django.db.models import Q
-import os
+import os, csv
+from django.utils.timezone import now
 from app01 import models
 from .models import *
 LmsUser = get_user_model()
@@ -1045,164 +1046,306 @@ def add_o_to_all_rules(modify_seq):
 
     return linker_seq
 
-# 上传递送信息
-def upload_delivery_info(request):
-    if request.method == 'POST':
-        uploaded_file = request.FILES.get('file')
+# 上传递送信息 （分块函数)
+def parse_uploaded_csv(request):
+    uploaded_file = request.FILES.get('file')
+    if not uploaded_file:
+        raise ValueError("未选择文件！")
+    if not uploaded_file.name.endswith('.csv'):
+        raise ValueError("请上传 CSV 文件！")
 
-        if not uploaded_file:
-            messages.error(request, "未选择文件！")
-            return render(request, 'upload_delivery_info.html')
+    file_content = uploaded_file.read().decode('utf-8', errors='replace')
+    df = pd.read_csv(StringIO(file_content), sep=None, engine='python', encoding='utf-8')
+    df = df.fillna('')
+    df['__row_id'] = df.index
 
-        if not uploaded_file.name.endswith('.csv'):
-            messages.error(request, "请上传 CSV 文件！")
-            return render(request, 'upload_delivery_info.html')
+    required_columns = ['Batch', 'Project', 'Target', 'Seq_type', 'Modify_seq', 'Strand_MWs', 'Parents', 'Remarks']
+    if not all(col in df.columns for col in required_columns):
+        raise ValueError(f"文件格式错误，必须包含列: {', '.join(required_columns)}")
 
-        try:
-            # Read the file, decode bytes to string if necessary
-            file_content = uploaded_file.read().decode('utf-8', errors='replace')
-            df = pd.read_csv(StringIO(file_content), sep=None, engine='python', encoding='utf-8')
-            df = df.fillna('')  # Fill empty cells with empty string
-            df['__row_id'] = df.index  # 原始行索引
-            print(df['__row_id'].to_list())  # 打印行索引
+    return df
 
-            # 检查必需列
-            required_columns = ['Project', 'Modify_seq', 'Strand_MWs', 'Parents', 'Remarks']
-            if not all(col in df.columns for col in required_columns):
-                messages.error(request, f"文件格式错误，必须包含列: {', '.join(required_columns)}")
-                return render(request, 'upload_delivery_info.html')
+def group_sequences(df):
+    ss_groups = []
+    grouped = df.groupby('Batch')
+    for batch, group in grouped:
+        group_sorted = group.sort_values(by='__row_id').reset_index(drop=True)
+        i = 0
+        while i < len(group_sorted):
+            row = group_sorted.iloc[i]
+            row_id = row['__row_id']
+            if row['Seq_type'].strip().upper() == 'SS':
+                temp_group = [row_id]
+                if i + 1 < len(group_sorted):
+                    next_row = group_sorted.iloc[i + 1]
+                    if next_row['Seq_type'].strip().upper() == 'AS':
+                        temp_group.append(next_row['__row_id'])
+                        i += 1
+                ss_groups.append((int(batch), row['Project'], temp_group))
+            i += 1
+    return ss_groups
 
-           # ✅ 生成 duplex_id 映射：每两条记录配对，避免重复
-            duplex_id_map = {}
-            df['__row_id'] = df.index  # 原始顺序
+def check_duplicates(df, ss_groups):
+    repeated_ids = set()
+    duplicate_meg = []
 
-            grouped = df.groupby('Batch')
+    for batch, project, group in ss_groups:
+        modify_seqs, delivery_keys, row_ids = [], [], []
+        for row_id in group:
+            row = df.loc[row_id]
+            full_seq = row['Modify_seq']
+            d5 = re.search(r'^\[([^\[\]]*)\]', full_seq)
+            d3 = re.search(r'\[([^\[\]]*)\](?!.*\])', full_seq)
+            d5 = d5.group(1) if d5 else ''
+            d3 = d3.group(1) if d3 else ''
+            clean_seq = re.sub(r'^\[.*?\]', '', full_seq)
+            clean_seq = re.sub(r'\[.*?\]$', '', clean_seq)
+            modify_seqs.append((clean_seq, d5, d3))
+            delivery_keys.append(full_seq)
+            row_ids.append(row_id)
 
-            for batch, group in grouped:
-                group_sorted = group.sort_values(by='__row_id')
-                row_ids = group_sorted['__row_id'].tolist()
-
-                # ✅ 取得当前项目 Project 的所有记录
-                current_project = group_sorted['Project'].iloc[0]
-
-                # ✅ 获取数据库中已有的 duplex_id 最大编号
-                existing_ids = (
-                    Delivery.objects.filter(project=current_project, duplex_id__startswith=f"{int(batch):02d}")
-                    .values_list('duplex_id', flat=True)
-                )
-                existing_numbers = [
-                    int(duplex_id[-4:]) for duplex_id in existing_ids if duplex_id[-4:].isdigit()
-                ]
-                start_number = max(existing_numbers, default=0) + 1
-
-                pair_count = start_number
-                for i in range(0, len(row_ids), 2):
-                    current_rows = row_ids[i:i+2]
-                    duplex_id = f"{int(batch):02d}{pair_count:04d}"
-                    for row_id in current_rows:
-                        duplex_id_map[row_id] = duplex_id
-                    pair_count += 1
-
-
-            duplicate_meg = []  # 用于存储重复的序列信息
-            upload_meg = []  # 用于存储上传的序列信息
-
-            # 遍历并保存数据到数据库
-            for _, row in df.iterrows():
-                cleaned_row = {col: clean_value(row[col]) for col in ['Batch', 'Project', 'Target', 'Seq_type', 'Modify_seq', 'Strand_MWs', 'Parents', 'Remarks']}
-                Target = cleaned_row['Target']
-                Seq_type = cleaned_row['Seq_type']
-              #  Batch = cleaned_row['Batch']
-                project = cleaned_row['Project']  # 项目名称
-                modify_seq_full = cleaned_row['Modify_seq']  # 用户输入的序列
-                Strand_MWs = cleaned_row['Strand_MWs']
-                parents = cleaned_row['Parents']
-                Remarks = cleaned_row['Remarks']
-                created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # 获取当前时间
-               # print(created_at)
-
-                 # 使用正则提取 delivery5、delivery3 和裸序列
-                delivery5_match = re.search(r'^\[([^\[\]]*)\]', modify_seq_full)
-                delivery3_match = re.search(r'\[([^\[\]]*)\](?!.*\])', modify_seq_full)
-                delivery5 = delivery5_match.group(1) if delivery5_match else ''
-                delivery3 = delivery3_match.group(1) if delivery3_match else ''
-       #         print(f'delivery5:{delivery5}')
-        #        print(f'delivery3:{delivery3}')
-
-                 # 去除两侧括号内容后的 modify_seq
-                modify_seq = re.sub(r'^\[.*?\]', '', modify_seq_full)  # 去掉前面的 [xxx]
-                modify_seq = re.sub(r'\[.*?\]$', '', modify_seq)       # 去掉后面的 [xxx]
-         #       print(f'modfiy_seq:{modify_seq}')
-
-                linker_seq= add_o_to_all_rules(modify_seq)  # 添加连接子序列
-          #      print(linker_seq)
-
-                # 提取裸序列（处理所有特殊标记，不改动modify_seq本身）
-                tmp_seq = modify_seq.upper()
-                # 处理特殊标记
-                tmp_seq = re.sub(r'GA02', 'A', tmp_seq)
-                tmp_seq = re.sub(r'GC02', 'C', tmp_seq)
-                tmp_seq = re.sub(r'GU02', 'U', tmp_seq)
-                tmp_seq = re.sub(r'TA12', 'A', tmp_seq)
-                tmp_seq = re.sub(r'TC12', 'C', tmp_seq)
-                tmp_seq = re.sub(r'TG12', 'G', tmp_seq)
-                tmp_seq = re.sub(r'TU0', 'U', tmp_seq)
-
-                # 删除括号及括号内内容
-                tmp_seq = re.sub(r'\(.*?\)', '', tmp_seq)
-                
-                # 优先匹配 'invab'，再匹配 'AUGCTI' 中的字符
-                # 提取 invab（大写）或单个字母 A/U/G/C/T/I
-                matches = re.findall(r'(INVAB|[AUGCTI])', tmp_seq)
-                naked_seq = ''.join(matches)
-                naked_length = sum(1 for _ in matches)  # 每个 INVAB 或单个字母计为 1
-                print(f'naked_seq: {naked_seq}, {naked_length}')
-
-
-                if not Sequence.objects.filter(seq=naked_seq).exists():
-                    messages.error(request, f"未注册的序列：{naked_seq}，请先注册！")
-                    continue
-                if Delivery.objects.filter(
-                    Q(modify_seq=modify_seq) & Q(delivery5=delivery5) & Q(delivery3=delivery3)).exists():
-                    duplicate_meg.append(f"{modify_seq_full}")
-                else:
-                    # 查找已注册的Sequence记录，匹配序列（seq）来获取rm_code
-                    sequence = Sequence.objects.filter(seq=naked_seq).first()  # 根据序列查找
-   #                 print(sequence)
-                    if not sequence:
-                        return HttpResponse("无法找到对应的序列，请检查序列输入！")
-
-                   # ✅ 强制上传，即使重复也上传
-                Delivery.objects.create(
-                    sequence=Sequence.objects.filter(seq=naked_seq).first(),  # 获取对应的 Sequence
-                    modify_seq=modify_seq,
-                    linker_seq=linker_seq,
-                    naked_length=naked_length,
+        if len(modify_seqs) == 1:
+            exists = Delivery.objects.filter(
+                project=project,
+                modify_seq=modify_seqs[0][0],
+                delivery5=modify_seqs[0][1],
+                delivery3=modify_seqs[0][2]
+            ).exists()
+            if exists:
+                duplicate_meg.append(f"重复SS（项目: {project}）：{delivery_keys[0]}")
+                repeated_ids.add(row_ids[0])
+        else:
+            dup_id_list = Delivery.objects.filter(
+                project=project,
+                modify_seq=modify_seqs[0][0],
+                delivery5=modify_seqs[0][1],
+                delivery3=modify_seqs[0][2]
+            ).values_list('duplex_id', flat=True)
+            if dup_id_list:
+                dup_id = dup_id_list[0]
+                exists_as = Delivery.objects.filter(
                     project=project,
-                    parents=parents,
-                    delivery5=delivery5,
-                    delivery3=delivery3,
-                    Strand_MWs=Strand_MWs,
-                    Target=Target,
-                    seq_type=Seq_type,
-                    Remark=Remarks,
-                    duplex_id=duplex_id_map.get(row['__row_id'], ''),  # 获取对应的 duplex_id
-                    created_at=created_at,
-                )
-                upload_meg.append(f"{modify_seq_full}")
-            
+                    modify_seq=modify_seqs[1][0],
+                    delivery5=modify_seqs[1][1],
+                    delivery3=modify_seqs[1][2],
+                    duplex_id=dup_id
+                ).exists()
+                if exists_as:
+                    duplicate_meg.append(
+                        f"重复SS+AS组（项目: {project}）：{delivery_keys[0]} + {delivery_keys[1]}"
+                    )
+                    repeated_ids.update(row_ids)
+
+    return repeated_ids, duplicate_meg
+
+def assign_duplex_ids(df, ss_groups, repeated_ids):
+    duplex_id_map = {}
+    batch_project_groups = defaultdict(list)
+
+    for batch, project, group in ss_groups:
+        if not repeated_ids.intersection(group):
+            batch_project_groups[(project, int(batch))].append(group)
+
+    for (project, batch), valid_groups in batch_project_groups.items():
+        batch_str = f"{batch:02d}"
+        prefix = f"{project}_{batch_str}"
+
+        # 只匹配符合“项目_批次+4位数字”的duplex_id
+        pattern = re.compile(rf"^{re.escape(prefix)}(\d{{4}})$")
+
+        existing_ids = Delivery.objects.filter(
+            project=project,
+            duplex_id__startswith=prefix
+        ).values_list('duplex_id', flat=True)
+
+        existing_numbers = [
+            int(m.group(1)) for d in existing_ids if (m := pattern.match(d))
+        ]
+
+        next_number = max(existing_numbers, default=0) + 1
+
+        for group in valid_groups:
+            serial = f"{next_number:04d}"
+            duplex_id = f"{prefix}{serial}"  # e.g. BPR-307_010001
+            for row_id in group:
+                duplex_id_map[row_id] = duplex_id
+            next_number += 1
+
+    return duplex_id_map
+
+def save_deliveries(df, duplex_id_map, username):
+    upload_log = []
+    upload_meg = []
+    unregistered_meg = []  
+    unregistered_log = []
+
+    for _, row in df.iterrows():
+        row_id = row['__row_id']
+        if row_id not in duplex_id_map:
+            continue
+
+        full_seq = row['Modify_seq']
+        d5 = re.search(r'^\[([^\[\]]*)\]', full_seq)
+        d3 = re.search(r'\[([^\[\]]*)\](?!.*\])', full_seq)
+        delivery5 = d5.group(1) if d5 else ''
+        delivery3 = d3.group(1) if d3 else ''
+        modify_seq = re.sub(r'^\[.*?\]', '', full_seq)
+        modify_seq = re.sub(r'\[.*?\]$', '', modify_seq)
+
+        tmp_seq = modify_seq.upper()
+        tmp_seq = re.sub(r'GA02', 'A', tmp_seq)
+        tmp_seq = re.sub(r'GC02', 'C', tmp_seq)
+        tmp_seq = re.sub(r'GU02', 'U', tmp_seq)
+        tmp_seq = re.sub(r'TA12', 'A', tmp_seq)
+        tmp_seq = re.sub(r'TC12', 'C', tmp_seq)
+        tmp_seq = re.sub(r'TG12', 'G', tmp_seq)
+        tmp_seq = re.sub(r'TU0', 'U', tmp_seq)
+        tmp_seq = re.sub(r'\(.*?\)', '', tmp_seq)
+        matches = re.findall(r'(INVAB|[AUGCTI])', tmp_seq)
+        naked_seq = ''.join(matches)
+        naked_length = len(matches)
+
+        if not Sequence.objects.filter(seq=naked_seq).exists():
+            unregistered_meg.append(f"{row['Project']} ➜ {full_seq} ➜ {naked_seq}")
+            unregistered_log.append({
+                'Time': now().strftime('%Y-%m-%d %H:%M:%S'),
+                'Project': row['Project'],
+                'Unregistered': naked_seq,
+            })
+            continue
+
+        Delivery.objects.create(
+            sequence=Sequence.objects.get(seq=naked_seq),
+            modify_seq=modify_seq,
+            linker_seq=add_o_to_all_rules(modify_seq),
+            naked_length=naked_length,
+            project=row['Project'],
+            parents=row['Parents'],
+            delivery5=delivery5,
+            delivery3=delivery3,
+            Strand_MWs=row['Strand_MWs'],
+            Target=row['Target'],
+            seq_type=row['Seq_type'],
+            Remark=row['Remarks'],
+            duplex_id=duplex_id_map[row_id],
+            created_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        )
+        upload_meg.append(full_seq)
+        upload_log.append({
+            'Time': now().strftime('%Y-%m-%d %H:%M:%S'),
+            'User': username,
+            'Project': row['Project'],
+            'duplex_id': duplex_id_map[row_id],
+            'Type': row['Seq_type'],
+            'Modified_Sequence': full_seq
+        })
+
+    return upload_meg, upload_log, unregistered_meg, unregistered_log
+
+def write_upload_log(upload_log, username):
+    user_dir = os.path.join('logs', username)
+    os.makedirs(user_dir, exist_ok=True)
+    filepath = os.path.join(user_dir, f'{username}_upload_log.csv')
+
+    with open(filepath, 'a', encoding='utf-8', newline='') as log_file:
+        fieldnames = ['Time', 'User', 'Project', 'duplex_id', 'Type', 'Modified_Sequence']
+        writer = csv.DictWriter(log_file, fieldnames=fieldnames)
+
+        for entry in upload_log:
+            writer.writerow(entry)
+
+
+def write_unregistered_log(unregistered_log, username):
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    user_dir = os.path.join('logs', username)
+    os.makedirs(user_dir, exist_ok=True)
+    filename = f'{username}_unregistered_{timestamp}.csv'
+    filepath = os.path.join(user_dir, filename)
+
+    with open(filepath, 'w', encoding='utf-8', newline='') as log_file:
+        fieldnames = ['Time', 'User', 'Unregistered']
+        writer = csv.DictWriter(log_file, fieldnames=fieldnames)
+        writer.writeheader()
+        for entry in unregistered_log:
+            writer.writerow(entry)
+
+    return filepath
+
+def write_repeated_log(repeated_df, username):
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    user_dir = os.path.join('logs', username)
+    os.makedirs(user_dir, exist_ok=True)
+    filename = f'{username}_repeated_{timestamp}.csv'
+    filepath = os.path.join(user_dir, filename)
+
+    repeated_df.to_csv(filepath, index=False)
+    return filepath
+
+
+def save_repeated_to_session(request, df, repeated_ids, unregistered_log, username):
+    repeated_df = df[df['__row_id'].isin(repeated_ids)]
+    repeated_path = write_repeated_log(repeated_df, username)
+    request.session['repeated_path'] = repeated_path
+    unregistered_path = write_unregistered_log(unregistered_log, username)
+    request.session['unregistered_path'] = unregistered_path
+
+
+def upload_delivery_info(request):
+    if request.method == 'GET':
+        if request.GET.get('download') == 'repeats':
+            repeated_path = request.session.get('repeated_path')
+            if repeated_path and os.path.exists(repeated_path):
+                with open(repeated_path, 'rb') as f:
+                    response = HttpResponse(f.read(), content_type='text/csv')
+                    response['Content-Disposition'] = f'attachment; filename="{os.path.basename(repeated_path)}"'
+                    return response
+
+        elif request.GET.get('download') == 'unregistered':
+            unregistered_path = request.session.get('unregistered_path')
+            if unregistered_path and os.path.exists(unregistered_path):
+                with open(unregistered_path, 'rb') as f:
+                    response = HttpResponse(f.read(), content_type='text/csv')
+                    response['Content-Disposition'] = f'attachment; filename="{os.path.basename(unregistered_path)}"'
+                    return response
+
+
+    if request.method == 'POST':
+        try:
+            df = parse_uploaded_csv(request)
+            ss_groups = group_sequences(df)
+            repeated_ids, duplicate_meg = check_duplicates(df, ss_groups)
+            duplex_id_map = assign_duplex_ids(df, ss_groups, repeated_ids)
+
+            username = request.user.username
+            upload_meg, upload_log, unregistered_meg, unregistered_log = save_deliveries(df, duplex_id_map, username)
+
+            write_upload_log(upload_log, username)  # 可保留原日志逻辑
+            unregistered_csv = write_unregistered_log(unregistered_log, username)
+            request.session['unregistered_csv'] = unregistered_csv  # 💥 必须添加此行！
+
+            save_repeated_to_session(request, df, repeated_ids, unregistered_log, username)
+
             if upload_meg:
-                messages.success(request, f"共{len(upload_meg)} 条序列信息成功上传！")
-                return render(request, 'upload_delivery_info.html', {'success': True})
-            else:
-                messages.error(request, "无新的序列信息上传！")
-                return render(request, 'upload_delivery_info.html')
+                messages.success(request, f"共 {len(upload_meg)} 条序列成功上传！")
+            if repeated_ids:
+                messages.warning(request, f"有 {len(duplicate_meg)} 条重复序列！")
+            if unregistered_meg:
+                messages.warning(request, f"有 {len(unregistered_meg)} 条序列未注册，请先注册！")
+            if not upload_meg:
+                messages.error(request, "无新的序列信息上传")
+
+            return render(request, 'upload_delivery_info.html', {
+                'success': True,
+                'repeated_count': len(repeated_ids)
+            })
 
         except Exception as e:
             messages.error(request, f"文件处理失败：{e}")
             return render(request, 'upload_delivery_info.html')
- 
+
+
     return render(request, 'upload_delivery_info.html')
+
 
 def get_attr(d, key):
     if isinstance(d, dict):
@@ -1341,7 +1484,7 @@ def get_sequence_info(request):
         'sequence_groups': sequence_groups,
     }
 
-    return render(request, 'seq_list.html', context)
+    return render(request, 'seq_list.html', context) 
 
 def cor_seq(request):
    
