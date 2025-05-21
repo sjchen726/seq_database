@@ -11,11 +11,24 @@ $(document).ready(function() {
         lengthMenu: [5, 10, 20, 50]
     });
 
+    // 切换列显示
     $('.toggle-vis').on('change', function(e) {
         var column = table.column($(this).attr('data-column'));
         column.visible($(this).prop('checked'));
     });
 
+    // 初始化折叠状态
+    var isCollapsed = false;
+
+    // 处理折叠按钮的点击事件
+    $('#toggleCollapseBtn').on('click', function() {
+        isCollapsed = !isCollapsed; // 切换折叠状态
+
+        // 触发重新绘制表格
+        table.draw();
+    });
+
+    // 绘制表格时，处理分组背景色和折叠逻辑
     table.on('draw', function() {
         let prev = null;
         let groupIndex = 0;
@@ -29,21 +42,24 @@ $(document).ready(function() {
             let $cell = $(cell);
             let $row = $cell.closest('tr');
 
-            // 缓存原始 Strand ID
+            // 获取原始 strand_id
             let originalText = $cell.data('original-text') || $cell.text().trim();
             $cell.data('original-text', originalText);
 
-            if (originalText === prev) {
-                $cell.text('');
+            // 如果折叠状态为 true，清空后续的 strand_id
+            if (isCollapsed && originalText === prev) {
+                $cell.text(''); // 清空后续行的 strand_id
             } else {
-                $cell.text(originalText);
+                $cell.text(originalText); // 显示当前行的 strand_id
                 prev = originalText;
                 groupIndex++;
             }
 
+            // 添加交替背景色
             $row.addClass(colorClasses[groupIndex % colorClasses.length]);
         });
     });
 
-    table.draw(); // 初次触发绘制
+    // 初次触发绘制
+    table.draw();
 });

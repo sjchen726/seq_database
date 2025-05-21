@@ -167,7 +167,7 @@
                             <label><input type="checkbox" class="toggle-vis" data-column="10" checked> Remarks</label>
                             <label><input type="checkbox" class="toggle-vis" data-column="11" checked> Update Time</label>
                             <label><input type="checkbox" class="toggle-vis" data-column="12" checked> 操作</label>
-                                
+                            <button id="toggleCollapseBtn" class="btn btn-info">折叠/展开</button>
                         </div>
                     <div>
                         
@@ -206,7 +206,11 @@
                                 <!-- 第一行：显示组内第一条数据 -->
                                 <tr>
                            <!--         <td style="display:none;">{{ group.duplex_id }}</td>  排序辅助 -->
-                                    <td>{{ group.duplex_id }}</td>
+                                    <td>
+                                        {% for d in group.items.0.deliveries %}
+                                            {{ d.duplex_id|default_if_none:'' }}
+                                        {% endfor %}
+                                    </td>
                                     <td>{{ group.items.0.Project }}</td>
                                     <td>
                                         {% for d in group.items.0.deliveries %}
@@ -351,7 +355,12 @@
                                 <!-- 第二行：显示组内第二条数据 -->
                                 <tr>
                                    <!-- <td style="display:none;">{{ group.duplex_id }}</td>  排序辅助 -->
-                                    <td >{{ group.duplex_id }}</td>
+                                    <td>
+                                        {% for d in group.items.1.deliveries %}
+                                            {{ d.duplex_id|default_if_none:"" }}
+                                        {% endfor %}
+                                    </td>
+                                    
                                     <td>{{ group.items.1.Project }}</td>
                                     <td>
                                         {% for d in group.items.1.deliveries %}

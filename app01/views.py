@@ -1433,6 +1433,7 @@ def get_sequence_info(request):
     }
 
     # 分组数据结构，key: duplex_id, value: list of items
+    # ✅ 正确分组结构
     duplex_group_map = defaultdict(list)
 
     for rm_code in rm_codes:
@@ -1441,17 +1442,19 @@ def get_sequence_info(request):
         seqinfo = seqinfo_map.get(sequence_id)
         deliveries = delivery_map.get(rm_code, [])
 
-        # 按 duplex_id 分组 delivery
+        # ✅ 改成按 project + duplex_id 分组
         grouped_deliveries = defaultdict(list)
         for d in deliveries:
-            grouped_deliveries[getattr(d, 'duplex_id', None)].append(d)
+            project = getattr(d, 'project', None)
+            duplex_id = getattr(d, 'duplex_id', None)
+            if project and duplex_id:
+                grouped_deliveries[(project, duplex_id)].append(d)
 
-        # 生成每个 duplex_id 对应的 items
-        for duplex_id, group_deliveries in grouped_deliveries.items():
+        # ✅ 每组生成 item
+        for (project, duplex_id), group_deliveries in grouped_deliveries.items():
             linker_seqs = [d.linker_seq for d in group_deliveries if getattr(d, 'linker_seq', None)]
 
             if linker_seqs:
-                # 如果有多个 linker_seq，逐条生成数据
                 for linker_seq in linker_seqs:
                     item = build_sequence_data(
                         rm_code=rm_code,
@@ -1460,7 +1463,7 @@ def get_sequence_info(request):
                         deliveries=group_deliveries,
                         linker_seq=linker_seq
                     )
-                    duplex_group_map[duplex_id].append(item)
+                    duplex_group_map[(project, duplex_id)].append(item)
             else:
                 item = build_sequence_data(
                     rm_code=rm_code,
@@ -1469,12 +1472,23 @@ def get_sequence_info(request):
                     deliveries=group_deliveries,
                     linker_seq=None
                 )
-                duplex_group_map[duplex_id].append(item)
+                duplex_group_map[(project, duplex_id)].append(item)
 
-    # 组织成前端需要的列表格式
+
+
+    # ✅ 更新 sequence_groups，包含 project
     sequence_groups = []
-    for duplex_id, items in duplex_group_map.items():
+    for (project, duplex_id), items in duplex_group_map.items():
+        print(f"Group ({project}, {duplex_id})")
+        for i, item in enumerate(items):
+            print(f"  Item {i} deliveries:")
+            for d in item["deliveries"]:
+                print(f"    duplex_id: {d.get('duplex_id')}")
+
+   
+    for (project, duplex_id), items in duplex_group_map.items():
         sequence_groups.append({
+            'project': project,
             'duplex_id': duplex_id,
             'items': items,
         })
@@ -1484,7 +1498,7 @@ def get_sequence_info(request):
         'sequence_groups': sequence_groups,
     }
 
-    return render(request, 'seq_list.html', context) 
+    return render(request, 'seq_list.html', context)
 
 def cor_seq(request):
    
