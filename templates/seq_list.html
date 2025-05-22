@@ -18,6 +18,10 @@
     <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
     <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
     <![endif]-->
+    <form style="display:none;" id="csrf-token-holder" method="post">
+    {% csrf_token %}
+    </form>
+
 
 </head>
 <body>
@@ -38,10 +42,11 @@
                             <input type="text" id="searchInput" class="form-control" placeholder="Search...">
                             <span class="input-group-btn">
                                 <button class="btn btn-primary" id="searchBtn" type="button">Search...</button>
-                                <button class="btn btn-info" id="advancedSearchBtn" type="button" style="margin-left: 10px;">高级搜索</button>
+                                <button class="btn btn-info" id="advancedSearchBtn" type="button" style="margin-left: 10px;">高级搜索</button>         
                             </span>
                         </div>
 
+                    
                         <!-- 高级搜索面板 -->
                         <div id="advancedSearchPanel">
                             <div class="search-header">
@@ -74,6 +79,8 @@
                     </div>
                 </div>
             </div>
+
+
             <div class="col-md-2">
                 <div class="navbar navbar-inverse" role="banner">
                     <nav class="collapse navbar-collapse bs-navbar-collapse navbar-right" role="navigation">
@@ -168,6 +175,8 @@
                             <label><input type="checkbox" class="toggle-vis" data-column="11" checked> Update Time</label>
                             <label><input type="checkbox" class="toggle-vis" data-column="12" checked> 操作</label>
                             <button id="toggleCollapseBtn" class="btn btn-info">折叠/展开</button>
+                                        <!-- 显示选中项按钮 -->
+                            <button id="show-selected" type="button" class="btn btn-success" style="margin-top: 10px;">显示选中项</button>
                         </div>
                     <div>
                         
@@ -181,16 +190,38 @@
                 </div>
 
                 <div class="panel-body">
+                    <!-- 列选择区域 -->
+                    <div id="column-selector" style="margin-bottom: 10px;">
+                        <label><input type="checkbox" name="export_columns" value="duplex_id" checked> Strand ID</label>
+                        <label><input type="checkbox" name="export_columns" value="project" checked> Project</label>
+                        <label><input type="checkbox" name="export_columns" value="Target" checked> Target</label>
+                        <label><input type="checkbox" name="export_columns" value="seq_type" checked> Seq_type</label>
+                        <label><input type="checkbox" name="export_columns" value="delivery5" checked> 5'delivery</label>
+                        <label><input type="checkbox" name="export_columns" value="modify_seq" checked> modify_seq</label>
+                        <label><input type="checkbox" name="export_columns" value="delivery3" checked> 3'delivery</label>
+                        <label><input type="checkbox" name="export_columns" value="Transcript" checked> Transcript</label>
+                        <label><input type="checkbox" name="export_columns" value="Pos" checked> Position</label>
+                        <label><input type="checkbox" name="export_columns" value="Strand_MWs" checked> Strand_MWs</label>
+                        <label><input type="checkbox" name="export_columns" value="parents" checked> Parents</label>
+
+                        <!-- 根据你数据库字段，继续补充 -->
+                    </div>
+
+                    <!-- 下载选中项按钮 -->
+                    <button id="download-selected" class="btn btn-danger" style="margin-top: 10px;">下载选中项</button>
+
+
                     <table id="example" class="table table-container table-bordered" style="width:100%">
                         <thead>
                             <tr>
                       <!--           <th style="display: none;">SortKey</th> 新增，用于排序 -->
+                                <th><input type="checkbox" id="select-all"></th> 
                                 <th >Strand ID</th>
                                 <th >Project</th>
                                 <th> Target</th> 
                                 <th> Sequence Type </th>
                                 <th >5' delivery</th>
-                                <th >Sequences(5'-3')</th>
+                                <th >Sequences</th>
                                 <th >3' delivery</th>
                                 <th >Transcript</th>
                                 <th >Position</th>
@@ -206,11 +237,13 @@
                                 <!-- 第一行：显示组内第一条数据 -->
                                 <tr>
                            <!--         <td style="display:none;">{{ group.duplex_id }}</td>  排序辅助 -->
+                                    <td><input type="checkbox" class="row-checkbox"></td>
                                     <td>
                                         {% for d in group.items.0.deliveries %}
                                             {{ d.duplex_id|default_if_none:'' }}
                                         {% endfor %}
                                     </td>
+                                    
                                     <td>{{ group.items.0.Project }}</td>
                                     <td>
                                         {% for d in group.items.0.deliveries %}
@@ -353,8 +386,10 @@
                                 </tr>
 
                                 <!-- 第二行：显示组内第二条数据 -->
+                            {% if group.items.1 %}
                                 <tr>
                                    <!-- <td style="display:none;">{{ group.duplex_id }}</td>  排序辅助 -->
+                                    <td><input type="checkbox" class="row-checkbox"></td>
                                     <td>
                                         {% for d in group.items.1.deliveries %}
                                             {{ d.duplex_id|default_if_none:"" }}
@@ -499,6 +534,7 @@
                                         </div>
                                     </td>
                                 </tr>
+                            {% endif %}
                             {% endfor %}
                         </tbody>
                     </table>

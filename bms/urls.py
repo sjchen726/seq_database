@@ -43,6 +43,9 @@ urlpatterns = [
 
     re_path(r'^change_password/', views.change_password, name='change_password'),     # 修改密码
 
+
+    path('download_selected/', views.download_selected, name='download_selected'),
+
     #path('test_log/', views.test_log, name='test_log'),
     
 ]   

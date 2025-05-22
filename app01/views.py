@@ -634,10 +634,11 @@ def register_seq(request):
             
             df = pd.read_csv(StringIO(file_content), sep=None, engine='python', encoding='utf-8')  # Auto-detect delimiter
             df = df.fillna('')  # Handle empty values by replacing them with an empty string
-            print(df.columns.to_list())  # Print the columns to check
+        #    print(df.columns.to_list())  # Print the columns to check
 
             # 检查必需列
             required_columns = ['SS', 'AS', 'Transcript', 'Position', 'Remarks']
+          #  print(df.columns.to_list())  # 打印列名
             if not all(col in df.columns for col in required_columns):
                 messages.error(request, f"文件格式错误，必须包含列: {', '.join(required_columns)}")
                 return render(request, 'register_seq.html')
@@ -1209,7 +1210,7 @@ def save_deliveries(df, duplex_id_map, username):
             unregistered_meg.append(f"{row['Project']} ➜ {full_seq} ➜ {naked_seq}")
             unregistered_log.append({
                 'Time': now().strftime('%Y-%m-%d %H:%M:%S'),
-                'Project': row['Project'],
+                'User': username,
                 'Unregistered': naked_seq,
             })
             continue
@@ -1653,3 +1654,71 @@ def reg_seq_list(request):
 
     # 渲染页面并传递数据
     return render(request, 'reg_seq_list.html', {'sequence_list': sequence_list})
+
+
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
+from django.http import HttpResponse
+from django.db.models import Q
+import json
+import csv
+
+@login_required
+@require_POST
+def download_selected(request):
+    selected_ids = request.POST.get('selected_ids')
+    selected_seq_types = request.POST.get('selected_seq_types')
+    selected_columns = request.POST.get('selected_columns')
+
+    # 检查参数是否缺失
+    if not selected_ids or not selected_columns or not selected_seq_types:
+        return HttpResponse("参数缺失", status=400)
+
+    # 尝试解析 JSON
+    try:
+        ids = json.loads(selected_ids)
+        types = json.loads(selected_seq_types)
+        columns = json.loads(selected_columns)
+    except json.JSONDecodeError:
+        return HttpResponse("参数格式错误", status=400)
+
+    # 构造联合查询条件
+    query = Q()
+    for duplex_id, seq_type in zip(ids, types):
+        query |= Q(duplex_id=duplex_id, seq_type=seq_type)
+
+    # 查询并预加载相关数据
+    deliveries = Delivery.objects.filter(query)\
+        .select_related('sequence')\
+        .prefetch_related('sequence__target_info')
+
+    if not deliveries.exists():
+        return HttpResponse("未找到匹配的序列", status=404)
+
+    # 创建 CSV 响应
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="selected_sequences.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(columns)  # 写入表头
+
+    for d in deliveries:
+        seqinfo = d.sequence.target_info.first()  # 取第一条 SeqInfo，如果有的话
+        row = []
+
+        for col in columns:
+            # 优先取 Delivery 字段
+            if hasattr(d, col):
+                val = getattr(d, col, '')
+            # 否则从 SeqInfo 取特定字段
+            elif col.lower() == 'transcript':
+                val = seqinfo.Transcript if seqinfo else ''
+            elif col.lower() == 'pos':
+                val = seqinfo.Pos if seqinfo else ''
+            else:
+                val = ''
+            row.append(val)
+
+        writer.writerow(row)
+
+    return response

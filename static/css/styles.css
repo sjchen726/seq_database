@@ -1175,24 +1175,10 @@ table th {
 }
 
 
-/* ========= 单元格 ========= */
-
-table td {
-    padding: 12px 14px;
-    border-bottom: 1px solid #f0f0f0;
-    color: #444;
-    font-weight: 550;
-    text-align: center;
-    vertical-align: middle !important;
-    white-space: nowrap;
-    /* 比 regular 稍显重点 */
-}
-
-
 /* ========= 分组交替背景 ========= */
 
 tr.group-bg-1 {
-    background-color: #f2f5f8 !important;
+    background-color: #f9fafb !important;
     border-left: 4px solid #4f91ff !important;
 }
 
@@ -1225,4 +1211,12 @@ table tr:last-child td {
 .action-buttons .btn {
     display: inline-block;
     margin-right: 6px;
+}
+
+#advancedSearchPanel {
+    display: none;
+    padding: 10px;
+    background: #f6f8fa;
+    border: 1px solid #ccc;
+    margin-top: 10px;
 }
