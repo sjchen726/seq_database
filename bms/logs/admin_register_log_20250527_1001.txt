@@ -1,0 +1,15 @@
+
+ >>>Registered Sequences:
+
+  AS: AGGACUUUGACCAUCAGAGGACA
+  SS: UCCUCUGAUGGUCAAAGUCCU
+========================================================================
+
+ >>>Duplicate Sequences:
+
+========================================================================
+
+ >>>Created Relationships:
+
+  关系建立: AGGACUUUGACCAUCAGAGGACA <-> UCCUCUGAUGGUCAAAGUCCU <-> AGGACUUUGACCAUCAGAGGACA, UCCUCUGAUGGUCAAAGUCCU
+========================================================================

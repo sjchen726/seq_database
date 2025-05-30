@@ -149,6 +149,13 @@
                             <li><a href="/change_password">修改密码</a></li>
                         </ul>
                     </li>
+
+                    <div id="columnToggle" class="mb-3">
+                        <div class="checkbox-column">
+                            <button id="show-selected" type="button" class="btn btn-success" style="margin-top: 10px;">显示选中项</button>
+                        </div>
+                    <div>
+                        
                                             
                 </ul>
             </div>
@@ -163,15 +170,21 @@
                     <table id="example" class="table table-striped table-bordered" style="width:100%">
                         <thead>
                             <tr>
+                                <th><input type="checkbox" id="select-all"></th> 
                                 <th style="white-space: nowrap;">Strand ID</th>
+                       <!--         <th style="white-space: nowrap;">Project</th> -->
                                 <th>Sequences(5'-3')</th>
+                                <th>Position</th>
+                                <th>Transcript</th>
                                 <th>Remarks</th>
                                 <th style="white-space: nowrap;">Registration Time</th>   
+                                <th>操作</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for seq in sequence_list %}
                                 <tr>        
+                                    <td><input type="checkbox" class="row-checkbox"></td>
                                     <td style="white-space: nowrap;">
                                         {% if seq.rm_code == query_id %}
                                             <strong style="color: red;">{{ seq.seq_prefix|default_if_none:"" }}{{ seq.rm_code|default_if_none:"" }}</strong>
@@ -180,15 +193,29 @@
                                         {% endif %}
                                     </td>
 
+                                    <!-- Project (the project associated with the sequence) -->
+                          <!--          <td>{{ seq.project | default_if_none:"" }}</td> -->
+
                                     <!-- Sequence (the actual sequence) -->
                                     <td>{{ seq.seq | default_if_none:"" }}</td>
 
+                                    <!-- Position (the position of the sequence) -->    
+                                    <td>{{ seq.pos | default_if_none:"" }}</td>
+
+                                    <!-- Transcript (the transcript associated with the sequence) -->
+                                    <td>{{ seq.transcript | default_if_none:"" }}</td>
+                                    
                                     <!-- Remarks (from SeqInfo) -->
                                     <td>{{ seq.remark | default_if_none:"" }}</td>
 
                                     <!-- Created At (timestamp when the sequence was created) -->
                                     <td>{{ seq.reg_date| default_if_none:"" }}</td>
-
+                                    
+                                    <td>
+                                        <div class="action-buttons">
+                                            <a class="btn btn-info btn-sm" href="/edit_reg_seq/?id={{ seq.rm_code}}">编辑</a>
+                                        </div>
+                                    </td>
                                 </tr>
                             {% endfor %}   
                         </tbody>

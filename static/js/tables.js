@@ -158,26 +158,35 @@ $(document).ready(function() {
     table.draw();
 });
 
-// 下载选中项功能
+//下载选中项
+
+// 下载选中项
 document.getElementById('download-selected').addEventListener('click', function() {
-    // 先收集用户选择的字段名
-    const checkboxes = document.querySelectorAll('#column-selector input[name=export_columns]:checked');
+    // ✅ 获取勾选字段（不限制在旧容器中）
+    const checkboxes = document.querySelectorAll('input.export-field:checked');
     const selectedColumns = Array.from(checkboxes).map(cb => cb.value);
 
+    // ✅ 必须选择字段
     if (selectedColumns.length === 0) {
         alert("请至少选择一个字段导出");
         return;
     }
 
-    // 收集选中的行的 duplex_id 和 seq_type
+    // ✅ 强制要求选择关键字段
+    if (!selectedColumns.includes('duplex_id') || !selectedColumns.includes('seq_type')) {
+        alert("导出必须包含字段：Starnd ID 和 Sequence Type");
+        return;
+    }
+
+    // ✅ 获取选中行中的 duplex_id 和 seq_type
     const selectedIds = [];
     const selectedSeqTypes = [];
 
     table.rows().every(function() {
         const row = this.node();
         if ($(row).find('input.row-checkbox').prop('checked')) {
-            const duplexId = $(row).find('td:nth-child(2)').text().trim(); // duplex_id 在第2列
-            const seqType = $(row).find('td:nth-child(5)').text().trim(); // seq_type 在第5列
+            const duplexId = $(row).find('td:nth-child(2)').text().trim();
+            const seqType = $(row).find('td:nth-child(5)').text().trim();
 
             if (duplexId && seqType) {
                 selectedIds.push(duplexId);
@@ -191,7 +200,7 @@ document.getElementById('download-selected').addEventListener('click', function(
         return;
     }
 
-    // 创建隐藏表单提交数据
+    // ✅ 构建并提交隐藏表单
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = '/download_selected/';
@@ -199,33 +208,33 @@ document.getElementById('download-selected').addEventListener('click', function(
 
     const csrfToken = document.querySelector('input[name=csrfmiddlewaretoken]').value;
 
-    // CSRF token
-    const csrfInput = document.createElement('input');
-    csrfInput.type = 'hidden';
-    csrfInput.name = 'csrfmiddlewaretoken';
-    csrfInput.value = csrfToken;
-    form.appendChild(csrfInput);
+    // ✅ CSRF Token
+    form.appendChild(Object.assign(document.createElement('input'), {
+        type: 'hidden',
+        name: 'csrfmiddlewaretoken',
+        value: csrfToken
+    }));
 
-    // 选中字段
-    const columnsInput = document.createElement('input');
-    columnsInput.type = 'hidden';
-    columnsInput.name = 'selected_columns';
-    columnsInput.value = JSON.stringify(selectedColumns);
-    form.appendChild(columnsInput);
+    // ✅ 选中字段
+    form.appendChild(Object.assign(document.createElement('input'), {
+        type: 'hidden',
+        name: 'selected_columns',
+        value: JSON.stringify(selectedColumns)
+    }));
 
-    // 选中的 duplex_id
-    const idsInput = document.createElement('input');
-    idsInput.type = 'hidden';
-    idsInput.name = 'selected_ids';
-    idsInput.value = JSON.stringify(selectedIds);
-    form.appendChild(idsInput);
+    // ✅ duplex_id 列表
+    form.appendChild(Object.assign(document.createElement('input'), {
+        type: 'hidden',
+        name: 'selected_ids',
+        value: JSON.stringify(selectedIds)
+    }));
 
-    // 对应的 seq_type
-    const typesInput = document.createElement('input');
-    typesInput.type = 'hidden';
-    typesInput.name = 'selected_seq_types';
-    typesInput.value = JSON.stringify(selectedSeqTypes);
-    form.appendChild(typesInput);
+    // ✅ seq_type 列表
+    form.appendChild(Object.assign(document.createElement('input'), {
+        type: 'hidden',
+        name: 'selected_seq_types',
+        value: JSON.stringify(selectedSeqTypes)
+    }));
 
     document.body.appendChild(form);
     form.submit();

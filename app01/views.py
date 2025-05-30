@@ -7,6 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate, login, get_user_model, update_session_auth_hash
 from django.contrib.auth.hashers import make_password, check_password   
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 import pandas as pd
 from django.contrib import messages
 from datetime import datetime
@@ -17,7 +18,7 @@ from app01 import models
 from .models import *
 LmsUser = get_user_model()
 
-import re
+import re, json
 import logging
 from django.utils import timezone
 from io import StringIO
@@ -472,6 +473,7 @@ def edit_seq(request):
     '''
     
     seq_id = request.GET.get('id')
+#    print(seq_id)
     seq_Strand_MWs = request.GET.get('strand_MWs')
    # seq_id_query = seq_id.split('_')[1]  # 获取 rm_code
    #print(seq_id_query)
@@ -489,11 +491,11 @@ def edit_seq(request):
         # 获取表单数据
         edit_project = request.POST.get('edit_project')
         edit_delivery5 = request.POST.get('edit_delivery5')
-        edit_seq = request.POST.get('edit_seq')
+    #    edit_seq = request.POST.get('edit_seq')
         edit_delivery3 = request.POST.get('edit_delivery3')
-        edit_transcript = request.POST.get('edit_Transcript')
+    #    edit_transcript = request.POST.get('edit_Transcript')
         edit_target = request.POST.get('edit_Target')
-        edit_position = request.POST.get('edit_position')
+    #    edit_position = request.POST.get('edit_position')
         edit_strand_mws = request.POST.get('edit_Strand_MWs')
         edit_parents = request.POST.get('edit_parents')
         edit_remark = request.POST.get('edit_Remark')
@@ -523,15 +525,9 @@ def edit_seq(request):
         if delivery and delivery.delivery3 != edit_delivery3:
             changes.append(f"3' Delivery: {delivery.delivery3} → {edit_delivery3}")
             delivery.delivery3 = edit_delivery3
-        if seqinfo and seqinfo.Transcript != edit_transcript:
-            changes.append(f"Transcript: {seqinfo.Transcript} → {edit_transcript}")
-            seqinfo.Transcript = edit_transcript
-        if seqinfo and seqinfo.Target != edit_target:
-            changes.append(f"Target: {seqinfo.Target} → {edit_target}")
-            seqinfo.Target = edit_target
-        if seqinfo.Pos != edit_position:
-            changes.append(f"Position: {seqinfo.Pos} → {edit_position}")
-            seqinfo.Pos = edit_position
+        if delivery and delivery.Target != edit_target:
+            changes.append(f"Target: {delivery.Target} → {edit_target}")
+            delivery.Target = edit_target   
         if delivery and delivery.Strand_MWs != edit_strand_mws:
             changes.append(f"Strand MWs: {delivery.Strand_MWs} → {edit_strand_mws}")
             delivery.Strand_MWs = edit_strand_mws
@@ -545,10 +541,10 @@ def edit_seq(request):
         # **如果有变化，则更新数据库**
         if changes:
             # 更新 SeqInfo 对象 和 delivery 对象
-            seqinfo.created_at = new_datetime  # 更新时间
+        #    seqinfo.created_at = new_datetime  # 更新时间
             delivery.created_at = new_datetime  # 更新时
             delivery.save()
-            seqinfo.save()
+      #      seqinfo.save()
 
              # 记录修改日志
             log_directory = 'bms/logs'  # 日志文件夹
@@ -667,6 +663,7 @@ def register_seq(request):
                     duplex = f"{AS}, {SS}"
                     Transcript = cleaned_row['Transcript']
                     Pos = cleaned_row['Position']
+                    project = cleaned_row.get('Project', '')  # 获取项目列
               #      Parents = cleaned_row['Parents']
               #      Target = cleaned_row['Target']
                     Remarks = cleaned_row['Remarks']
@@ -1059,6 +1056,7 @@ def parse_uploaded_csv(request):
     df = pd.read_csv(StringIO(file_content), sep=None, engine='python', encoding='utf-8')
     df = df.fillna('')
     df['__row_id'] = df.index
+    df['__original_line'] = df.index + 2  # CSV 原始行号（包含表头）
 
     required_columns = ['Batch', 'Project', 'Target', 'Seq_type', 'Modify_seq', 'Strand_MWs', 'Parents', 'Remarks']
     if not all(col in df.columns for col in required_columns):
@@ -1067,77 +1065,143 @@ def parse_uploaded_csv(request):
     return df
 
 def group_sequences(df):
-    ss_groups = []
-    grouped = df.groupby('Batch')
+    ss_groups = []  # 用于存储有效的 SS+AS 组合
+    invalid_ss_as = []  # 用于存储无效的 SS 和 AS
+    grouped = df.groupby('Batch')  # 按照批次分组数据
+
     for batch, group in grouped:
+        # 按 __row_id 排序后处理
         group_sorted = group.sort_values(by='__row_id').reset_index(drop=True)
         i = 0
+
         while i < len(group_sorted):
             row = group_sorted.iloc[i]
             row_id = row['__row_id']
-            if row['Seq_type'].strip().upper() == 'SS':
+            original_line = row['__original_line']
+            seq_type = row['Seq_type'].strip().upper()
+            modify_seq = row['Modify_seq']
+
+            if seq_type == 'SS':
                 temp_group = [row_id]
+
                 if i + 1 < len(group_sorted):
                     next_row = group_sorted.iloc[i + 1]
-                    if next_row['Seq_type'].strip().upper() == 'AS':
-                        temp_group.append(next_row['__row_id'])
-                        i += 1
-                ss_groups.append((int(batch), row['Project'], temp_group))
-            i += 1
-    return ss_groups
+                    next_seq_type = next_row['Seq_type'].strip().upper()
 
+                    if next_seq_type == 'AS':
+                        temp_group.append(next_row['__row_id'])
+                        i += 1  # 跳过 AS，因为已经配对
+                        ss_groups.append((int(batch), row['Project'], temp_group))
+                    else:
+                        invalid_ss_as.append(f"原始行 {original_line}, {modify_seq}, 无效SS：没有 AS 配对")
+                else:
+                    invalid_ss_as.append(f"原始行 {original_line}, {modify_seq}, 无效SS：没有 AS 配对")
+
+            elif seq_type == 'AS':
+                invalid_ss_as.append(f"原始行 {original_line}, {modify_seq}, 无效AS：没有配对的 SS")
+
+            i += 1
+
+    return ss_groups, invalid_ss_as
+
+# 同一批次，同一项目，统一靶点，算重复
 def check_duplicates(df, ss_groups):
     repeated_ids = set()
     duplicate_meg = []
 
+    # 同批次内组合查重缓存
+    seen_seqs_in_batch = set()
+
     for batch, project, group in ss_groups:
-        modify_seqs, delivery_keys, row_ids = [], [], []
+        modify_seqs, delivery_keys, row_ids, targets = [], [], [], []
+
         for row_id in group:
             row = df.loc[row_id]
             full_seq = row['Modify_seq']
+
+            # 提取 5' 和 3' 修饰
             d5 = re.search(r'^\[([^\[\]]*)\]', full_seq)
             d3 = re.search(r'\[([^\[\]]*)\](?!.*\])', full_seq)
             d5 = d5.group(1) if d5 else ''
             d3 = d3.group(1) if d3 else ''
+
+            # 去除 5' 和 3' 修饰，保留中间序列
             clean_seq = re.sub(r'^\[.*?\]', '', full_seq)
             clean_seq = re.sub(r'\[.*?\]$', '', clean_seq)
+
             modify_seqs.append((clean_seq, d5, d3))
             delivery_keys.append(full_seq)
             row_ids.append(row_id)
+            targets.append(row['Target'])
 
-        if len(modify_seqs) == 1:
-            exists = Delivery.objects.filter(
-                project=project,
-                modify_seq=modify_seqs[0][0],
-                delivery5=modify_seqs[0][1],
-                delivery3=modify_seqs[0][2]
-            ).exists()
-            if exists:
-                duplicate_meg.append(f"重复SS（项目: {project}）：{delivery_keys[0]}")
-                repeated_ids.add(row_ids[0])
-        else:
-            dup_id_list = Delivery.objects.filter(
-                project=project,
-                modify_seq=modify_seqs[0][0],
-                delivery5=modify_seqs[0][1],
-                delivery3=modify_seqs[0][2]
-            ).values_list('duplex_id', flat=True)
-            if dup_id_list:
-                dup_id = dup_id_list[0]
-                exists_as = Delivery.objects.filter(
-                    project=project,
-                    modify_seq=modify_seqs[1][0],
-                    delivery5=modify_seqs[1][1],
-                    delivery3=modify_seqs[1][2],
-                    duplex_id=dup_id
-                ).exists()
-                if exists_as:
+        for i in range(0, len(modify_seqs), 2):
+            if i + 1 < len(modify_seqs):
+                ss_clean_seq, ss_d5, ss_d3 = modify_seqs[i]
+                as_clean_seq, as_d5, as_d3 = modify_seqs[i + 1]
+                ss_full_seq = delivery_keys[i]
+                as_full_seq = delivery_keys[i + 1]
+                target = targets[i]
+
+                # 当前组组合键：项目+批次+靶点+SS+AS
+                combo_key = (
+                    project, batch, target,
+                    ss_clean_seq, ss_d5, ss_d3,
+                    as_clean_seq, as_d5, as_d3
+                )
+
+                # 1️⃣ 批次内重复判断
+                if combo_key in seen_seqs_in_batch:
                     duplicate_meg.append(
-                        f"重复SS+AS组（项目: {project}）：{delivery_keys[0]} + {delivery_keys[1]}"
+                        f"重复SS+AS组（项目: {project}，批次: {batch}，靶点: {target}）："
+                        f"{ss_full_seq} + {as_full_seq} 在当前批次中重复"
                     )
-                    repeated_ids.update(row_ids)
+                    repeated_ids.add(row_ids[i])
+                    repeated_ids.add(row_ids[i + 1])
+                else:
+                    seen_seqs_in_batch.add(combo_key)
+
+                # 2️⃣ 与数据库比较（限制在当前批次前缀一致时才查重）
+                current_batch_prefix = str(batch).zfill(2)
+
+                dup_id_list = Delivery.objects.filter(
+                    project=project,
+                    Target=target,
+                    modify_seq=ss_clean_seq,
+                    delivery5=ss_d5,
+                    delivery3=ss_d3
+                ).values_list('duplex_id', flat=True)
+
+                for dup_id in dup_id_list:
+                    # 获取数据库中 duplex_id 的批次前缀
+                    try:
+                        db_batch_prefix = dup_id.split("_")[1][:2]
+                    except IndexError:
+                        continue  # 格式错误，跳过
+
+                    # 只有批次前缀一致才比较
+                    if db_batch_prefix != current_batch_prefix:
+                        continue
+
+                    exists_as = Delivery.objects.filter(
+                        project=project,
+                        Target=target,
+                        modify_seq=as_clean_seq,
+                        delivery5=as_d5,
+                        delivery3=as_d3,
+                        duplex_id=dup_id
+                    ).exists()
+
+                    if exists_as:
+                        duplicate_meg.append(
+                            f"重复SS+AS组（项目: {project}，批次: {batch}，靶点: {target}）："
+                            f"{ss_full_seq} + {as_full_seq} 与数据库中已有记录重复（duplex_id: {dup_id}）"
+                        )
+                        repeated_ids.add(row_ids[i])
+                        repeated_ids.add(row_ids[i + 1])
+                        break  # 找到即退出查找
 
     return repeated_ids, duplicate_meg
+
 
 def assign_duplex_ids(df, ss_groups, repeated_ids):
     duplex_id_map = {}
@@ -1180,68 +1244,99 @@ def save_deliveries(df, duplex_id_map, username):
     unregistered_meg = []  
     unregistered_log = []
 
-    for _, row in df.iterrows():
-        row_id = row['__row_id']
-        if row_id not in duplex_id_map:
+    # 构建：duplex_id → [row1, row2]
+    duplex_groups = defaultdict(list)
+    for row_id, duplex_id in duplex_id_map.items():
+        duplex_groups[duplex_id].append(df.loc[df['__row_id'] == row_id].iloc[0])
+
+    for duplex_id, rows in duplex_groups.items():
+        all_registered = True
+       # naked_seqs = []
+        detailed_rows = []
+
+        for row in rows:
+            full_seq = row['Modify_seq']
+            d5 = re.search(r'^\[([^\[\]]*)\]', full_seq)
+            d3 = re.search(r'\[([^\[\]]*)\](?!.*\])', full_seq)
+            delivery5 = d5.group(1) if d5 else ''
+            delivery3 = d3.group(1) if d3 else ''
+            modify_seq = re.sub(r'^\[.*?\]', '', full_seq)
+            modify_seq = re.sub(r'\[.*?\]$', '', modify_seq)
+
+            tmp_seq = modify_seq.upper()
+            tmp_seq = re.sub(r'GA02', 'A', tmp_seq)
+            tmp_seq = re.sub(r'GC02', 'C', tmp_seq)
+            tmp_seq = re.sub(r'GU02', 'U', tmp_seq)
+            tmp_seq = re.sub(r'TA12', 'A', tmp_seq)
+            tmp_seq = re.sub(r'TC12', 'C', tmp_seq)
+            tmp_seq = re.sub(r'TG12', 'G', tmp_seq)
+            tmp_seq = re.sub(r'TU0', 'U', tmp_seq)
+            tmp_seq = re.sub(r'\(.*?\)', '', tmp_seq)
+            matches = re.findall(r'(INVAB|[AUGCTI])', tmp_seq)
+            naked_seq = ''.join(matches)
+            naked_length = len(matches)
+
+            detailed_rows.append({
+                'row': row,
+                'full_seq': full_seq,
+                'delivery5': delivery5,
+                'delivery3': delivery3,
+                'modify_seq': modify_seq,
+                'naked_seq': naked_seq,
+                'naked_length': naked_length
+            })
+
+            if not Sequence.objects.filter(seq=naked_seq).exists():
+                all_registered = False
+
+                # 更稳妥地计算当前组的原始行号列表
+                group_lines = ",".join(str(r['__original_line']) for r in rows)
+
+                unregistered_meg.append(f"{row['Project']} ➜ {full_seq} ➜ {naked_seq}")
+                unregistered_log.append({
+                    'Project': row['Project'],
+                    'duplex_id': duplex_id,
+                    '行号组': group_lines,
+                    'origin_line': row['__original_line'],
+                    'Modify_seq': full_seq,
+                    'Unregistered': naked_seq,
+                    '原因': '组内存在未注册序列，整组未上传'
+                })
+
+        if not all_registered:
+            # 如果整组未注册，跳过后续处理
             continue
 
-        full_seq = row['Modify_seq']
-        d5 = re.search(r'^\[([^\[\]]*)\]', full_seq)
-        d3 = re.search(r'\[([^\[\]]*)\](?!.*\])', full_seq)
-        delivery5 = d5.group(1) if d5 else ''
-        delivery3 = d3.group(1) if d3 else ''
-        modify_seq = re.sub(r'^\[.*?\]', '', full_seq)
-        modify_seq = re.sub(r'\[.*?\]$', '', modify_seq)
-
-        tmp_seq = modify_seq.upper()
-        tmp_seq = re.sub(r'GA02', 'A', tmp_seq)
-        tmp_seq = re.sub(r'GC02', 'C', tmp_seq)
-        tmp_seq = re.sub(r'GU02', 'U', tmp_seq)
-        tmp_seq = re.sub(r'TA12', 'A', tmp_seq)
-        tmp_seq = re.sub(r'TC12', 'C', tmp_seq)
-        tmp_seq = re.sub(r'TG12', 'G', tmp_seq)
-        tmp_seq = re.sub(r'TU0', 'U', tmp_seq)
-        tmp_seq = re.sub(r'\(.*?\)', '', tmp_seq)
-        matches = re.findall(r'(INVAB|[AUGCTI])', tmp_seq)
-        naked_seq = ''.join(matches)
-        naked_length = len(matches)
-
-        if not Sequence.objects.filter(seq=naked_seq).exists():
-            unregistered_meg.append(f"{row['Project']} ➜ {full_seq} ➜ {naked_seq}")
-            unregistered_log.append({
+        for item in detailed_rows:
+            row = item['row']
+            Delivery.objects.create(
+                sequence=Sequence.objects.get(seq=item['naked_seq']),
+                modify_seq=item['modify_seq'],
+                linker_seq=add_o_to_all_rules(item['modify_seq']),
+                naked_length=item['naked_length'],
+                project=row['Project'],
+                parents=row['Parents'],
+                delivery5=item['delivery5'],
+                delivery3=item['delivery3'],
+                Strand_MWs=row['Strand_MWs'],
+                Target=row['Target'],
+                seq_type=row['Seq_type'],
+                Remark=row['Remarks'],
+                duplex_id=duplex_id,
+                created_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            )
+            upload_meg.append(item['full_seq'])
+            upload_log.append({
                 'Time': now().strftime('%Y-%m-%d %H:%M:%S'),
                 'User': username,
-                'Unregistered': naked_seq,
+                'Project': row['Project'],
+                'duplex_id': duplex_id,
+                'Type': row['Seq_type'],
+                'Modified_Sequence': item['full_seq']
             })
-            continue
-
-        Delivery.objects.create(
-            sequence=Sequence.objects.get(seq=naked_seq),
-            modify_seq=modify_seq,
-            linker_seq=add_o_to_all_rules(modify_seq),
-            naked_length=naked_length,
-            project=row['Project'],
-            parents=row['Parents'],
-            delivery5=delivery5,
-            delivery3=delivery3,
-            Strand_MWs=row['Strand_MWs'],
-            Target=row['Target'],
-            seq_type=row['Seq_type'],
-            Remark=row['Remarks'],
-            duplex_id=duplex_id_map[row_id],
-            created_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        )
-        upload_meg.append(full_seq)
-        upload_log.append({
-            'Time': now().strftime('%Y-%m-%d %H:%M:%S'),
-            'User': username,
-            'Project': row['Project'],
-            'duplex_id': duplex_id_map[row_id],
-            'Type': row['Seq_type'],
-            'Modified_Sequence': full_seq
-        })
 
     return upload_meg, upload_log, unregistered_meg, unregistered_log
+
 
 def write_upload_log(upload_log, username):
     user_dir = os.path.join('logs', username)
@@ -1263,14 +1358,32 @@ def write_unregistered_log(unregistered_log, username):
     filename = f'{username}_unregistered_{timestamp}.csv'
     filepath = os.path.join(user_dir, filename)
 
-    with open(filepath, 'w', encoding='utf-8', newline='') as log_file:
-        fieldnames = ['Time', 'User', 'Unregistered']
+    with open(filepath, 'w', encoding='utf-8-sig', newline='') as log_file:
+        fieldnames = ['Project', 'duplex_id', '行号组', 'origin_line', 'Modify_seq', 'Unregistered', '原因']
         writer = csv.DictWriter(log_file, fieldnames=fieldnames)
         writer.writeheader()
         for entry in unregistered_log:
             writer.writerow(entry)
 
     return filepath
+
+
+def write_unpaired_ss_as_log(unpaired_ss_as, username):
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    user_dir = os.path.join('logs', username)
+    os.makedirs(user_dir, exist_ok=True)
+    filename = f'{username}_unpaired_ss_as_{timestamp}.csv'
+    filepath = os.path.join(user_dir, filename)
+
+    # 写入 CSV 文件
+    with open(filepath, 'w', encoding='utf-8-sig', newline='') as log_file:
+        writer = csv.writer(log_file)
+        writer.writerow(["Message"])  # 写入表头
+        for item in unpaired_ss_as:
+            writer.writerow([item])  # 写入每一行无效的 SS 或 AS 序列
+
+    return filepath
+
 
 def write_repeated_log(repeated_df, username):
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -1279,7 +1392,7 @@ def write_repeated_log(repeated_df, username):
     filename = f'{username}_repeated_{timestamp}.csv'
     filepath = os.path.join(user_dir, filename)
 
-    repeated_df.to_csv(filepath, index=False)
+    repeated_df.to_csv(filepath, index=False, encoding='utf-8-sig')  # 防乱码
     return filepath
 
 
@@ -1289,7 +1402,6 @@ def save_repeated_to_session(request, df, repeated_ids, unregistered_log, userna
     request.session['repeated_path'] = repeated_path
     unregistered_path = write_unregistered_log(unregistered_log, username)
     request.session['unregistered_path'] = unregistered_path
-
 
 def upload_delivery_info(request):
     if request.method == 'GET':
@@ -1308,12 +1420,20 @@ def upload_delivery_info(request):
                     response = HttpResponse(f.read(), content_type='text/csv')
                     response['Content-Disposition'] = f'attachment; filename="{os.path.basename(unregistered_path)}"'
                     return response
+            
+        elif request.GET.get('download') == 'unpaired_ss_as':
+            unpaired_ss_as_path = request.session.get('unpaired_ss_as_path')
+            if unpaired_ss_as_path and os.path.exists(unpaired_ss_as_path):
+                with open(unpaired_ss_as_path, 'rb') as f:
+                    response = HttpResponse(f.read(), content_type='text/csv')
+                    response['Content-Disposition'] = f'attachment; filename="{os.path.basename(unpaired_ss_as_path)}"'
+                    return response
 
 
     if request.method == 'POST':
         try:
             df = parse_uploaded_csv(request)
-            ss_groups = group_sequences(df)
+            ss_groups, unpaired_ss_as = group_sequences(df)  # 获取未配对的 SS 和 AS
             repeated_ids, duplicate_meg = check_duplicates(df, ss_groups)
             duplex_id_map = assign_duplex_ids(df, ss_groups, repeated_ids)
 
@@ -1325,6 +1445,13 @@ def upload_delivery_info(request):
             request.session['unregistered_csv'] = unregistered_csv  # 💥 必须添加此行！
 
             save_repeated_to_session(request, df, repeated_ids, unregistered_log, username)
+
+            # 生成未成组 SS 或 AS 的 CSV 文件
+            if unpaired_ss_as:
+                unpaired_ss_as_path = write_unpaired_ss_as_log(unpaired_ss_as, username)
+                request.session['unpaired_ss_as_path'] = unpaired_ss_as_path  # 保存路径到 session
+                # 提示用户有未成对的 SS 或 AS 序列
+                messages.warning(request, f"有未成对的 SS 或 AS 序列，请查看并下载未配对的序列文件。")
 
             if upload_meg:
                 messages.success(request, f"共 {len(upload_meg)} 条序列成功上传！")
@@ -1346,7 +1473,6 @@ def upload_delivery_info(request):
 
 
     return render(request, 'upload_delivery_info.html')
-
 
 def get_attr(d, key):
     if isinstance(d, dict):
@@ -1402,6 +1528,8 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq):
             for d in deliveries
         ]
     }
+
+
 
 def get_sequence_info(request):
     permissions_projects = getattr(request.user, 'permissions_project', '')
@@ -1475,24 +1603,25 @@ def get_sequence_info(request):
                 )
                 duplex_group_map[(project, duplex_id)].append(item)
 
-
-
-    # ✅ 更新 sequence_groups，包含 project
+    # 更新 sequence_groups，包含 project 和 duplex_id
     sequence_groups = []
-    for (project, duplex_id), items in duplex_group_map.items():
-        print(f"Group ({project}, {duplex_id})")
-        for i, item in enumerate(items):
-            print(f"  Item {i} deliveries:")
-            for d in item["deliveries"]:
-                print(f"    duplex_id: {d.get('duplex_id')}")
 
-   
     for (project, duplex_id), items in duplex_group_map.items():
+        # 按照 SS -> AS 排序（默认 SS 在前）
+        sorted_items = sorted(
+            items,
+            key=lambda item: (
+                item['deliveries'][0]['Seq_type'] != 'SS'  # SS 为 False, AS 为 True
+                if item['deliveries'] else True
+            )
+        )
+
         sequence_groups.append({
             'project': project,
             'duplex_id': duplex_id,
-            'items': items,
+            'items': sorted_items,
         })
+    
 
     context = {
         'user_type': user_type,
@@ -1504,9 +1633,11 @@ def get_sequence_info(request):
 def cor_seq(request):
    
     query_id_tmp  = request.GET.get('id')  # 获取 URL 参数
+   # print(query_id_tmp)
    # print(query_id)
     
-    query_prefix = request.GET.get('prefix', '')  # 获取 URL 参数
+    seq_type = request.GET.get('seq_type')  # 获取 URL 参数
+   # print(f'1,{seq_type}')
   #  print(query_prefix)
     #seq_prefix = request.GET.get('seq_prefix', '')  # 获取 seq_prefix 参数
 
@@ -1529,18 +1660,24 @@ def cor_seq(request):
     visible_seq_ids = delivery_qs.values_list('sequence_id', flat=True)
     
     # 获取 Delivery 对象并获取 sequence_id
-    delivery = get_object_or_404(Delivery, id=query_id_tmp)  # 根据 query_id 获取 Delivery 对象
+    delivery = get_object_or_404(Delivery, Q(id=query_id_tmp)&Q(seq_type=seq_type))  # 根据 query_id 获取 Delivery 对象
     query_id = delivery.sequence_id  # 获取该 Delivery 对应的 sequence_id
-   # print(query_id)
+ #   print(f'3.{query_id}')
 
     # 根据前缀查双链关系
-    if query_prefix == "RA_":
-        related_duplex = DuplexRelationship.objects.filter(as_seq_id=query_id)
-        related_ids = [rel.ss_seq_id for rel in related_duplex if rel.ss_seq_id in visible_seq_ids]
+    if seq_type == "AS":
 
-    elif query_prefix == "RS_":
+        related_duplex = DuplexRelationship.objects.filter(as_seq_id=query_id)
+        related_ss_ids = [rel.ss_seq_id for rel in related_duplex if rel.ss_seq_id in visible_seq_ids]
+
+        related_ids = Delivery.objects.filter(sequence_id__in=related_ss_ids).values_list('id', flat=True)  #delivery_id
+
+    elif seq_type == "SS":
+
         related_duplex = DuplexRelationship.objects.filter(ss_seq_id=query_id)
-        related_ids = [rel.as_seq_id for rel in related_duplex if rel.as_seq_id in visible_seq_ids]
+        related_as_ids = [rel.as_seq_id for rel in related_duplex if rel.as_seq_id in visible_seq_ids]
+
+        related_ids = Delivery.objects.filter(sequence_id__in=related_as_ids).values_list('id', flat=True)  #delivery_id
 
     else:
         return render(request, 'cor_seq.html', {'error': '无效的 seq_prefix'})
@@ -1550,12 +1687,20 @@ def cor_seq(request):
     # 3. 获取相关表数据
     # --------------------------
 
-    related_ids.insert(0, query_id)  # 将当前查询的 ID 添加到列表中
+    related_ids = list(related_ids)  # 将查询结果转换为列表
+    related_ids.insert(0, query_id_tmp)  # 将当前查询的 ID 添加到列表中
     
+   # print(related_ids)
 
-    delivery_qs = Delivery.objects.filter(sequence_id__in=related_ids)
-    seqinfo_qs = SeqInfo.objects.filter(sequence_id__in=related_ids)
-    sequence_qs = Sequence.objects.filter(rm_code__in=related_ids)  # 假设 rm_code = sequence_id？
+    delivery_qs = Delivery.objects.filter(id__in=related_ids)
+
+    # 获取所有对应的 sequence_id
+    all_sequence_ids = delivery_qs.values_list('sequence_id', flat=True)
+
+    #  查询 SeqInfo 和 Sequence 表
+    seqinfo_qs = SeqInfo.objects.filter(sequence_id__in=all_sequence_ids)
+    sequence_qs = Sequence.objects.filter(rm_code__in=all_sequence_ids)  # 假设 rm_code = sequence_id
+
 
     # --------------------------
     # 4. 构建映射（同 get_sequence_info）
@@ -1636,6 +1781,10 @@ def reg_seq_list(request):
         # 根据 rm_code 获取 SeqInfo 的 Remark
         seq_info = SeqInfo.objects.filter(sequence_id=seq.rm_code).first()
         remark = seq_info.Remark if seq_info else ''  # 如果没有找到匹配的 SeqInfo，则 Remark 为空
+        pos = seq_info.Pos if seq_info else ''  # 如果没有找到匹配的 SeqInfo，则 Position 为空
+        Transcript = seq_info.Transcript if seq_info else ''  # 如果没有找到匹配的 SeqInfo，则 Transcript 为空
+   #     project = seq_info.project if seq_info else ''  # 如果没有找到匹配的 SeqInfo，则 Project 为空
+        
 
         # 格式化日期
         formatted_date = seq.created_at.strftime('%Y-%m-%d %H:%M') if seq.created_at else ''
@@ -1644,7 +1793,10 @@ def reg_seq_list(request):
         sequence_dict = {
             'rm_code': seq.rm_code,
             'seq_prefix': seq_prefix,
+       #     'project': project,
             'seq': seq.seq,
+            'pos': pos,
+            'transcript': Transcript,
             'remark': remark,
             'reg_date': formatted_date,  # 假设 Sequence 模型中有 created_at 字段
         }
@@ -1655,14 +1807,111 @@ def reg_seq_list(request):
     # 渲染页面并传递数据
     return render(request, 'reg_seq_list.html', {'sequence_list': sequence_list})
 
+def edit_reg_seq(request):
+    '''
+    if not request.user.is_authenticated or (not request.user.is_superuser and not request.user.is_admin):
+        return HttpResponse("""
+            <script>               
+                alert('您没有权限编辑序列信息！');
+                window.location.href = '/seq_list';
+            </script>
+        """)
+    '''
+    
+    rm_code = request.GET.get('id')
+    print(rm_code)
+   # seq_Strand_MWs = request.GET.get('strand_MWs')
+   # seq_id_query = seq_id.split('_')[1]  # 获取 rm_code
+   #print(seq_id_query)
 
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_POST
-from django.http import HttpResponse
-from django.db.models import Q
-import json
-import csv
+   # 根据 seq_id 查询 Delivery 对象
+    Seq = get_object_or_404(Sequence, rm_code=rm_code)
 
+    # 使用 rm_code 查询 SeqInfo 对象
+    seqinfo = get_object_or_404(SeqInfo, sequence_id=rm_code)
+
+    if request.method == 'POST':
+        # 获取表单数据
+        edit_seq = request.POST.get('edit_project')
+        edit_position = request.POST.get('edit_position')
+        edit_transcript = request.POST.get('edit_Transcript')
+        edit_remark = request.POST.get('edit_Remark')
+        edit_date = request.POST.get('edit_date')
+        # 获取当前时间（如果没有提供更新日期，则使用当前时间）
+        if not edit_date:
+            edit_date = datetime.now().strftime('%Y-%m-%dT%H:%M')
+        # 将前端传递的字符串日期转换为 naive datetime
+        naive_datetime = datetime.strptime(edit_date, "%Y-%m-%dT%H:%M")
+        # 将 naive datetime 转换为 aware datetime（带时区）
+        #new_datetime = timezone.make_aware(naive_datetime)
+        new_datetime = naive_datetime
+    
+    # **检查是否有字段修改**
+        changes = []
+        if seqinfo and seqinfo.Pos != edit_position:
+            changes.append(f"Position: {seqinfo.Pos} → {edit_position}")
+            seqinfo.Pos = edit_position
+        if seqinfo and seqinfo.Transcript != edit_transcript:
+            changes.append(f"Transcript: {seqinfo.Transcript} → {edit_transcript}")
+            seqinfo.Transcript = edit_transcript
+        if seqinfo.Remark != edit_remark:
+            changes.append(f"Remark: {seqinfo.Remark} → {edit_remark}")
+            seqinfo.Remark = edit_remark
+
+        # **如果有变化，则更新数据库**
+        if changes:
+            # 更新 SeqInfo 对象 和 delivery 对象
+            seqinfo.created_at = new_datetime  # 更新时间
+            Seq.created_at = new_datetime  # 更新时间
+            Seq.save
+            seqinfo.save()
+
+             # 记录修改日志
+            log_directory = 'bms/logs'  # 日志文件夹
+            if not os.path.exists(log_directory):
+                os.makedirs(log_directory)
+            log_filename = f"edit_reg_seqs.log"
+            log_file = os.path.join(log_directory, log_filename)
+            
+            logging.basicConfig(
+                level=logging.INFO,
+                format='%(asctime)s - %(levelname)s - %(message)s',
+                handlers=[
+                    logging.FileHandler(log_file),
+                    logging.StreamHandler()
+                ]
+            )
+
+            logger = logging.getLogger('edit_seqs')
+
+            log_message = f"用户 {request.user.username} 在 {new_datetime} 编辑了ID为 {rm_code} 的序列 ，修改内容为: "
+            log_details = []
+
+            for change in changes:
+                log_details.append(f"{change}")
+
+            if log_details:
+                log_message += "\n" + "\n".join(log_details) + "\n========================================================================\n"
+                logger.info(log_message)
+
+            messages.success(request, "序列信息已成功更新！")
+            return redirect('reg_seq_list')  # 返回列表页
+
+        else:
+            # **如果没有变化，提示用户**
+            messages.info(request, "您未做任何修改。")
+            return redirect('reg_seq_list')  # 返回列表页
+        
+    context ={
+        'seq': Seq,
+        'seqinfo': seqinfo,
+        
+    } 
+
+    return render(request, 'reg_seq_edit.html', context)
+
+
+# 下载选中序列
 @login_required
 @require_POST
 def download_selected(request):
@@ -1670,11 +1919,9 @@ def download_selected(request):
     selected_seq_types = request.POST.get('selected_seq_types')
     selected_columns = request.POST.get('selected_columns')
 
-    # 检查参数是否缺失
     if not selected_ids or not selected_columns or not selected_seq_types:
         return HttpResponse("参数缺失", status=400)
 
-    # 尝试解析 JSON
     try:
         ids = json.loads(selected_ids)
         types = json.loads(selected_seq_types)
@@ -1682,12 +1929,10 @@ def download_selected(request):
     except json.JSONDecodeError:
         return HttpResponse("参数格式错误", status=400)
 
-    # 构造联合查询条件
     query = Q()
     for duplex_id, seq_type in zip(ids, types):
         query |= Q(duplex_id=duplex_id, seq_type=seq_type)
 
-    # 查询并预加载相关数据
     deliveries = Delivery.objects.filter(query)\
         .select_related('sequence')\
         .prefetch_related('sequence__target_info')
@@ -1695,28 +1940,38 @@ def download_selected(request):
     if not deliveries.exists():
         return HttpResponse("未找到匹配的序列", status=404)
 
-    # 创建 CSV 响应
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="selected_sequences.csv"'
+    response.write('\ufeff')  # 防止 Excel 打开中文乱码
 
     writer = csv.writer(response)
-    writer.writerow(columns)  # 写入表头
+    writer.writerow(columns)
 
     for d in deliveries:
-        seqinfo = d.sequence.target_info.first()  # 取第一条 SeqInfo，如果有的话
+        seqinfo = d.sequence.target_info.first() if hasattr(d.sequence, 'target_info') else None
         row = []
 
         for col in columns:
-            # 优先取 Delivery 字段
-            if hasattr(d, col):
+            col_lc = col.lower()
+
+            # ✅ 特殊处理 remarks 字段（拼接两个来源）
+            if col_lc == 'remark':
+                val = ''
+                part1 = getattr(d, 'Remark', '') or ''
+                part2 = getattr(seqinfo, 'Remark', '') if seqinfo else ''
+                val = f"{part1}\n{part2}".strip("\n") if (part1 or part2) else ''
+                print(val)
+            
+            # ✅ 其他字段
+            elif hasattr(d, col):
                 val = getattr(d, col, '')
-            # 否则从 SeqInfo 取特定字段
-            elif col.lower() == 'transcript':
-                val = seqinfo.Transcript if seqinfo else ''
-            elif col.lower() == 'pos':
-                val = seqinfo.Pos if seqinfo else ''
+            elif col_lc == 'transcript':
+                val = getattr(seqinfo, 'Transcript', '') if seqinfo else ''
+            elif col_lc == 'pos':
+                val = getattr(seqinfo, 'Pos', '') if seqinfo else ''
             else:
                 val = ''
+
             row.append(val)
 
         writer.writerow(row)

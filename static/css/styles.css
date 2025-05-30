@@ -1190,11 +1190,30 @@ tr.group-bg-2 {
 
 /* ========= Hover 效果 ========= */
 
+
+/* Hover effect for rows */
+
 tr.group-bg-1:hover,
-tr.group-bg-2:hover {
+tr.group-bg-2:hover,
+tr[data-query="true"]:hover {
     background-color: #eef3f8 !important;
     box-shadow: 0 1px 6px rgba(0, 0, 0, 0.05);
     border-left-color: #f2abe8 !important;
+}
+
+
+/* Custom styling for highlighted rows */
+
+tr[data-query="true"] {
+    font-weight: bold;
+    border-bottom: 3px solid black;
+}
+
+
+/* Ensure red color for duplex_id when seq.rm_code matches query_id */
+
+tr[data-query="true"] td:nth-child(2) {
+    color: red !important;
 }
 
 
@@ -1219,4 +1238,79 @@ table tr:last-child td {
     background: #f6f8fa;
     border: 1px solid #ccc;
     margin-top: 10px;
+}
+
+#column-controls label {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    font-size: 1rem;
+    border-radius: 0.25rem;
+    transition: background-color 0.2s ease;
+}
+
+#column-controls label:hover {
+    background-color: #f8f9fa;
+}
+
+#column-controls input[type="checkbox"] {
+    margin-right: 10px;
+    transform: scale(1.1);
+}
+
+.field-box {
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    background-color: #ffffff;
+    box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.05);
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+.field-box label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #495057;
+    font-size: 16px !important;
+    /* 或更大根据需求 */
+}
+
+.control-buttons>button {
+    font-size: 1rem;
+    padding: 10px;
+}
+
+.control-buttons>button:not(:last-child) {
+    margin-bottom: 12px;
+}
+
+
+/* Custom hover effect for all buttons */
+
+.custom-btn:hover {
+    opacity: 0.85;
+    /* Slightly reduce opacity when hovering */
+    transform: translateY(-1px);
+    /* Slight lift effect */
+    transition: transform 0.2s, opacity 0.2s;
+    /* Smooth transition for the hover effect */
+}
+
+
+/* Optional: You can also tweak the original button colors if necessary */
+
+@media (max-width: 767px) {
+    .col-md-4 {
+        flex-direction: column;
+        /* 在小屏幕下改为垂直排列 */
+    }
+    .btn {
+        width: 100%;
+        /* 按钮宽度设置为 100% 以填充父容器 */
+        margin-bottom: 10px;
+        /* 给按钮添加一些间距 */
+    }
 }

@@ -116,6 +116,16 @@
                                         <button type="submit" class="btn btn-danger btn-sm ml-2">下载未注册序列 CSV</button>
                                     </form>
                                 </div>
+                            
+                            {% elif "未成对的 SS 或 AS 序列" in message.message %}
+                                <div class="alert alert-warning alert-dismissible d-flex align-items-center" role="alert" style="font-size: 15px;">
+                                    <button type="button" class="close" data-dismiss="alert">&times;</button>
+                                    <span class="mr-2">⚠</span> {{ message.message }}
+                                    <form method="get" action="" style="display:inline;">
+                                        <input type="hidden" name="download" value="unpaired_ss_as">
+                                        <button type="submit" class="btn btn-warning btn-sm ml-2">下载未成对序列 CSV</button>
+                                    </form>
+                                </div>
 
                             {% elif "无新的序列信息上传" in message.message %}
                                 <div class="alert alert-info alert-dismissible d-flex align-items-center" role="alert" style="font-size: 15px;">

@@ -1,0 +1,3 @@
+Project,duplex_id,行号组,origin_line,Modify_seq,Unregistered,原因
+BPR-307,BPR-307_010008,"18,19",18,[invAboC6-S-LP415s]UmsCmsCmUmCmUmGfAmUfGfGfUmCmAmAmAmGmUmCmCm,UCCUCUGAUGGUCAAAGUCC,组内存在未注册序列，整组未上传
+BPR-307,BPR-307_010008,"18,19",19,AmsGfsGmAmCmUfUmUmGmAmCmCmAmUfCmAfGmAmGmGmAmsCmsAm,AGGACUUUGACCAUCAGAGGACA,组内存在未注册序列，整组未上传

@@ -56,13 +56,13 @@
                                     <label>Target: <input type="text" id="filterTarget"></label>
                                     <label>Strand_MWs: <input type="text" id="filterStrandMWs"></label>
                                     <label>Remarks: <input type="text" id="filterRemarks"></label>
-                                    <label>AS Seq ID: <input type="text" id="filterAsSeqId"></label>
+                                    <label>Sequecne Type <input type="text" id="filterAsSeqtype"></label>
                                 </div>
                                 <div class="search-column">
                                     <label>Project: <input type="text" id="filterProject"></label>
                                     <label>3' delivery: <input type="text" id="filter3Delivery"></label>
                                     <label>Transcript: <input type="text" id="filterTranscript"></label>
-                                    <label>Pos: <input type="text" id="filterPos"></label>
+                                    <label>Position: <input type="text" id="filterPos"></label>
                                     <label>Parents: <input type="text" id="filterParents"></label>
                                 </div>
                             </div>
@@ -150,25 +150,43 @@
                         </ul>
                     </li>
 
-                    <div id="columnToggle" class="mb-3">
-                        <h5>选择显示的内容 </h5>
-                        <div class="checkbox-column">
-                            
-                            <label><input type="checkbox" class="toggle-vis" data-column="0" checked> Strand ID</label>
-                            <label><input type="checkbox" class="toggle-vis" data-column="2" checked> 5' delivery</label>
-                            <label><input type="checkbox" class="toggle-vis" data-column="3" checked> Sequences</label>
-                            <label><input type="checkbox" class="toggle-vis" data-column="4" checked> 3' delivery</label>
-                            <label><input type="checkbox" class="toggle-vis" data-column="1" checked> Project</label>
-                            <label><input type="checkbox" class="toggle-vis" data-column="5" checked> Transcript</label>
-                            <label><input type="checkbox" class="toggle-vis" data-column="6" checked> Target</label>
-                            <label><input type="checkbox" class="toggle-vis" data-column="7" checked> Pos</label>
-                            <label><input type="checkbox" class="toggle-vis" data-column="8" checked> Strand_MWs</label>
-                            <label><input type="checkbox" class="toggle-vis" data-column="9" checked> Parents</label>
-                            <label><input type="checkbox" class="toggle-vis" data-column="10" checked> Remarks</label>
-                            <label><input type="checkbox" class="toggle-vis" data-column="11" checked> 操作</label>
-                                
+                     <div class="content-box p-3 mb-4 border rounded bg-light" style="max-width: 800px; margin: auto;"> 
+                        <div class="row">
+                            <!-- 左侧字段选择 -->
+                            <div class="col-md-8" style="min-width: 300px;">
+                                <h5 class="mb-3" style="font-size: 16px;"><strong>选择显示/导出字段</strong></h5>
+                                <div class="field-box" id="column-controls">
+                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="1" value="duplex_id" checked> Strand ID</label>
+                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="2" value="project" checked> Project</label>
+                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="3" value="Target" checked> Target</label>
+                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="4" value="seq_type" checked> Sequence Type</label>
+                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="5" value="delivery5" checked> 5' delivery</label>
+                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="6" value="modify_seq" checked> Sequences</label>
+                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="7" value="delivery3" checked> 3' delivery</label>
+                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="8" value="Transcript" checked> Transcript</label>
+                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="9" value="Pos" checked> Position</label>
+                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="10" value="Strand_MWs" checked> Strand_MWs</label>
+                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="11" value="parents" checked> Parents</label>
+                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="12" value="remarks" checked> Remarks</label>
+                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="13" value="created_at" checked> Update Time</label>
+                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="14" value="操作" checked> 操作</label>
+                                    
+                                </div>
+                            </div>
                         </div>
-                    <div>
+                        <!-- 右侧按钮 -->
+
+                        <div class="col-md-4 d-flex justify-content-start align-items-center" style="min-width: 200px; margin-top: 60px;">
+                            <button id="show-selected" type="button" class="btn btn-success custom-btn me-2" style="font-size: 18px;">
+                                ✅ 显示选中序列
+                            </button>
+                            <button id="download-selected" class="btn btn-info custom-btn" style="font-size: 18px; margin-top: 20px;">
+                                ⬇️ 下载选中项
+                            </button>
+                        </div>
+
+                    </div>
+
                         
                 </ul>
             </div>
@@ -180,37 +198,44 @@
                 </div>
 
                 <div class="panel-body">
-                    <table id="example" class="table table-striped table-bordered" style="width:100%">
+                    <table id="example" class="table table-striped table-bordered" style="width:100%">                                                                                                                                                                                                 
                         <thead>
                             <tr>
-                                <th>Strand ID</th>
-                                <th>Project</th>
-                                <th>5' delivery</th>
-                                <th>Sequences(5'-3')</th>
-                                <th>3' delivery</th>
-                                <th>Transcript</th>
-                                <th>Target</th>
-                                <th>Pos</th>
-                                <th>Strand_MWs</th>
-                                <th>Parents</th>
-                                <th>Remarks</th>
-                                <th>操作</th>
+                      <!--           <th style="display: none;">SortKey</th> 新增，用于排序 -->
+                                <th><input type="checkbox" id="select-all"></th> 
+                                <th >Strand ID</th>
+                                <th >Project</th>
+                                <th> Target</th> 
+                                <th> Sequence Type </th>
+                                <th >5' delivery</th>
+                                <th >Sequences</th>
+                                <th >3' delivery</th>
+                                <th >Transcript</th>
+                                <th >Position</th>
+                                <th >Strand_MWs</th>
+                                <th >Parents</th>
+                                <th >Remarks</th>
+                                <th >Update Time</th>
+                                <th >操作</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for seq in sequence_list %}
                                 {% for delivery in seq.deliveries %}
-                                    <tr {% if seq.rm_code == query_id %} data-query="true" {% endif %}
-                                        style="{% if seq.rm_code == query_id %} font-weight: bold; border-bottom: 3px solid black; {% endif %}">
+                                    <tr {% if seq.rm_code == query_id %} data-query="true" {% endif %} class="{% if loop.index is odd %}odd{% else %}even{% endif %} group-bg-1">
+                                        <td><input type="checkbox" class="row-checkbox"></td>
                                         <td style="white-space: nowrap;">
                                             {% if seq.rm_code == query_id %}
-                                                <strong style="color: red;">{{ seq.seq_prefix|default_if_none:"" }}{{ seq.rm_code|default_if_none:"" }}</strong>
+                                                <strong style="color: red;">{{ delivery.duplex_id |default_if_none:"" }}</strong>
                                             {% else %}
-                                                <span style="color: black;">{{ seq.seq_prefix|default_if_none:"" }}{{ seq.rm_code|default_if_none:"" }}</span>
-                                        {% endif %}
+                                                <span style="color: black;">{{ delivery.duplex_id | default_if_none:"" }}</span>
+                                            {% endif %}
                                         </td>
                                         
                                         <td>{{ seq.Project | default_if_none:"" }}</td>
+
+                                        <td>{{ delivery.Target | default_if_none:"" }}</td>
+                                        <td>{{ delivery.Seq_type | default_if_none:"" }}</td>
                                         <td>
                                             <div class="delivery-container">
                                                 {% for item in delivery.delivery5_colored %}
@@ -317,11 +342,12 @@
                                             </div>
                                         </td>
                                         <td>{{ seq.Transcript | default_if_none:"" }}</td>
-                                        <td>{{ seq.Target | default_if_none:"" }}</td>
                                         <td>{{ seq.Pos | default_if_none:"" }}</td>
                                         <td>{{ delivery.Strand_MWs | default_if_none:"" }}</td>
-                                        <td>{{ seq.Parents | default_if_none:"" }}</td>
+                                        <td>{{ delivery.Parents | default_if_none:"" }}</td>
                                         <td>{{ seq.Remark | default_if_none:"" }}</td>
+                                        <td>{{ seq.formatted_update_time | default_if_none:"" }}</td>
+                                        
                                         <td class="text-center">
                                             <a class="btn btn-info btn-sm" href="/seq_list/"><i class="fa fa-pencil fa-fw" aria-hidden="true"></i>返回</a>
                                         </td>

@@ -43,6 +43,8 @@ urlpatterns = [
 
     re_path(r'^change_password/', views.change_password, name='change_password'),     # 修改密码
 
+    re_path(r'^edit_reg_seq/', views.edit_reg_seq),     # 编辑序列
+
 
     path('download_selected/', views.download_selected, name='download_selected'),
 
