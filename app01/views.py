@@ -67,12 +67,17 @@ def get_delivery_colored(seq: str):
     ]
 
 # ✅ 生成修饰序列的颜色标记
+import re
+
+import re
+
 def get_modify_seq_colored(seq, seq_type):
+    # 使用正则表达式来提取符合条件的片段
     sequence = re.findall(
-        r'G\(moe\)|U\(moe\)|C\(moe\)|A\(moe\)|G\(OCF3\)|U\(OCF3\)|C\(OCF3\)|A\(OCF3\)|I|invab|GA02|GU02|GC02|TA12|TC12|TG12|TU0|ss|Af|Cf|Uf|Gf|Am|Cm|Um|Gm|dA|dT|dG|dC|dU|s|ss|o|[ACGU]|.', seq or ""
+        r'G\(moe\)|U\(moe\)|C\(moe\)|A\(moe\)|G\(OCF3\)|U\(OCF3\)|C\(OCF3\)|A\(OCF3\)|I|invab|GA02|GU02|GC02|TA12|TC12|TG12|TU0|ss|Af|Cf|Uf|Gf|Am|Cm|Um|Gm|dA|dT|dG|dC|dU|s|ss|o|[ACGUT]|.', seq or ""
     )
 
-    delivery=Delivery.objects.filter(linker_seq=seq).first()
+    delivery = Delivery.objects.filter(linker_seq=seq).first()
 
     if seq_type == 'AS':
         counter = 0
@@ -83,6 +88,9 @@ def get_modify_seq_colored(seq, seq_type):
 
     result = []
 
+   # print(f"Processing sequence: {seq}, type: {seq_type}, initial counter: {counter}")
+
+    # 将匹配的字符按要求存储在结果中
     for char in sequence:
         if char in ['s', 'ss', 'o']:
             count = ""
@@ -115,7 +123,42 @@ def get_modify_seq_colored(seq, seq_type):
             "count": count
         })
 
+    # Add grouping and reversal logic for SS type
+    if seq_type == 'SS':
+        # Group elements with following 'ss', 's', 'o'
+        groups = []
+        current_group = None
+        for item in result:
+            if item['char'] in ['ss', 's', 'o']:
+                if current_group is not None:
+                    current_group['subs'].append(item)
+                else:
+                    groups.append({'main': item, 'subs': []})
+            else:
+                if current_group is not None:
+                    groups.append(current_group)
+                current_group = {'main': item, 'subs': []}
+   #         print(f"Processing item: {item}, current_group: {current_group}")
+
+        if current_group is not None:
+            groups.append(current_group)
+  #          print(f"Grouped SS sequence: {groups}")   
+        
+        # Reverse groups and flatten
+        reversed_groups = reversed(groups)
+  #      print(list(reversed_groups))
+
+        new_result = []
+        for group in reversed_groups:
+            
+            new_result.append(group['main'])
+            new_result.extend(group['subs'])
+        result = new_result
+
+     #   print(f"Reversed SS sequence: {result}")
+
     return result
+
 
 # 用户登录视图
 def login_view(request):
@@ -1256,12 +1299,18 @@ def save_deliveries(df, duplex_id_map, username):
 
         for row in rows:
             full_seq = row['Modify_seq']
+            # 捕获序列最左侧的内容
             d5 = re.search(r'^\[([^\[\]]*)\]', full_seq)
-            d3 = re.search(r'\[([^\[\]]*)\](?!.*\])', full_seq)
+            print(d5)
+            # 捕获序列最右侧的内容
+            d3 = re.search(r'\[([^\[\]]*)\]$', full_seq)
+            print(d3)
             delivery5 = d5.group(1) if d5 else ''
             delivery3 = d3.group(1) if d3 else ''
             modify_seq = re.sub(r'^\[.*?\]', '', full_seq)
             modify_seq = re.sub(r'\[.*?\]$', '', modify_seq)
+         #   print(f"Processing row: {row['__original_line']}, full_seq: {full_seq}, modify_seq: {modify_seq[::-1]}")
+            
 
             tmp_seq = modify_seq.upper()
             tmp_seq = re.sub(r'GA02', 'A', tmp_seq)
@@ -1528,7 +1577,6 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq):
             for d in deliveries
         ]
     }
-
 
 
 def get_sequence_info(request):
