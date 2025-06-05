@@ -67,24 +67,22 @@ def get_delivery_colored(seq: str):
     ]
 
 # ✅ 生成修饰序列的颜色标记
-import re
-
-import re
-
 def get_modify_seq_colored(seq, seq_type):
     # 使用正则表达式来提取符合条件的片段
     sequence = re.findall(
         r'G\(moe\)|U\(moe\)|C\(moe\)|A\(moe\)|G\(OCF3\)|U\(OCF3\)|C\(OCF3\)|A\(OCF3\)|I|invab|GA02|GU02|GC02|TA12|TC12|TG12|TU0|ss|Af|Cf|Uf|Gf|Am|Cm|Um|Gm|dA|dT|dG|dC|dU|s|ss|o|[ACGUT]|.', seq or ""
     )
 
-    delivery = Delivery.objects.filter(linker_seq=seq).first()
+    # delivery = Delivery.objects.filter(linker_seq=seq).first()
 
-    if seq_type == 'AS':
-        counter = 0
-    elif seq_type == 'SS':
-        counter = int(delivery.naked_length) + 1 if delivery and delivery.naked_length else 22
-    else:
-        counter = 0
+    # if seq_type == 'AS':
+    #     counter = 0
+    # elif seq_type == 'SS':
+    #     counter = int(delivery.naked_length) + 1 if delivery and delivery.naked_length else 22
+    # else:
+    #     counter = 0
+
+    counter = 0
 
     result = []
 
@@ -95,10 +93,7 @@ def get_modify_seq_colored(seq, seq_type):
         if char in ['s', 'ss', 'o']:
             count = ""
         else:
-            if seq_type == 'AS':
-                counter += 1
-            elif seq_type == 'SS':
-                counter -= 1
+            counter += 1
             count = counter
 
         result.append({
@@ -1164,7 +1159,7 @@ def check_duplicates(df, ss_groups):
 
             # 提取 5' 和 3' 修饰
             d5 = re.search(r'^\[([^\[\]]*)\]', full_seq)
-            d3 = re.search(r'\[([^\[\]]*)\](?!.*\])', full_seq)
+            d3 = re.search(r'\[([^\[\]]*)\]$', full_seq)
             d5 = d5.group(1) if d5 else ''
             d3 = d3.group(1) if d3 else ''
 
@@ -1176,6 +1171,8 @@ def check_duplicates(df, ss_groups):
             delivery_keys.append(full_seq)
             row_ids.append(row_id)
             targets.append(row['Target'])
+
+        #    print(f'modify_seqs: {modify_seqs},row_ids: {row_id},  targets: {targets}')
 
         for i in range(0, len(modify_seqs), 2):
             if i + 1 < len(modify_seqs):
@@ -1205,6 +1202,7 @@ def check_duplicates(df, ss_groups):
 
                 # 2️⃣ 与数据库比较（限制在当前批次前缀一致时才查重）
                 current_batch_prefix = str(batch).zfill(2)
+        #        print(f"当前批次前缀: {current_batch_prefix}")
 
                 dup_id_list = Delivery.objects.filter(
                     project=project,
@@ -1214,6 +1212,7 @@ def check_duplicates(df, ss_groups):
                     delivery3=ss_d3
                 ).values_list('duplex_id', flat=True)
 
+            
                 for dup_id in dup_id_list:
                     # 获取数据库中 duplex_id 的批次前缀
                     try:
@@ -1242,6 +1241,8 @@ def check_duplicates(df, ss_groups):
                         repeated_ids.add(row_ids[i])
                         repeated_ids.add(row_ids[i + 1])
                         break  # 找到即退出查找
+                
+            #    print(duplicate_meg)
 
     return repeated_ids, duplicate_meg
 
@@ -1301,10 +1302,10 @@ def save_deliveries(df, duplex_id_map, username):
             full_seq = row['Modify_seq']
             # 捕获序列最左侧的内容
             d5 = re.search(r'^\[([^\[\]]*)\]', full_seq)
-            print(d5)
+      #      print(d5)
             # 捕获序列最右侧的内容
             d3 = re.search(r'\[([^\[\]]*)\]$', full_seq)
-            print(d3)
+       #     print(d3)
             delivery5 = d5.group(1) if d5 else ''
             delivery3 = d3.group(1) if d3 else ''
             modify_seq = re.sub(r'^\[.*?\]', '', full_seq)
@@ -1867,7 +1868,7 @@ def edit_reg_seq(request):
     '''
     
     rm_code = request.GET.get('id')
-    print(rm_code)
+   #print(rm_code)
    # seq_Strand_MWs = request.GET.get('strand_MWs')
    # seq_id_query = seq_id.split('_')[1]  # 获取 rm_code
    #print(seq_id_query)
@@ -1963,6 +1964,7 @@ def edit_reg_seq(request):
 @login_required
 @require_POST
 def download_selected(request):
+    download_time = datetime.now().strftime('%Y-%m-%d %H:%M')
     selected_ids = request.POST.get('selected_ids')
     selected_seq_types = request.POST.get('selected_seq_types')
     selected_columns = request.POST.get('selected_columns')
@@ -1989,7 +1991,7 @@ def download_selected(request):
         return HttpResponse("未找到匹配的序列", status=404)
 
     response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="selected_sequences.csv"'
+    response['Content-Disposition'] = f'attachment; filename="selected_sequences_{download_time}.csv"'
     response.write('\ufeff')  # 防止 Excel 打开中文乱码
 
     writer = csv.writer(response)
@@ -2008,7 +2010,7 @@ def download_selected(request):
                 part1 = getattr(d, 'Remark', '') or ''
                 part2 = getattr(seqinfo, 'Remark', '') if seqinfo else ''
                 val = f"{part1}\n{part2}".strip("\n") if (part1 or part2) else ''
-                print(val)
+      #          print(val)
             
             # ✅ 其他字段
             elif hasattr(d, col):

@@ -1,6 +1,0 @@
-Batch,Project,Target,Seq_type,Modify_seq,Strand_MWs,Parents,Remarks,__row_id
-1,BPR-307,TTR,SS,[invAboC6-S-LP415s]UmsCmsCmUmCmUmGfAmUfGfGfUmCmAmAmAmGmUmCmCmUm[L96oinvAb],123.0,P1-SS,SS1,2
-1,BPR-307,TTR,AS,AmsGfsGmAmCmUfUmUmGmAmCmCmAmUfCmAfGmAmGmGmAmsCmsAm,123.1,P1-AS,AS1,3
-1,BPR-307,TTR,SS,[invAboC6-S-LP415s]UmsCmsCmUmCmUmGfAmUfGfGfUmCmAmAmAmGmUmCmCmUm[L96oinvAb],123.0,P1-SS,SS1,4
-1,BPR-307,TTR,AS,AmsGfsGmAmCmUfUmUmGmAmCmCmAmUfCmAfGmAmGmGmAmsCmsAm,123.1,P1-AS,AS1,5
-1,BPR-307,TTR,AS,AmsGfsGmAmCmUfUmUmGmAmCmCmAmUfCmAfGmAmGmGmAmsCmsAm,2.0,P1-AS,AS1,7
