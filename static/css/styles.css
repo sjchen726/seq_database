@@ -1055,14 +1055,12 @@ table tbody tr:hover {
 
 .delivery-container {
     display: flex;
-    flex-wrap: nowrap;
-    /* 禁止换行 */
-    justify-content: center;
-    /* 元素水平居中 */
-    align-items: center;
-    /* 元素垂直居中 */
+    /* align-items: center; */
+    /* justify-content: center; */
     white-space: nowrap;
-    /* 防止换行 */
+    /* padding: 2px 4px; */
+    height: auto;
+    border: none;
 }
 
 
@@ -1071,11 +1069,11 @@ table tbody tr:hover {
 .delivery-item {
     display: inline-block;
     text-align: center;
-    line-height: 24px;
+    /* line-height: 24px; */
     /* 略高，让内容更居中 */
-    font-size: 16px;
+    font-size: 14px;
     /* 稍大一点，清晰易读 */
-    font-weight: 500;
+    /* font-weight: 500; */
     /* 半粗体，突出又不沉重 */
     color: rgb(242, 246, 246);
     /* 默认字体颜色为白色 */

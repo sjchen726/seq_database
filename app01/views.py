@@ -29,15 +29,19 @@ from django.conf import settings
 def clean_value(value):
         return None if pd.isna(value) or value == '' else value
 
-def get_delivery_colored(seq: str):
+import re
+
+def get_delivery_colored(seq: str, seq_type: str = None):
     """
     给任意 delivery 序列添加颜色标记（不区分 5'/3'）
+    如果 seq_type == 'AS'，将匹配组反向排列（subs 接到上一组的 main 后）
+    
     返回：
         [{"char": ..., "type": ...}, ...]
     """
     # 正则匹配规则，包含需要标记的所有部分
     regex = r"C6-S-LP415|invAb|s|C6-S-40KPEG2|o|NH2-C6|cPrp|avb3-SM2|L4-C6|L96|P98|."
-    
+
     # 颜色映射规则
     color_map = {
         'C6-S-LP415': 't1',
@@ -51,20 +55,56 @@ def get_delivery_colored(seq: str):
         'L4-C6': 't7',
         'L96': 't8',
         'P98': 't9',
-        
     }
 
-    # 查找所有匹配的字符串
+    # 匹配所有组件
     matches = re.findall(regex, seq or "")
-
-    # 通过 `re.sub` 移除空格，并返回颜色标记
-    return [
+    result = [
         {
-            "char": char.strip(),  # 去掉每个字符的前后空格
-            "type": color_map.get(char.strip(), "unknown")  # 获取颜色类型
+            "char": char.strip(),
+            "type": color_map.get(char.strip(), "unknown")
         }
         for char in matches
     ]
+
+    # --- 如果是 SS 序列，反转组顺序并让 subs 组合到前一组 main ---
+    if seq_type == 'SS':
+        groups = []
+        current_group = None
+
+        for item in result:
+            if item['char'] in ['s', 'o']:
+                if current_group is not None:
+                    current_group['subs'].append(item)
+                else:
+                    groups.append({'main': item, 'subs': []})
+            else:
+                if current_group is not None:
+                    groups.append(current_group)
+                current_group = {'main': item, 'subs': []}
+        
+        if current_group is not None:
+            groups.append(current_group)
+
+        # 反转组顺序，连接 subs 到前一组的 main 后面
+        new_result = []
+        prev_main = None
+
+        for group in reversed(groups):
+            if prev_main is not None:
+                new_result.append(prev_main)
+                new_result.extend(group['subs'])
+            else:
+                new_result.extend(group['subs'])
+            prev_main = group['main']
+
+        if prev_main:
+            new_result.append(prev_main)
+
+        result = new_result
+
+    return result
+
 
 # ✅ 生成修饰序列的颜色标记
 def get_modify_seq_colored(seq, seq_type):
@@ -73,16 +113,16 @@ def get_modify_seq_colored(seq, seq_type):
         r'G\(moe\)|U\(moe\)|C\(moe\)|A\(moe\)|G\(OCF3\)|U\(OCF3\)|C\(OCF3\)|A\(OCF3\)|I|invab|GA02|GU02|GC02|TA12|TC12|TG12|TU0|ss|Af|Cf|Uf|Gf|Am|Cm|Um|Gm|dA|dT|dG|dC|dU|s|ss|o|[ACGUT]|.', seq or ""
     )
 
-    # delivery = Delivery.objects.filter(linker_seq=seq).first()
+    delivery = Delivery.objects.filter(linker_seq=seq).first()
 
-    # if seq_type == 'AS':
-    #     counter = 0
-    # elif seq_type == 'SS':
-    #     counter = int(delivery.naked_length) + 1 if delivery and delivery.naked_length else 22
-    # else:
-    #     counter = 0
+    if seq_type == 'AS':
+        counter = 0
+    elif seq_type == 'SS':
+        counter = int(delivery.naked_length) + 1 if delivery and delivery.naked_length else 22
+    else:
+        counter = 0
 
-    counter = 0
+    # counter = 0
 
     result = []
 
@@ -93,7 +133,10 @@ def get_modify_seq_colored(seq, seq_type):
         if char in ['s', 'ss', 'o']:
             count = ""
         else:
-            counter += 1
+            if seq_type == 'AS':
+                counter += 1
+            elif seq_type == 'SS':
+                counter -= 1
             count = counter
 
         result.append({
@@ -120,9 +163,9 @@ def get_modify_seq_colored(seq, seq_type):
 
     # Add grouping and reversal logic for SS type
     if seq_type == 'SS':
-        # Group elements with following 'ss', 's', 'o'
         groups = []
         current_group = None
+
         for item in result:
             if item['char'] in ['ss', 's', 'o']:
                 if current_group is not None:
@@ -133,24 +176,27 @@ def get_modify_seq_colored(seq, seq_type):
                 if current_group is not None:
                     groups.append(current_group)
                 current_group = {'main': item, 'subs': []}
-   #         print(f"Processing item: {item}, current_group: {current_group}")
 
         if current_group is not None:
             groups.append(current_group)
-  #          print(f"Grouped SS sequence: {groups}")   
-        
-        # Reverse groups and flatten
-        reversed_groups = reversed(groups)
-  #      print(list(reversed_groups))
 
+        # 反转组并组合成新结果（subs + 上一组 main）
         new_result = []
-        for group in reversed_groups:
-            
-            new_result.append(group['main'])
-            new_result.extend(group['subs'])
-        result = new_result
+        prev_main = None
 
-     #   print(f"Reversed SS sequence: {result}")
+        for group in reversed(groups):
+            if prev_main is not None:
+                new_result.append(prev_main)
+                new_result.extend(group['subs'])
+            else:
+                # 第一组只有 subs，先插入
+                new_result.extend(group['subs'])
+            prev_main = group['main']
+
+        if prev_main:
+            new_result.append(prev_main)
+
+        result = new_result
 
     return result
 
@@ -602,7 +648,7 @@ def edit_seq(request):
 
             logger = logging.getLogger('edit_seqs')
 
-            log_message = f"用户 {request.user.username} 在 {new_datetime} 编辑了项目 {delivery.project}中ID为 {delivery.sequence_id} 的序列 ，修改内容为: "
+            log_message = f"用户 {request.user.username} 在 {new_datetime} 编辑了项目 {delivery.project}中ID为 {delivery.id} 的序列 ，修改内容为: "
             log_details = []
 
             for change in changes:
@@ -998,6 +1044,9 @@ def add_o_to_all_rules(modify_seq):
     linker_seq = ""
     i = 0
 
+    print(f"modify_seq: {modify_seq}")  # 调试输出
+    # 遍历 modify_seq 字符串
+
     while i < len(modify_seq):
         char = modify_seq[i]
 
@@ -1080,7 +1129,9 @@ def add_o_to_all_rules(modify_seq):
 
         i += 1
 
-    return linker_seq
+        print(f"linker_seq: {linker_seq[:-1]}")  # 调试输出
+
+    return linker_seq[:-1]
 
 # 上传递送信息 （分块函数)
 def parse_uploaded_csv(request):
@@ -1096,83 +1147,78 @@ def parse_uploaded_csv(request):
     df['__row_id'] = df.index
     df['__original_line'] = df.index + 2  # CSV 原始行号（包含表头）
 
-    required_columns = ['Batch', 'Project', 'Target', 'Seq_type', 'Modify_seq', 'Strand_MWs', 'Parents', 'Remarks']
+    required_columns = ['Project', 'Target', 'Seq_type', 'Modify_seq', 'Strand_MWs', 'Parents', 'Remarks']
     if not all(col in df.columns for col in required_columns):
         raise ValueError(f"文件格式错误，必须包含列: {', '.join(required_columns)}")
 
     return df
 
 def group_sequences(df):
-    ss_groups = []  # 用于存储有效的 SS+AS 组合
-    invalid_ss_as = []  # 用于存储无效的 SS 和 AS
-    grouped = df.groupby('Batch')  # 按照批次分组数据
+    ss_groups = []         # 有效 SS+AS 组合
+    invalid_ss_as = []     # 无效条目记录
 
-    for batch, group in grouped:
-        # 按 __row_id 排序后处理
-        group_sorted = group.sort_values(by='__row_id').reset_index(drop=True)
-        i = 0
+    # 对全表按 __row_id 排序（确保顺序匹配）
+    group_sorted = df.sort_values(by='__row_id').reset_index(drop=True)
 
-        while i < len(group_sorted):
-            row = group_sorted.iloc[i]
-            row_id = row['__row_id']
-            original_line = row['__original_line']
-            seq_type = row['Seq_type'].strip().upper()
-            modify_seq = row['Modify_seq']
+    i = 0
+    while i < len(group_sorted):
+        row = group_sorted.iloc[i]
+        row_id = row['__row_id']
+        original_line = row['__original_line']
+        seq_type = row['Seq_type'].strip().upper()
+        modify_seq = row['Modify_seq']
+        project = row['Project']  # 保留项目字段，仅用于显示或后续使用
 
-            if seq_type == 'SS':
-                temp_group = [row_id]
+        if seq_type == 'SS':
+            temp_group = [row_id]
 
-                if i + 1 < len(group_sorted):
-                    next_row = group_sorted.iloc[i + 1]
-                    next_seq_type = next_row['Seq_type'].strip().upper()
+            if i + 1 < len(group_sorted):
+                next_row = group_sorted.iloc[i + 1]
+                next_seq_type = next_row['Seq_type'].strip().upper()
 
-                    if next_seq_type == 'AS':
-                        temp_group.append(next_row['__row_id'])
-                        i += 1  # 跳过 AS，因为已经配对
-                        ss_groups.append((int(batch), row['Project'], temp_group))
-                    else:
-                        invalid_ss_as.append(f"原始行 {original_line}, {modify_seq}, 无效SS：没有 AS 配对")
+                if next_seq_type == 'AS':
+                    temp_group.append(next_row['__row_id'])
+                    ss_groups.append((None, project, temp_group))  # batch 用 None 占位
+                    i += 1  # 跳过已配对的 AS
                 else:
                     invalid_ss_as.append(f"原始行 {original_line}, {modify_seq}, 无效SS：没有 AS 配对")
+            else:
+                invalid_ss_as.append(f"原始行 {original_line}, {modify_seq}, 无效SS：没有 AS 配对")
 
-            elif seq_type == 'AS':
-                invalid_ss_as.append(f"原始行 {original_line}, {modify_seq}, 无效AS：没有配对的 SS")
+        elif seq_type == 'AS':
+            invalid_ss_as.append(f"原始行 {original_line}, {modify_seq}, 无效AS：没有配对的 SS")
 
-            i += 1
+        i += 1
 
     return ss_groups, invalid_ss_as
 
-# 同一批次，同一项目，统一靶点，算重复
+
+# 同一组SS+AS算重复
 def check_duplicates(df, ss_groups):
     repeated_ids = set()
     duplicate_meg = []
 
-    # 同批次内组合查重缓存
-    seen_seqs_in_batch = set()
+    # 
+    seen_combinations = set()
 
-    for batch, project, group in ss_groups:
-        modify_seqs, delivery_keys, row_ids, targets = [], [], [], []
+    for _, _, group in ss_groups:
+        modify_seqs, delivery_keys, row_ids = [], [], []
 
         for row_id in group:
             row = df.loc[row_id]
             full_seq = row['Modify_seq']
 
-            # 提取 5' 和 3' 修饰
             d5 = re.search(r'^\[([^\[\]]*)\]', full_seq)
             d3 = re.search(r'\[([^\[\]]*)\]$', full_seq)
             d5 = d5.group(1) if d5 else ''
             d3 = d3.group(1) if d3 else ''
 
-            # 去除 5' 和 3' 修饰，保留中间序列
             clean_seq = re.sub(r'^\[.*?\]', '', full_seq)
             clean_seq = re.sub(r'\[.*?\]$', '', clean_seq)
 
             modify_seqs.append((clean_seq, d5, d3))
             delivery_keys.append(full_seq)
             row_ids.append(row_id)
-            targets.append(row['Target'])
-
-        #    print(f'modify_seqs: {modify_seqs},row_ids: {row_id},  targets: {targets}')
 
         for i in range(0, len(modify_seqs), 2):
             if i + 1 < len(modify_seqs):
@@ -1180,53 +1226,30 @@ def check_duplicates(df, ss_groups):
                 as_clean_seq, as_d5, as_d3 = modify_seqs[i + 1]
                 ss_full_seq = delivery_keys[i]
                 as_full_seq = delivery_keys[i + 1]
-                target = targets[i]
 
-                # 当前组组合键：项目+批次+靶点+SS+AS
                 combo_key = (
-                    project, batch, target,
                     ss_clean_seq, ss_d5, ss_d3,
                     as_clean_seq, as_d5, as_d3
                 )
 
-                # 1️⃣ 批次内重复判断
-                if combo_key in seen_seqs_in_batch:
+                # 1️⃣ 本次上传内去重
+                if combo_key in seen_combinations:
                     duplicate_meg.append(
-                        f"重复SS+AS组（项目: {project}，批次: {batch}，靶点: {target}）："
-                        f"{ss_full_seq} + {as_full_seq} 在当前批次中重复"
+                        f"重复SS+AS组：{ss_full_seq} + {as_full_seq} 在上传数据中重复"
                     )
-                    repeated_ids.add(row_ids[i])
-                    repeated_ids.add(row_ids[i + 1])
-                else:
-                    seen_seqs_in_batch.add(combo_key)
+                    repeated_ids.update([row_ids[i], row_ids[i + 1]])
+                    continue
+                seen_combinations.add(combo_key)
 
-                # 2️⃣ 与数据库比较（限制在当前批次前缀一致时才查重）
-                current_batch_prefix = str(batch).zfill(2)
-        #        print(f"当前批次前缀: {current_batch_prefix}")
-
+                # 2️⃣ 与数据库查重（完全不看 project、target、batch）
                 dup_id_list = Delivery.objects.filter(
-                    project=project,
-                    Target=target,
                     modify_seq=ss_clean_seq,
                     delivery5=ss_d5,
                     delivery3=ss_d3
                 ).values_list('duplex_id', flat=True)
 
-            
                 for dup_id in dup_id_list:
-                    # 获取数据库中 duplex_id 的批次前缀
-                    try:
-                        db_batch_prefix = dup_id.split("_")[1][:2]
-                    except IndexError:
-                        continue  # 格式错误，跳过
-
-                    # 只有批次前缀一致才比较
-                    if db_batch_prefix != current_batch_prefix:
-                        continue
-
                     exists_as = Delivery.objects.filter(
-                        project=project,
-                        Target=target,
                         modify_seq=as_clean_seq,
                         delivery5=as_d5,
                         delivery3=as_d3,
@@ -1235,52 +1258,36 @@ def check_duplicates(df, ss_groups):
 
                     if exists_as:
                         duplicate_meg.append(
-                            f"重复SS+AS组（项目: {project}，批次: {batch}，靶点: {target}）："
-                            f"{ss_full_seq} + {as_full_seq} 与数据库中已有记录重复（duplex_id: {dup_id}）"
+                            f"重复SS+AS组：{ss_full_seq} + {as_full_seq} 与数据库中已有记录重复（duplex_id: {dup_id}）"
                         )
-                        repeated_ids.add(row_ids[i])
-                        repeated_ids.add(row_ids[i + 1])
-                        break  # 找到即退出查找
-                
-            #    print(duplicate_meg)
+                        repeated_ids.update([row_ids[i], row_ids[i + 1]])
+                        break
 
     return repeated_ids, duplicate_meg
 
-
 def assign_duplex_ids(df, ss_groups, repeated_ids):
     duplex_id_map = {}
-    batch_project_groups = defaultdict(list)
+    valid_groups = [group for _, _, group in ss_groups if not repeated_ids.intersection(group)]
 
-    for batch, project, group in ss_groups:
-        if not repeated_ids.intersection(group):
-            batch_project_groups[(project, int(batch))].append(group)
+    pattern = re.compile(r"^BP_(\d{6})$")
+    existing_ids = Delivery.objects.filter(
+        duplex_id__startswith="BP_"
+    ).values_list('duplex_id', flat=True)
 
-    for (project, batch), valid_groups in batch_project_groups.items():
-        batch_str = f"{batch:02d}"
-        prefix = f"{project}_{batch_str}"
+    existing_numbers = [
+        int(m.group(1)) for d in existing_ids if (m := pattern.match(d))
+    ]
+    next_number = max(existing_numbers, default=0) + 1
 
-        # 只匹配符合“项目_批次+4位数字”的duplex_id
-        pattern = re.compile(rf"^{re.escape(prefix)}(\d{{4}})$")
-
-        existing_ids = Delivery.objects.filter(
-            project=project,
-            duplex_id__startswith=prefix
-        ).values_list('duplex_id', flat=True)
-
-        existing_numbers = [
-            int(m.group(1)) for d in existing_ids if (m := pattern.match(d))
-        ]
-
-        next_number = max(existing_numbers, default=0) + 1
-
-        for group in valid_groups:
-            serial = f"{next_number:04d}"
-            duplex_id = f"{prefix}{serial}"  # e.g. BPR-307_010001
-            for row_id in group:
-                duplex_id_map[row_id] = duplex_id
-            next_number += 1
+    for group in valid_groups:
+        serial = f"{next_number:06d}"
+        duplex_id = f"BP_{serial}"
+        for row_id in group:
+            duplex_id_map[row_id] = duplex_id
+        next_number += 1
 
     return duplex_id_map
+
 
 def save_deliveries(df, duplex_id_map, username):
     upload_log = []
@@ -1357,10 +1364,32 @@ def save_deliveries(df, duplex_id_map, username):
             # 如果整组未注册，跳过后续处理
             continue
 
+        # 处理每个详细行
         for item in detailed_rows:
             row = item['row']
+            sequence_obj = Sequence.objects.get(seq=item['naked_seq'])
+
+            # 基础ID为裸序列对应的 Sequence 主键（如 SEQ001）
+            base_id = sequence_obj.rm_code
+
+            # 查找现有 Delivery 中以该 base_id 开头的 ID，统计已有数量
+            # 统一使用 base_id + .数字 作为 id
+            existing_ids = Delivery.objects.filter(id__startswith=base_id).values_list('id', flat=True)
+
+            # 提取所有已存在的后缀数字
+            suffix_numbers = [
+                int(i.split(".")[-1]) for i in existing_ids
+                if "." in i and i.split(".")[0] == base_id and i.split(".")[-1].isdigit()
+            ]
+
+            # 第一个就是 .1
+            next_suffix = max(suffix_numbers, default=0) + 1
+            delivery_id = f"{base_id}.{next_suffix}"
+
+
             Delivery.objects.create(
-                sequence=Sequence.objects.get(seq=item['naked_seq']),
+                id=delivery_id,
+                sequence=sequence_obj,
                 modify_seq=item['modify_seq'],
                 linker_seq=add_o_to_all_rules(item['modify_seq']),
                 naked_length=item['naked_length'],
@@ -1375,6 +1404,7 @@ def save_deliveries(df, duplex_id_map, username):
                 duplex_id=duplex_id,
                 created_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             )
+
             upload_meg.append(item['full_seq'])
             upload_log.append({
                 'Time': now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -1384,6 +1414,7 @@ def save_deliveries(df, duplex_id_map, username):
                 'Type': row['Seq_type'],
                 'Modified_Sequence': item['full_seq']
             })
+
 
     return upload_meg, upload_log, unregistered_meg, unregistered_log
 
@@ -1569,11 +1600,12 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq):
                 'Parents': getattr(d, 'parents', None),
                 'Target': getattr(d, 'Target', None),
                 'Seq_type': getattr(d, 'seq_type', None),
+                'delivery_id': getattr(d, 'id', None),
                 'delivery5': getattr(d, 'delivery5', None),
                 'delivery3': getattr(d, 'delivery3', None),
                 'Strand_MWs': getattr(d, 'Strand_MWs', None),
-                'delivery3_colored': get_delivery_colored(get_attr(d, 'delivery3')),
-                'delivery5_colored': get_delivery_colored(get_attr(d, 'delivery5')),
+                'delivery3_colored': get_delivery_colored(get_attr(d, 'delivery3'), getattr(d, 'seq_type', None)),
+                'delivery5_colored': get_delivery_colored(get_attr(d, 'delivery5'), getattr(d, 'seq_type', None)),
             }
             for d in deliveries
         ]
@@ -1820,10 +1852,10 @@ def reg_seq_list(request):
 
     for seq in sequences:
         # 根据 seq_type 判断前缀
-        if seq.seq_type == 'SS' or seq.seq_type == 'RS':
-            seq_prefix = 'RS_'
+        if seq.seq_type == 'SS' :
+            seq_prefix = 'SS_'
         elif seq.seq_type == 'AS':
-            seq_prefix = 'RA_'
+            seq_prefix = 'AS_'
         else:
             seq_prefix = ''  # 如果没有匹配的 seq_type，设为空
 

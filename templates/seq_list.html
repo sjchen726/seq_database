@@ -49,23 +49,24 @@
                     
                         <!-- 高级搜索面板 -->
                         <div id="advancedSearchPanel">
-                            <div class="search-header">
+                            <div class="search-header" id="dragHandle">
                                 <span>🔍 高级搜索</span>
                                 <button id="closeSearchPanel">✖</button>
                             </div>
                             <div class="advanced-search-grid">
                                 <div class="search-column">
                                     <label>Strand ID: <input type="text" id="filterSequence"></label>
-                                    <label>Ligand 1: <input type="text" id="filter5Delivery"></label>
-                                    <label>Sequences: <input type="text" id="filterModifySeq"></label>
+                                    <label>5' Ligand: <input type="text" id="filter5Delivery"></label>
+                                    <label>Sequences: <input type="text" id="filterSeq"></label>
                                     <label>Target: <input type="text" id="filterTarget"></label>
                                     <label>Strand_MWs: <input type="text" id="filterStrandMWs"></label>
                                     <label>Remarks: <input type="text" id="filterRemarks"></label>
-                                    <label>Sequecne Type <input type="text" id="filterAsSeqtype"></label>
+                                    <label>Sequence ID: <input type="text" id="filterAsSeqtype"></label>
                                 </div>
                                 <div class="search-column">
                                     <label>Project: <input type="text" id="filterProject"></label>
-                                    <label>Ligand 2: <input type="text" id="filter3Delivery"></label>
+                                    <label>3' Ligand: <input type="text" id="filter3Delivery"></label>
+                                    <label>Modify Sequences: <input type="text" id="filterModifySeq"></label>
                                     <label>Transcript: <input type="text" id="filterTranscript"></label>
                                     <label>Position: <input type="text" id="filterPos"></label>
                                     <label>Parents: <input type="text" id="filterParents"></label>
@@ -214,7 +215,7 @@
                                 <th >Strand ID</th>
                                 <th >Project</th>
                                 <th> Target</th> 
-                                <th> Sequence Type </th>
+                                <th> Sequence ID </th>
                                 <th >Ligand 1</th>
                                 <th >Sequences (AS: 5'-3', SS: 3'-5')</th>
                                 <th >Ligand 2</th>
@@ -247,44 +248,52 @@
                                     </td>
                                     <td>
                                         {% for d in group.items.0.deliveries %}
-                                            {{ d.Seq_type|default_if_none:'' }}
+                                            {{ d.Seq_type|default_if_none:'' }}_{{ d.delivery_id|default_if_none:'' }}<br>
                                         {% endfor %}
                                     </td>
                                     <td>
-                                         <div class="delivery-container">
+                                         <div class="delivery-container" style="justify-content: flex-end;">
                                             {% for d in group.items.0.deliveries %}
                                                 {% for char_item in d.delivery3_colored %}
+                                                    <div style="display: flex; flex-direction: column; justify-content: flex-end;">
+
+                                                    {# 第一行：X 或空格，占据顶部一行 #}
+                                                    <span class="seq-count" style="visibility: hidden;">X</span>
+
+                                                    {# 第二行：实际字符 + 背景色 #}
                                                     <span class="delivery-item 
                                                         {% if char_item.type == 's' %} s {% endif %}" 
                                                         style="
-                                                            {% if char_item.type == 'unknown' %}
-                                                                color: black; background-color: transparent; /* 字体黑色，背景无颜色 */
-                                                            {% elif char_item.type == 't1' %} 
-                                                                color: black; background-color: rgb(191, 228, 96); /* 绿色 */ 
-                                                            {% elif char_item.type == 't2' %} 
-                                                                background-color: rgb(144, 110, 212); /* 红色 */ 
-                                                            {% elif char_item.type == 't3' %} 
-                                                                background-color: rgb(126, 206, 154); /* 蓝色 */ 
-                                                            {% elif char_item.type == 't4' %} 
-                                                                background-color: rgb(254, 145, 99); /* 蓝色 */ 
-                                                            {% elif char_item.type == 't5' %} 
-                                                                background-color: rgb(246, 144, 232); /* 蓝色 */ 
-                                                            {% elif char_item.type == 't6' %} 
-                                                                background-color: rgb(12, 255, 97); /* 蓝色 */ 
-                                                            {% elif char_item.type == 't7' %} 
-                                                                background-color: rgb(67, 65, 228); /* 蓝色 */ 
-                                                            {% elif char_item.type == 't8' %} 
-                                                                background-color: rgb(174, 187, 255); /* 蓝色 */ 
-                                                            {% elif char_item.type == 't9' %} 
-                                                                background-color: rgb(246, 168, 235); /* 蓝色 */ 
-                                                            {% elif char_item.type == 's' %} 
-                                                                 color: black; background-color: rgb(236, 247, 84); /* 黄色 */ 
-                                                            {% elif char_item.type == 'o' %} 
-                                                                background-color: rgb(200, 200, 200); /* 黄色 */ 
-                                                            {% endif %}
-                                                        ">{{ char_item.char }}</span>
-                                                {% endfor %}
+                                                        {% if char_item.type == 'unknown' %}
+                                                            color: black; background-color: transparent;
+                                                        {% elif char_item.type == 't1' %}
+                                                            color: black; background-color: rgb(191, 228, 96);
+                                                        {% elif char_item.type == 't2' %}
+                                                            background-color: rgb(144, 110, 212);
+                                                        {% elif char_item.type == 't3' %}
+                                                            background-color: rgb(126, 206, 154);
+                                                        {% elif char_item.type == 't4' %}
+                                                            background-color: rgb(254, 145, 99);
+                                                        {% elif char_item.type == 't5' %}
+                                                            background-color: rgb(246, 144, 232);
+                                                        {% elif char_item.type == 't6' %}
+                                                            background-color: rgb(12, 255, 97);
+                                                        {% elif char_item.type == 't7' %}
+                                                            background-color: rgb(67, 65, 228);
+                                                        {% elif char_item.type == 't8' %}
+                                                            background-color: rgb(174, 187, 255);
+                                                        {% elif char_item.type == 't9' %}
+                                                            background-color: rgb(246, 168, 235);
+                                                        {% elif char_item.type == 's' %}
+                                                            color: black; background-color: rgb(236, 247, 84);
+                                                        {% elif char_item.type == 'o' %}
+                                                            background-color: rgb(200, 200, 200);
+                                                        {% endif %}">
+                                                        {{ char_item.char }}
+                                                    </span>
+                                                </div>
                                             {% endfor %}
+                                        {% endfor %}
                                         </div>
                                     </td>
                                     <td>
@@ -322,40 +331,48 @@
                                         </div>
                                     </td>
                                     <td>
-                                         <div class="delivery-container">
+                                         <div class="delivery-container" style="justify-content: flex-start;">
+
                                             {% for d in group.items.0.deliveries %}
                                                 {% for char_item in d.delivery5_colored %}
-                                                    <span class="delivery-item 
-                                                        {% if char_item.type == 's' %} s {% endif %}" 
-                                                        style="
-                                                            {% if char_item.type == 'unknown' %}
-                                                                color: black; background-color: transparent; /* 字体黑色，背景无颜色 */
-                                                            {% elif char_item.type == 't1' %} 
-                                                                color: black; background-color: rgb(191, 228, 96); /* 绿色 */ 
-                                                            {% elif char_item.type == 't2' %} 
-                                                                background-color: rgb(144, 110, 212); /* 红色 */ 
-                                                            {% elif char_item.type == 't3' %} 
-                                                                background-color: rgb(126, 206, 154); /* 蓝色 */ 
-                                                            {% elif char_item.type == 't4' %} 
-                                                                background-color: rgb(254, 145, 99); /* 蓝色 */ 
-                                                            {% elif char_item.type == 't5' %} 
-                                                                background-color: rgb(246, 144, 232); /* 蓝色 */ 
-                                                            {% elif char_item.type == 't6' %} 
-                                                                background-color: rgb(12, 255, 97); /* 蓝色 */ 
-                                                            {% elif char_item.type == 't7' %} 
-                                                                background-color: rgb(67, 65, 228); /* 蓝色 */ 
-                                                            {% elif char_item.type == 't8' %} 
-                                                                background-color: rgb(174, 187, 255); /* 蓝色 */ 
-                                                            {% elif char_item.type == 't9' %} 
-                                                                background-color: rgb(246, 168, 235); /* 蓝色 */ 
-                                                            {% elif char_item.type == 's' %} 
-                                                                color: black; background-color: rgb(236, 247, 84); /* 黄色 */ 
-                                                            {% elif char_item.type == 'o' %} 
-                                                                background-color: rgb(200, 200, 200); /* 黄色 */ 
-                                                            {% endif %}
-                                                        ">{{ char_item.char }}</span>
+                                                    <div style="display: flex; flex-direction: column; justify-content: flex-start;">
+
+                                                        <span class="seq-count" style="visibility: hidden;">X</span>
+
+                                                        <span class="delivery-item 
+                                                            {% if char_item.type == 's' %} s {% endif %}" 
+                                                            style="
+                                                                {% if char_item.type == 'unknown' %}
+                                                                    color: black; background-color: transparent; /* 字体黑色，背景无颜色 */
+                                                                {% elif char_item.type == 't1' %} 
+                                                                    color: black; background-color: rgb(191, 228, 96); /* 绿色 */ 
+                                                                {% elif char_item.type == 't2' %} 
+                                                                    background-color: rgb(144, 110, 212); /* 红色 */ 
+                                                                {% elif char_item.type == 't3' %} 
+                                                                    background-color: rgb(126, 206, 154); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't4' %} 
+                                                                    background-color: rgb(254, 145, 99); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't5' %} 
+                                                                    background-color: rgb(246, 144, 232); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't6' %} 
+                                                                    background-color: rgb(12, 255, 97); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't7' %} 
+                                                                    background-color: rgb(67, 65, 228); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't8' %} 
+                                                                    background-color: rgb(174, 187, 255); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't9' %} 
+                                                                    background-color: rgb(246, 168, 235); /* 蓝色 */ 
+                                                                {% elif char_item.type == 's' %} 
+                                                                    color: black; background-color: rgb(236, 247, 84); /* 黄色 */ 
+                                                                {% elif char_item.type == 'o' %} 
+                                                                    background-color: rgb(200, 200, 200); /* 黄色 */ 
+                                                                {% endif %}
+                                                            ">{{ char_item.char }}</span>
+
+                                                            
+                                                    </div>
+                                                    {% endfor %}
                                                 {% endfor %}
-                                            {% endfor %}
                                         </div>
                                     </td>
                                     <td>{{ group.items.0.Transcript|default_if_none:'' }}</td>
@@ -399,11 +416,11 @@
                                         </td>
                                         <td>
                                             {% for d in group.items.1.deliveries %}
-                                                {{ d.Seq_type|default_if_none:'' }}
+                                                {{ d.Seq_type|default_if_none:'' }}_{{ d.delivery_id|default_if_none:'' }}<br>
                                             {% endfor %}
                                         </td>
                                         <td>
-                                            <div class="delivery-container">
+                                            <div class="delivery-container" style="justify-content: flex-end">
                                                 {% for d in group.items.1.deliveries %}
                                                     {% for char_item in d.delivery5_colored %}
                                                         <span class="delivery-item 
@@ -471,7 +488,7 @@
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="delivery-container">
+                                            <div class="delivery-container" style="justify-content: flex-start;">
                                                 {% for d in group.items.1.deliveries %}
                                                     {% for char_item in d.delivery3_colored %}
                                                         <span class="delivery-item 
@@ -558,5 +575,6 @@
 <script src="/static/js/custom.js"></script>
 <script src="/static/js/tables.js"></script>
 <script src="/static/js/search.js"></script>
+<script src="/static/js/drag.js"></script>
 </body>
 </html>
