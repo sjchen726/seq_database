@@ -43,20 +43,24 @@ def get_delivery_colored(seq: str, selected_seq_type: str, seq_type: str) -> lis
 
     # --- 处理 seq 中的特殊字符 ---
     # 正则匹配规则，包含需要标记的所有部分
-    regex = r"C6-S-LP415|invAb|s|C6-S-40KPEG2|o|NH2-C6|cPrp|avb3-SM2|L4-C6|L96|P98|-|."
+    regex = r"NH2C6|NHC6|invAb|C6-S-LP01a|C6S-SC6|Vp|LP02-C6|LP01a|dT|L96|P98|o|s|ss|-|."
 
     # 颜色映射规则
     color_map = {
-        'C6-S-LP415': 't1',
+        'NH2C6': 't1',
+        'NHC6': 't1',
         'invAb': 't2',
+        'C6-S-LP01a': 't3',
+        'LP02-C6': 't4',
+        'Vp': 't5',
+        'C6S-SC6': 't6',
+        # 'LP02': 't6',
+        # 'LP01a': 't7',
         's': 's',
-        'C6-S-40KPEG2': 't3',
+        'ss': 's',
         'o': 'o',
-        '-': '-',
-        'NH2-C6': 't4',
-        'cPrp': 't5',
-        'avb3-SM2': 't6',
-        'L4-C6': 't7',
+        '-': '-',    
+        'dT': 't7',
         'L96': 't8',
         'P98': 't9',
     }

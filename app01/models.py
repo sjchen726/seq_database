@@ -146,3 +146,13 @@ class LmsUser(AbstractUser):
     def __str__(self):
         return f"{self.username} ({self.user_type})"
     
+
+
+#注册模块分类
+class DeliveryComponent(models.Model):
+    name = models.CharField(max_length=100, unique=True)  # 比如 C6-S-LP415、s、-
+    color_type = models.CharField(max_length=10, default="unknown")  # 比如 t1, s, o，用于渲染颜色
+    priority = models.IntegerField(default=0)  # 控制匹配顺序（长的先匹配）
+
+    def __str__(self):
+        return self.name
