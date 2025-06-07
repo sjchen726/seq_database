@@ -44,23 +44,24 @@
 
                         <!-- 高级搜索面板 -->
                         <div id="advancedSearchPanel">
-                            <div class="search-header">
+                            <div class="search-header" id="dragHandle">
                                 <span>🔍 高级搜索</span>
                                 <button id="closeSearchPanel">✖</button>
                             </div>
                             <div class="advanced-search-grid">
                                 <div class="search-column">
                                     <label>Strand ID: <input type="text" id="filterSequence"></label>
-                                    <label>Ligand 1: <input type="text" id="filter5Delivery"></label>
-                                    <label>Sequences: <input type="text" id="filterModifySeq"></label>
+                                    <label>5' Ligand: <input type="text" id="filter5Delivery"></label>
+                                    <label>Sequences: <input type="text" id="filterSeq"></label>
                                     <label>Target: <input type="text" id="filterTarget"></label>
                                     <label>Strand_MWs: <input type="text" id="filterStrandMWs"></label>
                                     <label>Remarks: <input type="text" id="filterRemarks"></label>
-                                    <label>Sequecne Type <input type="text" id="filterAsSeqtype"></label>
+                                    <label>Sequence ID: <input type="text" id="filterAsSeqtype"></label>
                                 </div>
                                 <div class="search-column">
                                     <label>Project: <input type="text" id="filterProject"></label>
-                                    <label>Ligand 2: <input type="text" id="filter3Delivery"></label>
+                                    <label>3' Ligand: <input type="text" id="filter3Delivery"></label>
+                                    <label>Modify Sequences: <input type="text" id="filterModifySeq"></label>
                                     <label>Transcript: <input type="text" id="filterTranscript"></label>
                                     <label>Position: <input type="text" id="filterPos"></label>
                                     <label>Parents: <input type="text" id="filterParents"></label>
@@ -74,6 +75,7 @@
                     </div>
                 </div>
             </div>
+
             <div class="col-md-2">
                 <div class="navbar navbar-inverse" role="banner">
                     <nav class="collapse navbar-collapse bs-navbar-collapse navbar-right" role="navigation">
@@ -208,7 +210,13 @@
                                 <th> Target</th> 
                                 <th> Sequence Type </th>
                                 <th >Ligand 1</th>
-                                <th >Sequences (AS 5'-3')</th>
+                                <th>
+                                    Sequences <br>
+                                    <select id="seq_type_selector" class="form-control form-control-sm" style="width: auto; display: inline-block; margin-top: 2px; min-width: 100px; font-size: 16px;">
+                                        <option value="SS" {% if selected_seq_type == 'SS' %}selected{% endif %}>AS: 5'-3'; SS: 3'-5'</option>
+                                        <option value="AS" {% if selected_seq_type == 'AS' %}selected{% endif %}>SS: 5'-3'; AS: 3'-5'</option>
+                                    </select> 
+                                </th>
                                 <th >Ligand 2</th>
                                 <th >Transcript</th>
                                 <th >Position</th>
@@ -226,7 +234,7 @@
                                         <td><input type="checkbox" class="row-checkbox"></td>
                                         <td style="white-space: nowrap;">
                                             {% if seq.rm_code == query_id %}
-                                                <strong style="color: red;">{{ delivery.duplex_id |default_if_none:"" }}</strong>
+                                                <strong style="color: red;">{{ delivery.duplex_id | default_if_none:"" }}</strong>
                                             {% else %}
                                                 <span style="color: black;">{{ delivery.duplex_id | default_if_none:"" }}</span>
                                             {% endif %}
@@ -237,174 +245,97 @@
                                         <td>{{ delivery.Target | default_if_none:"" }}</td>
                                         <td>{{ delivery.Seq_type | default_if_none:"" }}</td>
                                         <td>
-                                            <div class="delivery-container">
-                                                {% if delivery.Seq_type == 'AS' %}
-                                                    {% for item in delivery.delivery5_colored %}
-                                                        <span class="delivery-item {% if item.type == 's' %} s {% endif %}" 
-                                                        style="
-                                                            {% if item.type == 'unknown' %}
-                                                                color: black; background-color: transparent; /* 字体黑色，背景无颜色 */
-                                                            {% elif item.type == 't1' %} 
-                                                                background-color: rgb(191, 228, 96); /* 绿色 */ 
-                                                            {% elif item.type == 't2' %} 
-                                                                background-color: rgb(144, 110, 212); /* 红色 */ 
-                                                            {% elif item.type == 't3' %} 
-                                                                background-color: rgb(126, 206, 154); /* 蓝色 */ 
-                                                            {% elif item.type == 't4' %} 
-                                                                background-color: rgb(254, 145, 99); /* 蓝色 */ 
-                                                            {% elif item.type == 't5' %} 
-                                                                background-color: rgb(246, 144, 232); /* 蓝色 */ 
-                                                            {% elif item.type == 't6' %} 
-                                                                background-color: rgb(12, 255, 97); /* 蓝色 */ 
-                                                            {% elif item.type == 't7' %} 
-                                                                background-color: rgb(67, 65, 228); /* 蓝色 */ 
-                                                            {% elif item.type == 't8' %} 
-                                                                background-color: rgb(174, 187, 255); /* 蓝色 */ 
-                                                            {% elif item.type == 't9' %} 
-                                                                background-color: rgb(246, 168, 235); /* 蓝色 */ 
-                                                            {% elif item.type == 's' %} 
-                                                                background-color: rgb(236, 247, 84); /* 黄色 */ 
-                                                            {% elif item.type == 'o' %} 
-                                                                background-color: rgb(200, 200, 200); /* 黄色 */ 
-                                                            {% endif %}
-                                                        ">{{ item.char }}</span>
-                                                    {% endfor %}
-                                                {% elif  delivery.Seq_type == 'SS' %}
-                                                    {% for item in delivery.delivery3_colored %}
-                                                            <span class="delivery-item {% if item.type == 's' %} s {% endif %}" 
-                                                            style="
-                                                                {% if item.type == 'unknown' %}
-                                                                    color: black; background-color: transparent; /* 字体黑色，背景无颜色 */
-                                                                {% elif item.type == 't1' %} 
-                                                                    background-color: rgb(191, 228, 96); /* 绿色 */ 
-                                                                {% elif item.type == 't2' %} 
-                                                                    background-color: rgb(144, 110, 212); /* 红色 */ 
-                                                                {% elif item.type == 't3' %} 
-                                                                    background-color: rgb(126, 206, 154); /* 蓝色 */ 
-                                                                {% elif item.type == 't4' %} 
-                                                                    background-color: rgb(254, 145, 99); /* 蓝色 */ 
-                                                                {% elif item.type == 't5' %} 
-                                                                    background-color: rgb(246, 144, 232); /* 蓝色 */ 
-                                                                {% elif item.type == 't6' %} 
-                                                                    background-color: rgb(12, 255, 97); /* 蓝色 */ 
-                                                                {% elif item.type == 't7' %} 
-                                                                    background-color: rgb(67, 65, 228); /* 蓝色 */ 
-                                                                {% elif item.type == 't8' %} 
-                                                                    background-color: rgb(174, 187, 255); /* 蓝色 */ 
-                                                                {% elif item.type == 't9' %} 
-                                                                    background-color: rgb(246, 168, 235); /* 蓝色 */ 
-                                                                {% elif item.type == 's' %} 
-                                                                    background-color: rgb(236, 247, 84); /* 黄色 */ 
-                                                                {% elif item.type == 'o' %} 
-                                                                    background-color: rgb(200, 200, 200); /* 黄色 */ 
-                                                                {% endif %}
-                                                            ">{{ item.char }}</span>
-                                                    {% endfor %}
+                                            <div class="delivery-container" style="justify-content: flex-end;" >
+                                                {% if delivery.Seq_type == 'AS' and selected_seq_type == "SS" %}
+                                                    {% with delivery.delivery5_colored as delivery_colored %}
+                                                    {% include "char_block_AS.html" %}
+                                                    {% endwith %}
+                                                {% elif delivery.Seq_type == 'AS' and selected_seq_type == "AS" %}
+                                                    {% with delivery.delivery3_colored as delivery_colored %}
+                                                    {% include "char_block_AS.html" %}
+                                                    {% endwith %}
+                                                {% elif  delivery.Seq_type == 'SS' and selected_seq_type == "AS" %}
+                                                    {% with delivery.delivery5_colored as delivery_colored %}
+                                                    {% include "char_block_SS.html" %}
+                                                    {% endwith %}
+                                                {% elif  delivery.Seq_type == 'SS' and selected_seq_type == "SS" %}
+                                                    {% with delivery.delivery3_colored as delivery_colored %}
+                                                    {% include "char_block_SS.html" %}
+                                                    {% endwith %}
                                                 {% endif %}
                                             </div>
                                         </td>
                            <!--            <td>{{ seq.seq | default_if_none:"" }}</td> -->
                                         <td>
-                                            {% if delivery.Seq_type == 'AS' %}
-                                                <div data-modify-seq="{{ seq.seq|join:'' }}" style="display: flex;">
-                                            {% endif %}
-                                            {% if delivery.Seq_type == 'SS' %}
-                                                <div data-modify-seq="{{ seq.seq|join:'' |slice:':-1' }}" style="display: flex;">
-                                            {% endif %}
+                                            <div data-modify-seq="{% if selected_seq_type == delivery.Seq_type %}
+                                                                {{ seq.seq|join:''|slice:'::-1' }}
+                                                            {% else %}
+                                                                {{ seq.seq|join:'' }}
+                                                            {% endif %}"
+                                            style="display: flex; justify-content: {% if selected_seq_type == 'SS' %}flex-start{% elif selected_seq_type == 'AS' %}flex-end{% else %}center{% endif %};">
                                                     {% for seq_item in seq.modify_seq_colored %}
-                                                        <div style="display: flex; flex-direction: column; align-items: center;">
-                                                            <span class="seq-container {% if seq_item.char == 's' or seq_item.char == 'o' %}seq-narrow{% else %}seq-wide{% endif %}"
-                                                                style="background-color: 
-                                                                    {% if seq_item.type == 'normal' %} rgb(156, 228, 255);
-                                                                    {% elif seq_item.type == 'f' %} rgb(7, 191, 7);
-                                                                    {% elif seq_item.type == 'm' %} rgb(73, 95, 240); color: white;
-                                                                    {% elif seq_item.type == 'd' %} rgb(144, 170, 241);
-                                                                    {% elif seq_item.type == 's' %} rgb(232, 228, 0);
-                                                                    {% elif seq_item.type == 'o' %} rgb(200, 200, 200);
-                                                                    {% elif seq_item.type == 'ss' %} rgb(232, 228, 0);
-                                                                    {% elif seq_item.type == 'moe' %} rgb(249, 208, 255);
-                                                                    {% elif seq_item.type == 'OCF3' %} rgb(255, 131, 135);
-                                                                    {% elif seq_item.type == 'GNA' %} rgb(163, 227, 135);
-                                                                    {% elif seq_item.type == 'TNA' %} rgb(232, 175, 71);
-                                                                    {% elif seq_item.type == 'I' %} rgb(243, 196, 255);
-                                                                    {% elif seq_item.type == 'invab' %} rgb(178, 136, 252);
-                                                                    {% elif seq_item.type == 'unknown' %} rgb(163, 163, 163);
-                                                                    {% endif %};"
-                                                            >
-                                                            {{ seq_item.char }}
-                                                            </span>
-                                                            <span class="seq-count" style="width: auto;">
-                                                                {% if seq_item.count %} {{ seq_item.count }} {% else %} &nbsp; {% endif %}
-                                                            </span>
-                                                        </div>
-                                                    {% endfor %}
+                                                            <div style="display: flex; flex-direction: column; align-items: center;">
+                                                                
+                                                                {% if delivery.Seq_type == "SS" %}
+                                                                    <!-- SS: count 在上 -->
+                                                                    <span class="seq-count" style="width: auto;">
+                                                                        {% if seq_item.count %} {{ seq_item.count }} {% else %} &nbsp; {% endif %}
+                                                                    </span>
+                                                                {% endif %}
+
+                                                                <!-- 字符 span，始终居中 -->
+                                                                <span class="seq-container {% if seq_item.char == 's' or seq_item.char == 'o' %}seq-narrow{% else %}seq-wide{% endif %}"
+                                                                    style="background-color: 
+                                                                        {% if seq_item.type == 'normal' %} rgb(156, 228, 255);
+                                                                        {% elif seq_item.type == 'f' %} rgb(7, 191, 7);
+                                                                        {% elif seq_item.type == 'm' %} rgb(73, 95, 240); color: white;
+                                                                        {% elif seq_item.type == 'd' %} rgb(144, 170, 241);
+                                                                        {% elif seq_item.type == 's' %} rgb(232, 228, 0);
+                                                                        {% elif seq_item.type == 'o' %} rgb(200, 200, 200);
+                                                                        {% elif seq_item.type == 'ss' %} rgb(232, 228, 0);
+                                                                        {% elif seq_item.type == 'moe' %} rgb(249, 208, 255);
+                                                                        {% elif seq_item.type == 'OCF3' %} rgb(255, 131, 135);
+                                                                        {% elif seq_item.type == 'GNA' %} rgb(163, 227, 135);
+                                                                        {% elif seq_item.type == 'TNA' %} rgb(232, 175, 71);
+                                                                        {% elif seq_item.type == 'I' %} rgb(243, 196, 255);
+                                                                        {% elif seq_item.type == 'invab' %} rgb(178, 136, 252);
+                                                                        {% elif seq_item.type == 'unknown' %} rgb(163, 163, 163);
+                                                                        {% endif %};"
+                                                                >
+                                                                    {{ seq_item.char }}
+                                                                </span>
+
+                                                                {% if  delivery.Seq_type == "AS" %}
+                                                                    <!-- AS: count 在下 -->
+                                                                    <span class="seq-count" style="width: auto;">
+                                                                        {% if seq_item.count %} {{ seq_item.count }} {% else %} &nbsp; {% endif %}
+                                                                    </span>
+                                                                {% endif %}
+
+                                                            </div>
+                                                        {% endfor %}
+
                                                 </div>
                                         </td>
                             
                                         <td>
-                                            <div class="delivery-container">
-                                                {% if  delivery.Seq_type == 'AS' %}
-                                                    {% for item in delivery.delivery3_colored %}
-                                                        <span class="delivery-item {% if item.type == 's' %} s {% endif %}" 
-                                                        style="
-                                                            {% if item.type == 'unknown' %}
-                                                                    color: black; background-color: transparent; /* 字体黑色，背景无颜色 */
-                                                                {% elif item.type == 't1' %} 
-                                                                    background-color: rgb(191, 228, 96); /* 绿色 */ 
-                                                                {% elif item.type == 't2' %} 
-                                                                    background-color: rgb(144, 110, 212); /* 红色 */ 
-                                                                {% elif item.type == 't3' %} 
-                                                                    background-color: rgb(126, 206, 154); /* 蓝色 */ 
-                                                                {% elif item.type == 't4' %} 
-                                                                    background-color: rgb(254, 145, 99); /* 蓝色 */ 
-                                                                {% elif item.type == 't5' %} 
-                                                                    background-color: rgb(246, 144, 232); /* 蓝色 */ 
-                                                                {% elif item.type == 't6' %} 
-                                                                    background-color: rgb(12, 255, 97); /* 蓝色 */ 
-                                                                {% elif item.type == 't7' %} 
-                                                                    background-color: rgb(67, 65, 228); /* 蓝色 */ 
-                                                                {% elif item.type == 't8' %} 
-                                                                    background-color: rgb(174, 187, 255); /* 蓝色 */ 
-                                                                {% elif item.type == 't9' %} 
-                                                                    background-color: rgb(246, 168, 235); /* 蓝色 */ 
-                                                                {% elif item.type == 's' %} 
-                                                                    background-color: rgb(236, 247, 84); /* 黄色 */ 
-                                                                {% elif item.type == 'o' %} 
-                                                                    background-color: rgb(200, 200, 200); /* 灰色 */ 
-                                                                {% endif %};
-                                                        ">{{ item.char }}</span>
-                                                    {% endfor %}
-                                                {% elif  delivery.Seq_type == 'SS' %}
-                                                    {% for item in delivery.delivery5_colored %}
-                                                        <span class="delivery-item {% if item.type == 's' %} s {% endif %}" 
-                                                        style="
-                                                            {% if item.type == 'unknown' %}
-                                                                    color: black; background-color: transparent; /* 字体黑色，背景无颜色 */
-                                                                {% elif item.type == 't1' %} 
-                                                                    background-color: rgb(191, 228, 96); /* 绿色 */ 
-                                                                {% elif item.type == 't2' %} 
-                                                                    background-color: rgb(144, 110, 212); /* 红色 */ 
-                                                                {% elif item.type == 't3' %} 
-                                                                    background-color: rgb(126, 206, 154); /* 蓝色 */ 
-                                                                {% elif item.type == 't4' %} 
-                                                                    background-color: rgb(254, 145, 99); /* 蓝色 */ 
-                                                                {% elif item.type == 't5' %} 
-                                                                    background-color: rgb(246, 144, 232); /* 蓝色 */ 
-                                                                {% elif item.type == 't6' %} 
-                                                                    background-color: rgb(12, 255, 97); /* 蓝色 */ 
-                                                                {% elif item.type == 't7' %} 
-                                                                    background-color: rgb(67, 65, 228); /* 蓝色 */ 
-                                                                {% elif item.type == 't8' %} 
-                                                                    background-color: rgb(174, 187, 255); /* 蓝色 */ 
-                                                                {% elif item.type == 't9' %} 
-                                                                    background-color: rgb(246, 168, 235); /* 蓝色 */ 
-                                                                {% elif item.type == 's' %} 
-                                                                    background-color: rgb(236, 247, 84); /* 黄色 */ 
-                                                                {% elif item.type == 'o' %} 
-                                                                    background-color: rgb(200, 200, 200); /* 灰色 */ 
-                                                                {% endif %};
-                                                        ">{{ item.char }}</span>
-                                                    {% endfor %}
+                                            <div class="delivery-container"  style="justify-content: flex-start;" >
+                                                {% if delivery.Seq_type == 'AS' and selected_seq_type == "SS" %}
+                                                    {% with delivery.delivery3_colored as delivery_colored %}
+                                                    {% include "char_block_AS.html" %}
+                                                    {% endwith %}
+                                                {% elif delivery.Seq_type == 'AS' and selected_seq_type == "AS" %}
+                                                    {% with delivery.delivery5_colored as delivery_colored %}
+                                                    {% include "char_block_AS.html" %}
+                                                    {% endwith %}
+                                                {% elif  delivery.Seq_type == 'SS' and selected_seq_type == "AS" %}
+                                                    {% with delivery.delivery3_colored as delivery_colored %}
+                                                    {% include "char_block_SS.html" %}
+                                                    {% endwith %}
+                                                {% elif  delivery.Seq_type == 'SS' and selected_seq_type == "SS" %}
+                                                    {% with delivery.delivery5_colored as delivery_colored %}
+                                                    {% include "char_block_SS.html" %}
+                                                    {% endwith %}
                                                 {% endif %}
                                             </div>
                                         </td>
@@ -447,6 +378,18 @@
 <script src="/static/js/custom.js"></script>
 <script src="/static/js/tables.js"></script>
 <script src="/static/js/search.js"></script>
+<script src="/static/js/drag.js"></script>
+<script>
+document.getElementById('seq_type_selector').addEventListener('change', function () {
+    const selectedType = this.value;
 
+    // 构造新的 URL，保留其他参数
+    const url = new URL(window.location.href);
+    url.searchParams.set('sorted_seq_type', selectedType);
+
+    // 跳转到新 URL，触发后端视图
+    window.location.href = url.toString();
+});
+</script>
 </body>
 </html>

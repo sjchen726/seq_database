@@ -204,14 +204,7 @@
             <div class="content-box-large">
                 <div class="panel-heading">
                     <div class="panel-title">序列信息列表</div>
-                          
                     <button id="toggleCollapseBtn" class="btn btn-info custom-btn" style="font-size: 16px;margin-top:20px;">📁 组合/展开</button>
-
-                    {% comment %} <label for="seq_type_selector">Sequence Display Type:</label>
-                            <select id="seq_type_selector" class="form-control form-control-sm" style="width: 200px; display: inline-block;">
-                                <option value="AS" {% if selected_seq_type == 'AS' %}selected{% endif %}>SS （5'-3'）</option>
-                                <option value="SS" {% if selected_seq_type == 'SS' %}selected{% endif %}>AS （5'-3'）</option>
-                            </select>        {% endcomment %}
                 </div>
 
                     <table id="example" class="table table-container table-bordered" style="width:100%">
@@ -219,26 +212,20 @@
                             <tr>
                       <!--           <th style="display: none;">SortKey</th> 新增，用于排序 -->
                                 <th><input type="checkbox" id="select-all"></th> 
-                                <th >Strand ID </th>
-                                <th >Project </th>
+                                <th >Strand ID</th>
+                                <th >Project</th>
                                 <th> Target</th> 
                                 <th> Sequence ID </th>
-                                <th> Ligand 1 </th>
-                                <th>
-                                    Sequences <br>
-                                    <select id="seq_type_selector" class="form-control form-control-sm" style="width: auto; display: inline-block; margin-top: 2px; min-width: 100px; font-size: 16px;">
-                                        <option value="SS" {% if selected_seq_type == 'SS' %}selected{% endif %}>AS: 5'-3'; SS: 3'-5'</option>
-                                        <option value="AS" {% if selected_seq_type == 'AS' %}selected{% endif %}>SS: 5'-3'; AS: 3'-5'</option>
-                                    </select>
-                                </th>
-                                <th> Ligand 2 </th>
-                                <th> Transcript </th>
-                                <th> Position </th>
-                                <th> Strand_MWs </th>
-                                <th> Parents </th>
-                                <th> Remarks </th>
-                                <th> Update Time </th>
-                                <th> 操作 </th>
+                                <th >Ligand 1</th>
+                                <th >Sequences (AS: 5'-3', SS: 3'-5')</th>
+                                <th >Ligand 2</th>
+                                <th >Transcript</th>
+                                <th >Position</th>
+                                <th >Strand_MWs</th>
+                                <th >Parents</th>
+                                <th >Remarks</th>
+                                <th >Update Time</th>
+                                <th >操作</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -265,31 +252,52 @@
                                         {% endfor %}
                                     </td>
                                     <td>
-                                        <div class="delivery-container" style="justify-content: flex-end;">
+                                         <div class="delivery-container" style="justify-content: flex-end;">
                                             {% for d in group.items.0.deliveries %}
-                                            
-                                            {# 条件判断，先确定 delivery_colored 是哪个字段 #}
-                                            {% if selected_seq_type == "SS" %}
-                                                {% with d.delivery3_colored as delivery_colored %}
-                                                {% include "char_block_SS.html" %}
-                                                {% endwith %}
-                                            {% else %}
-                                                {% with d.delivery5_colored as delivery_colored %}
-                                                {% include "char_block_SS.html" %}
-                                                {% endwith %}
-                                            {% endif %}
+                                                {% for char_item in d.delivery3_colored %}
+                                                    <div style="display: flex; flex-direction: column; justify-content: flex-end;">
 
+                                                    {# 第一行：X 或空格，占据顶部一行 #}
+                                                    <span class="seq-count" style="visibility: hidden;">X</span>
+
+                                                    {# 第二行：实际字符 + 背景色 #}
+                                                    <span class="delivery-item 
+                                                        {% if char_item.type == 's' %} s {% endif %}" 
+                                                        style="
+                                                        {% if char_item.type == 'unknown' %}
+                                                            color: black; background-color: transparent;
+                                                        {% elif char_item.type == 't1' %}
+                                                            color: black; background-color: rgb(191, 228, 96);
+                                                        {% elif char_item.type == 't2' %}
+                                                            background-color: rgb(144, 110, 212);
+                                                        {% elif char_item.type == 't3' %}
+                                                            background-color: rgb(126, 206, 154);
+                                                        {% elif char_item.type == 't4' %}
+                                                            background-color: rgb(254, 145, 99);
+                                                        {% elif char_item.type == 't5' %}
+                                                            background-color: rgb(246, 144, 232);
+                                                        {% elif char_item.type == 't6' %}
+                                                            background-color: rgb(12, 255, 97);
+                                                        {% elif char_item.type == 't7' %}
+                                                            background-color: rgb(67, 65, 228);
+                                                        {% elif char_item.type == 't8' %}
+                                                            background-color: rgb(174, 187, 255);
+                                                        {% elif char_item.type == 't9' %}
+                                                            background-color: rgb(246, 168, 235);
+                                                        {% elif char_item.type == 's' %}
+                                                            color: black; background-color: rgb(236, 247, 84);
+                                                        {% elif char_item.type == 'o' %}
+                                                            background-color: rgb(200, 200, 200);
+                                                        {% endif %}">
+                                                        {{ char_item.char }}
+                                                    </span>
+                                                </div>
                                             {% endfor %}
+                                        {% endfor %}
                                         </div>
                                     </td>
                                     <td>
-                                        <div data-modify-seq="{% if selected_seq_type == 'SS' %}
-                                                                {{ group.items.0.seq|join:''|slice:'::-1' }}
-                                                            {% else %}
-                                                                {{ group.items.0.seq|join:'' }}
-                                                            {% endif %}"
-                                            style="display: flex; justify-content: {% if selected_seq_type == 'SS' %}flex-start{% elif selected_seq_type == 'AS' %}flex-end{% else %}center{% endif %};">
-          
+                                        <div data-modify-seq="{{ group.items.0.seq|join:''|slice:':-1' }}" style="display: flex;">
                                             {% for seq_item in group.items.0.modify_seq_colored  %}
                                                 <div style="display: flex; flex-direction: column; align-items: center;">
                                                     <!-- 1. 将数字放在上面 -->
@@ -323,21 +331,48 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <div class="delivery-container" style="justify-content: flex-start;">
-                                            {% for d in group.items.0.deliveries %}
-                                            
-                                            {# 条件判断，先确定 delivery_colored 是哪个字段 #}
-                                            {% if selected_seq_type == "SS" %}
-                                                {% with d.delivery5_colored as delivery_colored %}
-                                                {% include "char_block_SS.html" %}
-                                                {% endwith %}
-                                            {% else %}
-                                                {% with d.delivery3_colored as delivery_colored %}
-                                                {% include "char_block_SS.html" %}
-                                                {% endwith %}
-                                            {% endif %}
+                                         <div class="delivery-container" style="justify-content: flex-start;">
 
-                                            {% endfor %}
+                                            {% for d in group.items.0.deliveries %}
+                                                {% for char_item in d.delivery5_colored %}
+                                                    <div style="display: flex; flex-direction: column; justify-content: flex-start;">
+
+                                                        <span class="seq-count" style="visibility: hidden;">X</span>
+
+                                                        <span class="delivery-item 
+                                                            {% if char_item.type == 's' %} s {% endif %}" 
+                                                            style="
+                                                                {% if char_item.type == 'unknown' %}
+                                                                    color: black; background-color: transparent; /* 字体黑色，背景无颜色 */
+                                                                {% elif char_item.type == 't1' %} 
+                                                                    color: black; background-color: rgb(191, 228, 96); /* 绿色 */ 
+                                                                {% elif char_item.type == 't2' %} 
+                                                                    background-color: rgb(144, 110, 212); /* 红色 */ 
+                                                                {% elif char_item.type == 't3' %} 
+                                                                    background-color: rgb(126, 206, 154); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't4' %} 
+                                                                    background-color: rgb(254, 145, 99); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't5' %} 
+                                                                    background-color: rgb(246, 144, 232); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't6' %} 
+                                                                    background-color: rgb(12, 255, 97); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't7' %} 
+                                                                    background-color: rgb(67, 65, 228); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't8' %} 
+                                                                    background-color: rgb(174, 187, 255); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't9' %} 
+                                                                    background-color: rgb(246, 168, 235); /* 蓝色 */ 
+                                                                {% elif char_item.type == 's' %} 
+                                                                    color: black; background-color: rgb(236, 247, 84); /* 黄色 */ 
+                                                                {% elif char_item.type == 'o' %} 
+                                                                    background-color: rgb(200, 200, 200); /* 黄色 */ 
+                                                                {% endif %}
+                                                            ">{{ char_item.char }}</span>
+
+                                                            
+                                                    </div>
+                                                    {% endfor %}
+                                                {% endfor %}
                                         </div>
                                     </td>
                                     <td>{{ group.items.0.Transcript|default_if_none:'' }}</td>
@@ -385,30 +420,44 @@
                                             {% endfor %}
                                         </td>
                                         <td>
-                                            <div class="delivery-container" style="justify-content: flex-end;">
+                                            <div class="delivery-container" style="justify-content: flex-end">
                                                 {% for d in group.items.1.deliveries %}
-                                                
-                                                {# 条件判断，先确定 delivery_colored 是哪个字段 #}
-                                                {% if selected_seq_type == "SS" %}
-                                                    {% with d.delivery5_colored as delivery_colored %}
-                                                    {% include "char_block_AS.html" %}
-                                                    {% endwith %}
-                                                {% else %}
-                                                    {% with d.delivery3_colored as delivery_colored %}
-                                                    {% include "char_block_AS.html" %}
-                                                    {% endwith %}
-                                                {% endif %}
-
+                                                    {% for char_item in d.delivery5_colored %}
+                                                        <span class="delivery-item 
+                                                            {% if char_item.type == 's' %} s {% endif %}" 
+                                                            style="
+                                                                {% if char_item.type == 'unknown' %}
+                                                                    color: black; background-color: transparent; /* 字体黑色，背景无颜色 */
+                                                                {% elif char_item.type == 't1' %} 
+                                                                    color: black; background-color: rgb(191, 228, 96); /* 绿色 */ 
+                                                                {% elif char_item.type == 't2' %} 
+                                                                    background-color: rgb(144, 110, 212); /* 红色 */ 
+                                                                {% elif char_item.type == 't3' %} 
+                                                                    background-color: rgb(126, 206, 154); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't4' %} 
+                                                                    background-color: rgb(254, 145, 99); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't5' %} 
+                                                                    background-color: rgb(246, 144, 232); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't6' %} 
+                                                                    background-color: rgb(12, 255, 97); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't7' %} 
+                                                                    background-color: rgb(67, 65, 228); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't8' %} 
+                                                                    background-color: rgb(174, 187, 255); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't9' %} 
+                                                                    background-color: rgb(246, 168, 235); /* 蓝色 */ 
+                                                                {% elif char_item.type == 's' %} 
+                                                                    color: black; background-color: rgb(236, 247, 84); /* 黄色 */ 
+                                                                {% elif char_item.type == 'o' %} 
+                                                                    background-color: rgb(200, 200, 200); /* 黄色 */ 
+                                                                {% endif %}
+                                                            ">{{ char_item.char }}</span>
+                                                    {% endfor %}
                                                 {% endfor %}
                                             </div>
                                         </td>
                                         <td>
-                                            <div data-modify-seq="{% if selected_seq_type == 'SS' %}
-                                                                {{ group.items.1.seq|join:'' }}
-                                                            {% else %}
-                                                                {{ group.items.1.seq|join:''|slice:'::-1' }}
-                                                            {% endif %}"
-                                            style="display: flex; justify-content: {% if selected_seq_type == 'SS' %}flex-start{% elif selected_seq_type == 'AS' %}flex-end{% else %}center{% endif %};">
+                                            <div data-modify-seq="{{ group.items.1.seq|join:'' }}" style="display: flex;">
                                                 {% for seq_item in group.items.1.modify_seq_colored %}
                                                     <div style="display: flex; flex-direction: column; align-items: center;">
                                                         <span class="seq-container {% if seq_item.char == 's' or seq_item.char == 'o' %}seq-narrow{% else %}seq-wide{% endif %}"
@@ -441,18 +490,37 @@
                                         <td>
                                             <div class="delivery-container" style="justify-content: flex-start;">
                                                 {% for d in group.items.1.deliveries %}
-                                                
-                                                {# 条件判断，先确定 delivery_colored 是哪个字段 #}
-                                                {% if selected_seq_type == "SS" %}
-                                                    {% with d.delivery3_colored as delivery_colored %}
-                                                    {% include "char_block_AS.html" %}
-                                                    {% endwith %}
-                                                {% else %}
-                                                    {% with d.delivery5_colored as delivery_colored %}
-                                                    {% include "char_block_AS.html" %}
-                                                    {% endwith %}
-                                                {% endif %}
-
+                                                    {% for char_item in d.delivery3_colored %}
+                                                        <span class="delivery-item 
+                                                            {% if char_item.type == 's' %} s {% endif %}" 
+                                                            style="
+                                                                {% if char_item.type == 'unknown' %}
+                                                                    color: black; background-color: transparent; /* 字体黑色，背景无颜色 */
+                                                                {% elif char_item.type == 't1' %} 
+                                                                    color: black; background-color: rgb(191, 228, 96); /* 绿色 */ 
+                                                                {% elif char_item.type == 't2' %} 
+                                                                    background-color: rgb(144, 110, 212); /* 红色 */ 
+                                                                {% elif char_item.type == 't3' %} 
+                                                                    background-color: rgb(126, 206, 154); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't4' %} 
+                                                                    background-color: rgb(254, 145, 99); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't5' %} 
+                                                                    background-color: rgb(246, 144, 232); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't6' %} 
+                                                                    background-color: rgb(12, 255, 97); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't7' %} 
+                                                                    background-color: rgb(67, 65, 228); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't8' %} 
+                                                                    background-color: rgb(174, 187, 255); /* 蓝色 */ 
+                                                                {% elif char_item.type == 't9' %} 
+                                                                    background-color: rgb(246, 168, 235); /* 蓝色 */ 
+                                                                {% elif char_item.type == 's' %} 
+                                                                    color: black; background-color: rgb(236, 247, 84); /* 黄色 */ 
+                                                                {% elif char_item.type == 'o' %} 
+                                                                    background-color: rgb(200, 200, 200); /* 黄色 */ 
+                                                                {% endif %}
+                                                            ">{{ char_item.char }}</span>
+                                                    {% endfor %}
                                                 {% endfor %}
                                             </div>
                                         </td>
@@ -508,17 +576,5 @@
 <script src="/static/js/tables.js"></script>
 <script src="/static/js/search.js"></script>
 <script src="/static/js/drag.js"></script>
-<script>
-document.getElementById('seq_type_selector').addEventListener('change', function () {
-    const selectedType = this.value;
-
-    // 构造新的 URL，保留其他参数
-    const url = new URL(window.location.href);
-    url.searchParams.set('seq_type', selectedType);
-
-    // 跳转到新 URL，触发后端视图
-    window.location.href = url.toString();
-});
-</script>
 </body>
 </html>

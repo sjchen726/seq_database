@@ -29,9 +29,8 @@ from django.conf import settings
 def clean_value(value):
         return None if pd.isna(value) or value == '' else value
 
-import re
 
-def get_delivery_colored(seq: str, seq_type: str = None):
+def get_delivery_colored(seq: str, selected_seq_type: str, seq_type: str) -> list:
     """
     给任意 delivery 序列添加颜色标记（不区分 5'/3'）
     如果 seq_type == 'AS'，将匹配组反向排列（subs 接到上一组的 main 后）
@@ -39,8 +38,12 @@ def get_delivery_colored(seq: str, seq_type: str = None):
     返回：
         [{"char": ..., "type": ...}, ...]
     """
+   # print(f"Processing delivery sequence: {seq_type}, type: {selected_seq_type}")
+    reversed_seq_type = selected_seq_type
+
+    # --- 处理 seq 中的特殊字符 ---
     # 正则匹配规则，包含需要标记的所有部分
-    regex = r"C6-S-LP415|invAb|s|C6-S-40KPEG2|o|NH2-C6|cPrp|avb3-SM2|L4-C6|L96|P98|."
+    regex = r"C6-S-LP415|invAb|s|C6-S-40KPEG2|o|NH2-C6|cPrp|avb3-SM2|L4-C6|L96|P98|-|."
 
     # 颜色映射规则
     color_map = {
@@ -49,6 +52,7 @@ def get_delivery_colored(seq: str, seq_type: str = None):
         's': 's',
         'C6-S-40KPEG2': 't3',
         'o': 'o',
+        '-': '-',
         'NH2-C6': 't4',
         'cPrp': 't5',
         'avb3-SM2': 't6',
@@ -67,13 +71,15 @@ def get_delivery_colored(seq: str, seq_type: str = None):
         for char in matches
     ]
 
-    # --- 如果是 SS 序列，反转组顺序并让 subs 组合到前一组 main ---
-    if seq_type == 'SS':
+    # --- 选择序列，反转组顺序并让 subs 组合到前一组 main ---
+    if seq_type == reversed_seq_type:
+        #print(f"111111")
+        
         groups = []
         current_group = None
 
         for item in result:
-            if item['char'] in ['s', 'o']:
+            if item['char'] in ['s', 'o','-']:
                 if current_group is not None:
                     current_group['subs'].append(item)
                 else:
@@ -103,26 +109,30 @@ def get_delivery_colored(seq: str, seq_type: str = None):
 
         result = new_result
 
+
+
     return result
 
 
 # ✅ 生成修饰序列的颜色标记
-def get_modify_seq_colored(seq, seq_type):
+def get_modify_seq_colored(seq, selected_seq_type, seq_type):
     # 使用正则表达式来提取符合条件的片段
     sequence = re.findall(
         r'G\(moe\)|U\(moe\)|C\(moe\)|A\(moe\)|G\(OCF3\)|U\(OCF3\)|C\(OCF3\)|A\(OCF3\)|I|invab|GA02|GU02|GC02|TA12|TC12|TG12|TU0|ss|Af|Cf|Uf|Gf|Am|Cm|Um|Gm|dA|dT|dG|dC|dU|s|ss|o|[ACGUT]|.', seq or ""
     )
 
-    delivery = Delivery.objects.filter(linker_seq=seq).first()
+    # delivery = Delivery.objects.filter(linker_seq=seq).first()
 
-    if seq_type == 'AS':
-        counter = 0
-    elif seq_type == 'SS':
-        counter = int(delivery.naked_length) + 1 if delivery and delivery.naked_length else 22
-    else:
-        counter = 0
+    # if seq_type != selected_seq_type:
+    #     counter = 0
+    # elif seq_type == selected_seq_type:
+    #     counter = int(delivery.naked_length) + 1 if delivery and delivery.naked_length else 22
+    # else:
+    #     counter = 0
 
-    # counter = 0
+    reversed_seq_type = selected_seq_type
+
+    counter = 0
 
     result = []
 
@@ -133,10 +143,11 @@ def get_modify_seq_colored(seq, seq_type):
         if char in ['s', 'ss', 'o']:
             count = ""
         else:
-            if seq_type == 'AS':
-                counter += 1
-            elif seq_type == 'SS':
-                counter -= 1
+            # if seq_type == selected_seq_type:
+            #     counter -= 1
+            # elif seq_type != selected_seq_type:
+            #     counter += 1
+            counter += 1 
             count = counter
 
         result.append({
@@ -162,7 +173,7 @@ def get_modify_seq_colored(seq, seq_type):
         })
 
     # Add grouping and reversal logic for SS type
-    if seq_type == 'SS':
+    if seq_type == reversed_seq_type:
         groups = []
         current_group = None
 
@@ -683,7 +694,6 @@ def setPassword(password):
     """
     return make_password(password)
 
-
 # 定义 clean_value，防止脏数据，比如 NaN/null，并处理 int 转换
 def clean_value(value):
     if pd.isna(value) or value is None:
@@ -907,137 +917,6 @@ def register_seq(request):
 
     return render(request, 'register_seq.html')
 
-# 上传序列信息
-def upload_seq_info(request):
-    if request.method == 'POST':
-        uploaded_file = request.FILES.get('file')
-
-        if not uploaded_file:
-            messages.error(request, "未选择文件！")
-            return render(request, 'upload_seq_info.html')
-
-        if not uploaded_file.name.endswith('.csv'):
-            messages.error(request, "请上传 CSV 文件！")
-            return render(request, 'upload_seq_info.html')
-
-        try:
-            # 使用 pandas 读取 CSV 文件
-            df = pd.read_csv(uploaded_file)
-
-            # 检查必需列
-            required_columns = ['Project', 'seq', 'Transcript', 'Target', 'Pos', 'Parents']
-            if not all(col in df.columns for col in required_columns):
-                messages.error(request, f"文件格式错误，必须包含列: {', '.join(required_columns)}")
-                return render(request, 'upload_seq_info.html')            
-
-            duplicate_meg = []  # 用于存储重复的序列信息
-            upload_meg = []  # 用于存储上传的序列信息
-            unregistered_meg = []  # 存储未注册的序列
-
-            # 遍历并保存数据到数据库
-            for _, row in df.iterrows():
-                cleaned_row = {col: clean_value(row[col]) for col in ['Project', 'seq', 'Transcript', 'Target', 'Pos', 'Parents']}
-         #       print(cleaned_row['seq'])
-                project = cleaned_row['Project']
-                seq_input = cleaned_row['seq']  # 用户输入的序列
-                Transcript = cleaned_row['Transcript']
-                Target = cleaned_row['Target']
-                Pos = cleaned_row['Pos']
-                parents = cleaned_row['Parents']
-          #      Remarks = cleaned_row['Remarks']
-                created_at = timezone.now().strftime('%Y-%m-%d %H:%M:%S')  # 获取当前时间
-                
-     #           print(seq_input, project, Transcript, Target, Pos, parents, Remarks)
-
-                
-                # 查找已注册的 Sequence 记录
-                sequence = Sequence.objects.filter(seq=seq_input).first()
-                if not sequence:
-                    unregistered_meg.append(seq_input)
-                    continue  # 跳过此循环，继续检查下一个序列
-
-                # 查找是否已有 SeqInfo 记录
-                seq_info = SeqInfo.objects.filter(seq=seq_input).first()
-                    
-                if seq_info:
-                    # 解析已有数据（用 set() 进行去重）
-                    existing_values ={
-                        "Target": set(seq_info.Target.split(', ')) if seq_info.Target else set(),
-                        "Pos": set(seq_info.Pos.split(", ")) if seq_info.Pos else set(),
-                        "parents": set(seq_info.parents.split(", ")) if seq_info.parents else set(),
-                        "project": set(seq_info.project.split(", ")) if seq_info.project else set(),
-                        "Transcript": set(seq_info.Transcript.split(", ")) if seq_info.Transcript else set()
-                    } 
-
-                    # 解析上传数据（避免重复）
-                    new_values = {
-                        "Target":  set(Target.split(";")) if Target else set(),
-                        "Pos": set(Pos.split(";")) if Pos else set(),
-                        "parents": set(parents.split(";")) if parents else set(),
-                        "project": set(project.split(";")) if project else set(),
-                        "Transcript": set(Transcript.split(";")) if Transcript else set()
-                    }
-
-                    # 检查是否所有字段都已包含
-                    is_duplicate = all(new_values[field].issubset(existing_values[field]) for field in new_values)
-
-                    if is_duplicate:
-                        duplicate_meg.append(f"{seq_input}")
-                    else:
-                        # 更新 SeqInfo 记录
-                        for field in new_values:
-                            existing_values[field] |= new_values[field]  # 合并数据（去重）
-                        #    print(existing_values[field])
-
-                        seq_info.Target = ", ".join(existing_values["Target"])
-                        seq_info.Pos = ", ".join(existing_values["Pos"])
-                        seq_info.parents = ", ".join(existing_values["parents"])
-                        seq_info.project = ", ".join(existing_values["project"])
-                        seq_info.Transcript = ", ".join(existing_values["Transcript"])
-             #           seq_info.Remark = f"{seq_info.Remark}, {Remarks}" if seq_info.Remark else Remarks
-                        seq_info.save()
-
-                        upload_meg.append(f"{seq_input}")
-                    
-                else:
-                    # 创建 SeqInfo 对象并与 Sequence 关联
-                    SeqInfo.objects.create(
-                        sequence = sequence,
-                        seq = seq_input,
-                        Target = Target,
-                        Pos = Pos,
-                        parents = parents,
-                        project = project,
-                        Transcript = Transcript,
-                        Remark = Remarks,
-                        created_at = created_at,
-                    )
-                    upload_meg.append(f"{seq_input}")
-                
-            # 反馈上传信息
-            error_messages = []
-
-            if duplicate_meg:
-                error_messages.append(f"{'; '.join(duplicate_meg)}，已有信息，如需修改请点击编辑！")
-            if unregistered_meg:
-                error_messages.append(f"{'; '.join(unregistered_meg)}，未注册，请先注册！")
-
-            if error_messages:
-                messages.error(request, " ".join(error_messages))
-
-            if upload_meg:
-                messages.success(request, f"序列信息上传成功：{'; '.join(upload_meg)}")
-                return render(request, 'upload_seq_info.html', {'success': True})
-            else:
-                messages.error(request, "无新的序列信息上传！")
-                return render(request, 'upload_seq_info.html')
-                #return redirect('/upload_books/')  # 上传成功后跳转到 book_list.html
-
-        except Exception as e:
-            messages.error(request, f"文件处理失败：{e}")
-            return render(request, 'upload_seq_info.html')
-
-    return render(request, 'upload_seq_info.html')
 
 # 遍历modify_seq, 遇见 "m" 或 "f" 在后面添加 "o"，并处理 "(EVP)A", "(EVP)U", "(EVP)C", "(EVP)G", "(EVP)T"
 def add_o_to_all_rules(modify_seq):
@@ -1562,7 +1441,7 @@ def get_attr(d, key):
         return getattr(d, key, '')
     return ''
 
-def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq):
+def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq, selected_seq_type):
     if not deliveries:
         deliveries = [{'delivery5': None, 'delivery3': None, 'date': None}]
 
@@ -1593,7 +1472,8 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq):
         'Remark': remark,
         'formatted_update_time': formatted_update_time,
         'linker_seq': linker_seq,
-        'modify_seq_colored': get_modify_seq_colored(linker_seq, sequence.seq_type) if linker_seq and sequence else None,
+        'modify_seq_colored': get_modify_seq_colored(linker_seq, selected_seq_type, sequence.seq_type) if linker_seq and selected_seq_type else None,
+        'selected_seq_type': selected_seq_type,
         'deliveries': [
             {
                 'duplex_id': getattr(d, 'duplex_id', None),
@@ -1604,17 +1484,20 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq):
                 'delivery5': getattr(d, 'delivery5', None),
                 'delivery3': getattr(d, 'delivery3', None),
                 'Strand_MWs': getattr(d, 'Strand_MWs', None),
-                'delivery3_colored': get_delivery_colored(get_attr(d, 'delivery3'), getattr(d, 'seq_type', None)),
-                'delivery5_colored': get_delivery_colored(get_attr(d, 'delivery5'), getattr(d, 'seq_type', None)),
+                'delivery3_colored': get_delivery_colored(get_attr(d, 'delivery3'), selected_seq_type, getattr(d, 'seq_type', None)),
+                'delivery5_colored': get_delivery_colored(get_attr(d, 'delivery5'), selected_seq_type, getattr(d, 'seq_type', None)),
             }
             for d in deliveries
         ]
     }
 
-
 def get_sequence_info(request):
     permissions_projects = getattr(request.user, 'permissions_project', '')
     user_type = getattr(request.user, 'user_type', 'guest')
+    selected_seq_type = request.GET.get('seq_type', 'SS')  #默认为"AS (5'-3')
+    
+
+ #   print(f"222222Selected sequence type: {selected_seq_type}")  # 调试输出
 
     if request.user.is_superuser:
         delivery_qs = Delivery.objects.all()
@@ -1671,7 +1554,8 @@ def get_sequence_info(request):
                         seqinfo=seqinfo,
                         sequence=sequence,
                         deliveries=group_deliveries,
-                        linker_seq=linker_seq
+                        linker_seq=linker_seq,
+                        selected_seq_type=selected_seq_type
                     )
                     duplex_group_map[(project, duplex_id)].append(item)
             else:
@@ -1680,7 +1564,8 @@ def get_sequence_info(request):
                     seqinfo=seqinfo,
                     sequence=sequence,
                     deliveries=group_deliveries,
-                    linker_seq=None
+                    linker_seq=None,
+                    selected_seq_type=selected_seq_type
                 )
                 duplex_group_map[(project, duplex_id)].append(item)
 
@@ -1707,6 +1592,7 @@ def get_sequence_info(request):
     context = {
         'user_type': user_type,
         'sequence_groups': sequence_groups,
+        'selected_seq_type': selected_seq_type,  # 返回前端，保持选中状态
     }
 
     return render(request, 'seq_list.html', context)
@@ -1714,6 +1600,10 @@ def get_sequence_info(request):
 def cor_seq(request):
    
     query_id_tmp  = request.GET.get('id')  # 获取 URL 参数
+    selected_seq_type = request.GET.get('sorted_seq_type', 'SS')  #默认为"AS (5'-3')
+
+    print(f"4444:{selected_seq_type}")
+   # selected_seq_type = "SS"
    # print(query_id_tmp)
    # print(query_id)
     
@@ -1821,7 +1711,8 @@ def cor_seq(request):
                     seqinfo=seqinfo,
                     sequence=sequence,
                     deliveries=deliveries,
-                    linker_seq=linker_seq
+                    linker_seq=linker_seq,
+                    selected_seq_type=selected_seq_type
                 ))
         else:
             seq_list.append(build_sequence_data(
@@ -1829,7 +1720,8 @@ def cor_seq(request):
                 seqinfo=seqinfo,
                 sequence=sequence,
                 deliveries=deliveries,
-                linker_seq=None
+                linker_seq=None,
+                selected_seq_type=selected_seq_type
             ))
 
     # --------------------------
@@ -1841,6 +1733,7 @@ def cor_seq(request):
         'user_type': user_type,
         'sequence_list': seq_list,
         'query_id': query_id,
+        'selected_seq_type': selected_seq_type,  # 返回前端，保持选中状态
     })
 
 def reg_seq_list(request):
