@@ -1,34 +1,17 @@
 {% for char_item in delivery_colored %}
   <div style="display: flex; flex-direction: column; justify-content: flex-end;">
     <span class="seq-count" style="visibility: hidden;">X</span>
-    <span class="delivery-item 
-        {% if char_item.type == 's' %} s {% endif %}" 
-        style="
-        {% if char_item.type == 'unknown' %}
-            color: black; background-color: transparent;
-        {% elif char_item.type == 't1' %}
-            color: black; background-color: rgb(191, 228, 96);
-        {% elif char_item.type == 't2' %}
-            background-color: rgb(144, 110, 212);
-        {% elif char_item.type == 't3' %}
-            background-color: rgb(126, 206, 154);
-        {% elif char_item.type == 't4' %}
-            background-color: rgb(254, 145, 99);
-        {% elif char_item.type == 't5' %}
-            background-color: rgb(246, 144, 232);
-        {% elif char_item.type == 't6' %}
-            background-color: rgb(60, 115, 143);
-        {% elif char_item.type == 't7' %}
-            background-color: rgb(67, 65, 228);
-        {% elif char_item.type == 't8' %}
-            background-color: rgb(174, 187, 255);
-        {% elif char_item.type == 't9' %}
-            background-color: rgb(246, 168, 235);
-        {% elif char_item.type == 's' %}
-            color: black; background-color: rgb(236, 247, 84);
-        {% elif char_item.type == 'o'  or char_item.type == '-' %}
-            background-color: rgb(200, 200, 200);
-        {% endif %}">
+    <span class="delivery-item" 
+         style="
+          {% if char_item.type == 'unknown' %}
+              color: black; background-color: transparent;
+          {% else %}
+              background-color: {{ char_item.color }};
+            {% if char_item.type == 's' %}
+                color:black
+              {% endif %}
+              
+          {% endif %}">
         {{ char_item.char }}
     </span>
   </div>

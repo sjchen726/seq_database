@@ -29,6 +29,43 @@ from django.conf import settings
 def clean_value(value):
         return None if pd.isna(value) or value == '' else value
 
+# 生成颜色映射规则
+def get_color_map():
+    color_palette = [
+        "#e06666", "#f6b26b", "#a0d8ef", "#93c47d", "#76a5af",
+        "#6fa8dc", "#8e7cc3", "#c27ba0", "#f4cccc", "#caeba9",
+        "#f7c6c7", "#c6e860", "#ffd966", "#ffd966", "#f9cb9c",  
+        "#d9ead3", "#cfe2f3", "#e6b8af", "#f4cccc", "#b6d7a8",
+        "#d5a6bd", "#b4a7d6", "#a2c4c9", "#ffe599", "#b6d7a8",
+        "#d9d2e9", "#d0e0e3", "#c9daf8", "#ead1dc", "#fce5cd"
+    ]
+    # 特殊颜色映射：'ss' 和 's' 为黄色，'-' 和 'o' 为灰色
+    special_colors = {
+        'ss': "#fff30b",  # 黄色
+        's':  "#fff30b",  # 黄色
+        '-':  '#d9d9d9',  # 灰色
+        'o':  '#d9d9d9',  # 灰色
+    }
+
+    # 获取所有的模块（模块对象）并按 'type_code' 排序
+    modules = DeliveryModule.objects.all().order_by('type_code')
+    unique_types = sorted(set(m.type_code for m in modules))
+   # print(f"11111:{unique_types}")
+    color_map = {}
+
+    # 先为特殊类型指定颜色
+    for type_code in ['ss', 's', '-', 'o']:
+        color_map[type_code] = special_colors.get(type_code, '#cccccc')
+
+    # 为剩下的类型分配调色板中的颜色
+    i = 0
+    for type_code in unique_types:
+        if type_code not in color_map:
+            color_map[type_code] = color_palette[i % len(color_palette)]
+            i += 1
+
+    return color_map
+
 
 def get_delivery_colored(seq: str, selected_seq_type: str, seq_type: str) -> list:
     """
@@ -43,37 +80,43 @@ def get_delivery_colored(seq: str, selected_seq_type: str, seq_type: str) -> lis
 
     # --- 处理 seq 中的特殊字符 ---
     # 正则匹配规则，包含需要标记的所有部分
-    regex = r"NH2C6|NHC6|invAb|C6-S-LP01a|C6S-SC6|Vp|LP02-C6|LP01a|dT|L96|P98|o|s|ss|-|."
-
-    # 颜色映射规则
-    color_map = {
-        'NH2C6': 't1',
-        'NHC6': 't1',
-        'invAb': 't2',
-        'C6-S-LP01a': 't3',
-        'LP02-C6': 't4',
-        'Vp': 't5',
-        'C6S-SC6': 't6',
-        # 'LP02': 't6',
-        # 'LP01a': 't7',
-        's': 's',
-        'ss': 's',
-        'o': 'o',
-        '-': '-',    
-        'dT': 't7',
-        'L96': 't8',
-        'P98': 't9',
+    
+    # 从数据库获取所有组件定义
+    modules = DeliveryModule.objects.all()
+    
+    # 构建 keyword -> type_code 映射
+    component_type_map = {
+        module.keyword.strip(): module.type_code.strip()
+        for module in modules
     }
 
-    # 匹配所有组件
+    # 手动添加固定的特殊类型（连接）
+    special_keywords = {
+        'ss': 'ss',  # 固定为 ss
+        's': 's',     # 固定为 s
+        '-': '-',     # 固定为 -
+        'o': 'o',     # 固定为 o
+    }
+    component_type_map.update(special_keywords)
+
+    # 构建正则表达式：keyword 降序排序，避免匹配冲突（如 "s" vs "ss"）
+    sorted_keywords = sorted(component_type_map.keys(), key=lambda x: -len(x))
+    regex = r"|".join(re.escape(k) for k in sorted_keywords)
+
+    # 获取颜色映射
+    type_color_map = get_color_map()
+
+    # 匹配并构造结果
     matches = re.findall(regex, seq or "")
     result = [
         {
             "char": char.strip(),
-            "type": color_map.get(char.strip(), "unknown")
+            "type": component_type_map.get(char.strip(), "unknown"),
+            "color": type_color_map.get(component_type_map.get(char.strip(), "unknown"), "#cccccc")
         }
         for char in matches
     ]
+
 
     # --- 选择序列，反转组顺序并让 subs 组合到前一组 main ---
     if seq_type == reversed_seq_type:
@@ -113,8 +156,8 @@ def get_delivery_colored(seq: str, selected_seq_type: str, seq_type: str) -> lis
 
         result = new_result
 
-
-
+    print(result)
+    
     return result
 
 
@@ -1956,3 +1999,75 @@ def download_selected(request):
         writer.writerow(row)
 
     return response
+
+
+def module_list(request):
+
+    # 获取所有 DeliveryModule 的 keyword 和 type_code
+    module_list = DeliveryModule.objects.all().values('id', 'keyword', 'type_code')
+    
+    # 渲染模板并传递数据
+    return render(request, 'Module_list.html', {'module_list': module_list})
+
+
+def edit_module(request):
+    # 获取模块对象
+    module_id = request.GET.get('id')
+    print(f"1111{module_id}")
+    module = get_object_or_404(DeliveryModule, id=module_id)
+
+    # 当表单被提交时
+    if request.method == 'POST':
+        # 获取提交的数据并更新模块
+        module.keyword = request.POST.get('keyword')
+        module.type_code = request.POST.get('type_code')
+        module.save()  # 保存更改
+        return redirect('/module_list/')  # 重定向到模块列表页面
+
+    # GET 请求时显示编辑页面
+    return render(request, 'edit_module.html', {'module': module})
+
+def upload_modules(request):
+    if request.method == 'POST' and request.FILES.get('file'):
+        csv_file = request.FILES['file']
+
+        try:
+            # 读取 CSV 文件到 DataFrame
+            df = pd.read_csv(csv_file)
+
+            # 检查文件是否包含 'module' 和 'type' 列
+            if 'module' not in df.columns or 'type' not in df.columns:
+                messages.error(request, "CSV 文件必须包含 'module' 和 'type' 列！")
+                return render(request, 'upload_modules.html')
+
+            # 用来记录哪些模块已经存在
+            existing_modules = []
+
+            # 遍历 DataFrame 行并保存到 DeliveryModule
+            for _, row in df.iterrows():
+                module_name = row['module']
+                type_code = row['type']
+
+                # 检查 DeliveryModule 是否已经存在相同的模块
+                if DeliveryModule.objects.filter(keyword=module_name).exists():
+                    existing_modules.append(module_name)
+                    continue  # 如果已经存在，跳过这行，继续下一个模块
+
+                # 创建并保存模块对象
+                DeliveryModule.objects.create(keyword=module_name, type_code=type_code)
+
+            if existing_modules:
+                # 提示用户哪些模块已经存在
+                messages.warning(request, f"以下模块已经存在，未做上传: {', '.join(existing_modules)}")
+
+            # 如果所有模块上传成功
+            messages.success(request, "模块批量上传成功！")
+            return redirect('module_list')
+
+        except Exception as e:
+            # 捕获任何错误并返回解析失败的消息
+            messages.error(request, f"文件解析失败: {str(e)}")
+            return render(request, 'upload_modules.html')
+
+    # GET 请求时显示上传表单
+    return render(request, 'upload_modules.html')
