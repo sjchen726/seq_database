@@ -83,6 +83,7 @@
                             <span class="caret pull-right"></span>
                         </a>
                         <ul>
+                            <li><a href="/module_list/">注册模块列表</a></li>
                             <li><a href="/register_seq/">序列注册</a></li>
                             <li><a href="/reg_seq_list/">注册序列列表</a></li>
                             <li><a href="/seq_delivery/">序列信息上传</a></li>
@@ -108,7 +109,7 @@
         <div class="col-md-10">
             <div class="content-box-large">
                 <div class="panel-heading">
-                    <div class="panel-title">序列注册</div>
+                    <div class="panel-title">模块批量注册</div>
                 </div>
              <!-- <div class="col-md-3 col-sm-6 pull-right add-btn">
                     <a href="/register_seq/" class="btn btn-info pull-right">单一注册</a>
@@ -120,7 +121,7 @@
                         <div style="margin-bottom: 18px;">
                             <label for="file" style="font-size: 18px; font-weight: bold;">选择 CSV 文件：</label>
                             <p style="font-size: 14px; color: #666; margin: 5px 0 10px;">请按照平台提供的模板填写并上传。</p>
-                            <a href="/static/example/1_reg_seq.csv" download class="btn btn-sm btn-info" style="margin-bottom: 10px;">
+                            <a href="/static/example/reg_module_tmp.csv" download class="btn btn-sm btn-info" style="margin-bottom: 10px;">
                                 下载 CSV 示例模板
                             </a>
                             <input type="file" name="file" accept=".csv" required
@@ -131,8 +132,14 @@
                             <button type="submit" formaction="/upload_modules/" formmethod="post"
                                     class="btn btn-success"
                                     style="padding: 10px 30px; font-size: 16px; border-radius: 6px;">
-                                注册序列
+                                注册模块
                             </button>
+
+                            <a href="/module_list" class="btn btn-secondary"
+                                style="padding: 10px 30px; font-size: 16px; border-radius: 6px;">
+                                返回
+                            </a>
+                           
                         </div>
                     </form>
                 

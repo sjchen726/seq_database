@@ -12,6 +12,7 @@ import pandas as pd
 from django.contrib import messages
 from datetime import datetime
 from django.db.models import Q
+from django.db import IntegrityError
 import os, csv
 from django.utils.timezone import now
 from app01 import models
@@ -33,7 +34,7 @@ def clean_value(value):
 def get_color_map():
     color_palette = [
         "#e06666", "#f6b26b", "#a0d8ef", "#93c47d", "#76a5af",
-        "#6fa8dc", "#8e7cc3", "#c27ba0", "#f4cccc", "#caeba9",
+        "#6fa8dc", "#8e7cc3", "#c27ba0", "#f4cccc", "#1aac6d",
         "#f7c6c7", "#c6e860", "#ffd966", "#ffd966", "#f9cb9c",  
         "#d9ead3", "#cfe2f3", "#e6b8af", "#f4cccc", "#b6d7a8",
         "#d5a6bd", "#b4a7d6", "#a2c4c9", "#ffe599", "#b6d7a8",
@@ -43,8 +44,8 @@ def get_color_map():
     special_colors = {
         'ss': "#fff30b",  # 黄色
         's':  "#fff30b",  # 黄色
-        '-':  '#d9d9d9',  # 灰色
-        'o':  '#d9d9d9',  # 灰色
+        '-':  "#c9c9c9",  # 灰色
+        'o':  '#c9c9c9',  # 灰色
     }
 
     # 获取所有的模块（模块对象）并按 'type_code' 排序
@@ -101,21 +102,35 @@ def get_delivery_colored(seq: str, selected_seq_type: str, seq_type: str) -> lis
 
     # 构建正则表达式：keyword 降序排序，避免匹配冲突（如 "s" vs "ss"）
     sorted_keywords = sorted(component_type_map.keys(), key=lambda x: -len(x))
-    regex = r"|".join(re.escape(k) for k in sorted_keywords)
+    pattern = re.compile(r"|".join(re.escape(k) for k in sorted_keywords))
 
     # 获取颜色映射
     type_color_map = get_color_map()
+    result = []
+    pos = 0
+    seq = seq or ""
 
     # 匹配并构造结果
-    matches = re.findall(regex, seq or "")
-    result = [
-        {
-            "char": char.strip(),
-            "type": component_type_map.get(char.strip(), "unknown"),
-            "color": type_color_map.get(component_type_map.get(char.strip(), "unknown"), "#cccccc")
-        }
-        for char in matches
-    ]
+    while pos < len(seq):
+        match = pattern.match(seq, pos)
+        if match:
+            matched = match.group()
+            type_code = component_type_map.get(matched, 'unknown')
+            color = type_color_map.get(type_code, 'transparent')
+            result.append({
+                'char': matched,
+                'type': type_code,
+                'color': color
+            })
+            pos += len(matched)
+        else:
+            # 未知模块（无法匹配），标记为 unknown
+            result.append({
+                'char': seq[pos],
+                'type': 'unknown',
+                'color': 'transparent'
+            })
+            pos += 1
 
 
     # --- 选择序列，反转组顺序并让 subs 组合到前一组 main ---
@@ -156,7 +171,7 @@ def get_delivery_colored(seq: str, selected_seq_type: str, seq_type: str) -> lis
 
         result = new_result
 
-    print(result)
+    #print(result)
     
     return result
 
@@ -2004,30 +2019,77 @@ def download_selected(request):
 def module_list(request):
 
     # 获取所有 DeliveryModule 的 keyword 和 type_code
-    module_list = DeliveryModule.objects.all().values('id', 'keyword', 'type_code')
+    module_list = DeliveryModule.objects.all().values('id', 'keyword', 'type_code', 'Strand_MWs')
     
     # 渲染模板并传递数据
-    return render(request, 'Module_list.html', {'module_list': module_list})
+    return render(request, 'module_list.html', {'module_list': module_list})
 
 
 def edit_module(request):
-    # 获取模块对象
+
+    if not request.user.is_authenticated or request.user.username not in ['Y2325', 'Y2355', 'Y2341']:
+        return HttpResponse("""
+            <script>
+                alert('您没有操作权限！');
+                window.location.href = '/module_list/';
+            </script>
+        """, content_type="text/html; charset=utf-8")
+
     module_id = request.GET.get('id')
-    print(f"1111{module_id}")
-    module = get_object_or_404(DeliveryModule, id=module_id)
+    module = None
 
-    # 当表单被提交时
+    if module_id:
+        module = get_object_or_404(DeliveryModule, id=module_id)
+
     if request.method == 'POST':
-        # 获取提交的数据并更新模块
-        module.keyword = request.POST.get('keyword')
-        module.type_code = request.POST.get('type_code')
-        module.save()  # 保存更改
-        return redirect('/module_list/')  # 重定向到模块列表页面
+        keyword = request.POST.get('keyword').strip()
+        type_code = request.POST.get('type_code').strip()
+        Strand_MWs = request.POST.get('Strand_MWs').strip()
+        
 
-    # GET 请求时显示编辑页面
+        if module is None:
+            # === 新增模式 ===
+            if DeliveryModule.objects.filter(keyword=keyword).exists():
+                # 提示模块已存在
+                messages.warning(request, f"模块“{keyword}”已存在，请勿重复增加。")
+                return render(request, 'edit_module.html', {
+                    'module': None,
+                    'form_data': {'keyword': keyword, 'type_code': type_code, 'Strand_MWs': Strand_MWs}
+                })
+
+            # 创建新模块
+            new_module = DeliveryModule(keyword=keyword, type_code=type_code, Strand_MWs=Strand_MWs)
+            new_module.save()
+            return redirect('/module_list/')
+        else:
+            # === 更新模式 ===
+            try:
+                existing = DeliveryModule.objects.get(keyword=keyword)
+                # 自动更新 type_code
+                existing.type_code = type_code
+                existing.Strand_MWs = Strand_MWs
+                existing.save()
+                return redirect('/module_list/')
+            except DeliveryModule.DoesNotExist:
+                # 模块不存在
+                messages.warning(request, f"模块“{keyword}”不存在，请添加新模块。")
+                return redirect('/module_list/')
+
     return render(request, 'edit_module.html', {'module': module})
 
+
+
 def upload_modules(request):
+
+    # 权限控制
+    if not request.user.is_authenticated or request.user.username not in ['Y2325', 'Y2355', 'Y2341']:
+        return HttpResponse("""
+            <script>
+                alert('您没有操作权限！');
+                window.location.href = '/module_list/';
+            </script>
+        """, content_type="text/html; charset=utf-8")
+
     if request.method == 'POST' and request.FILES.get('file'):
         csv_file = request.FILES['file']
 
@@ -2036,17 +2098,19 @@ def upload_modules(request):
             df = pd.read_csv(csv_file)
 
             # 检查文件是否包含 'module' 和 'type' 列
-            if 'module' not in df.columns or 'type' not in df.columns:
-                messages.error(request, "CSV 文件必须包含 'module' 和 'type' 列！")
+            if 'Module' not in df.columns or 'Type' not in df.columns or 'Molecular_Weight' not in df.columns:
+                messages.error(request, "CSV 文件必须包含 'Module','Type'和'Molecular_Weight' 列！")
                 return render(request, 'upload_modules.html')
 
             # 用来记录哪些模块已经存在
             existing_modules = []
+            success_count = 0      # 统计成功上传数量
 
             # 遍历 DataFrame 行并保存到 DeliveryModule
             for _, row in df.iterrows():
-                module_name = row['module']
-                type_code = row['type']
+                module_name = str(row['Module']).strip()
+                type_code = str(row['Type']).strip()
+                Strand_MWs = str(row['Molecular_Weight']).strip()
 
                 # 检查 DeliveryModule 是否已经存在相同的模块
                 if DeliveryModule.objects.filter(keyword=module_name).exists():
@@ -2054,20 +2118,42 @@ def upload_modules(request):
                     continue  # 如果已经存在，跳过这行，继续下一个模块
 
                 # 创建并保存模块对象
-                DeliveryModule.objects.create(keyword=module_name, type_code=type_code)
+                DeliveryModule.objects.create(keyword=module_name, type_code=type_code, Strand_MWs=Strand_MWs)
+                success_count += 1
 
             if existing_modules:
-                # 提示用户哪些模块已经存在
-                messages.warning(request, f"以下模块已经存在，未做上传: {', '.join(existing_modules)}")
+                messages.warning(request, f"以下模块已存在，未重复导入： {', '.join(existing_modules)}")
 
-            # 如果所有模块上传成功
-            messages.success(request, "模块批量上传成功！")
+            if success_count > 0:
+                messages.success(request, f"共成功注册{success_count} 条新模块")
+
+            if success_count == 0:
+                messages.success(request, f"未注册任何新模块")
+
             return redirect('module_list')
 
         except Exception as e:
-            # 捕获任何错误并返回解析失败的消息
-            messages.error(request, f"文件解析失败: {str(e)}")
+            messages.error(request, f"处理文件时出错：{str(e)}")
             return render(request, 'upload_modules.html')
-
-    # GET 请求时显示上传表单
+        
+        # GET 请求时显示上传表单
     return render(request, 'upload_modules.html')
+
+@require_POST
+def delete_module(request):
+
+    if not request.user.is_authenticated or request.user.username not in ['Y2325', 'Y2355', 'Y2341']:
+        return HttpResponse("""
+            <script>
+                alert('您没有权限删除模块！');
+                window.location.href = '/module_list/';
+            </script>
+        """, content_type="text/html; charset=utf-8")
+     
+    module_id = request.POST.get('id')
+    try:
+        module = DeliveryModule.objects.get(id=module_id)
+        module.delete()
+        return redirect('/module_list/')  # 推荐跳回列表页
+    except DeliveryModule.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': '模块不存在'})

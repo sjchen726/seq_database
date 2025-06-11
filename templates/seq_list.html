@@ -138,6 +138,7 @@
                             <span class="caret pull-right"></span>
                         </a>
                         <ul>
+                            <li><a href="/module_list/">注册模块列表</a></li>
                             <li><a href="/register_seq/">序列注册</a></li>
                             <li><a href="/reg_seq_list/">注册序列列表</a></li>
                             <li><a href="/seq_delivery/">序列信息上传</a></li>
@@ -300,19 +301,19 @@
                                                     <!-- 2. 序列字符放在下方 -->
                                                     <span class="seq-container {% if seq_item.char == 's' or seq_item.char == 'o' %}seq-narrow{% else %}seq-wide{% endif %}"
                                                         style="background-color: 
-                                                            {% if seq_item.type == 'normal' %} rgb(148, 164, 243);
-                                                            {% elif seq_item.type == 'f' %} rgb(7, 191, 7);
-                                                            {% elif seq_item.type == 'm' %} rgb(73, 95, 240); color: white;
-                                                            {% elif seq_item.type == 'd' %} rgb(144, 170, 241);
-                                                            {% elif seq_item.type == 's' %} rgb(232, 228, 0);
-                                                            {% elif seq_item.type == 'o' %} rgb(200, 200, 200);
-                                                            {% elif seq_item.type == 'ss' %} rgb(232, 228, 0);
-                                                            {% elif seq_item.type == 'moe' %} rgb(249, 208, 255);
-                                                            {% elif seq_item.type == 'OCF3' %} rgb(255, 131, 135);
-                                                            {% elif seq_item.type == 'GNA' %} rgb(163, 227, 135);
-                                                            {% elif seq_item.type == 'TNA' %} rgb(232, 175, 71);
-                                                            {% elif seq_item.type == 'I' %} rgb(243, 196, 255);
-                                                            {% elif seq_item.type == 'invab' %} rgb(178, 136, 252);
+                                                            {% if seq_item.type == 'normal' %} rgb(189, 199, 248);
+                                                            {% elif seq_item.type == 'f' %} rgb(22, 245, 22);
+                                                            {% elif seq_item.type == 'm' %} rgb(68, 68, 68); color: white;
+                                                            {% elif seq_item.type == 'd' %} rgb(212, 93, 245);
+                                                            {% elif seq_item.type == 's' %} rgb(253, 246, 61);
+                                                            {% elif seq_item.type == 'o' %} rgb(198, 196, 198);
+                                                            {% elif seq_item.type == 'ss' %} rgb(212, 93, 245);
+                                                            {% elif seq_item.type == 'moe' %} rgb(212, 93, 245);
+                                                            {% elif seq_item.type == 'OCF3' %} rgb(212, 93, 245);
+                                                            {% elif seq_item.type == 'GNA' %} rgb(212, 93, 245);
+                                                            {% elif seq_item.type == 'TNA' %}rgb(245, 86, 86); color: white;
+                                                            {% elif seq_item.type == 'I' %} rgb(212, 93, 245);
+                                                            {% comment %} {% elif seq_item.type == 'invab' %} rgb(178, 136, 252); {% endcomment %}
                                                             {% elif seq_item.type == 'unknown' %} rgb(163, 163, 163);
                                                             {% endif %};"
                                                     >
@@ -412,25 +413,25 @@
                                                 {% for seq_item in group.items.1.modify_seq_colored %}
                                                     <div style="display: flex; flex-direction: column; align-items: center;">
                                                         <span class="seq-container {% if seq_item.char == 's' or seq_item.char == 'o' %}seq-narrow{% else %}seq-wide{% endif %}"
-                                                            style="background-color: 
-                                                                {% if seq_item.type == 'normal' %} rgb(156, 228, 255);
-                                                                {% elif seq_item.type == 'f' %} rgb(7, 191, 7);
-                                                                {% elif seq_item.type == 'm' %} rgb(73, 95, 240); color: white;
-                                                                {% elif seq_item.type == 'd' %} rgb(144, 170, 241);
-                                                                {% elif seq_item.type == 's' %} rgb(232, 228, 0);
-                                                                {% elif seq_item.type == 'o' %} rgb(200, 200, 200);
-                                                                {% elif seq_item.type == 'ss' %} rgb(232, 228, 0);
-                                                                {% elif seq_item.type == 'moe' %} rgb(249, 208, 255);
-                                                                {% elif seq_item.type == 'OCF3' %} rgb(255, 131, 135);
-                                                                {% elif seq_item.type == 'GNA' %} rgb(163, 227, 135);
-                                                                {% elif seq_item.type == 'TNA' %} rgb(232, 175, 71);
-                                                                {% elif seq_item.type == 'I' %} rgb(243, 196, 255);
-                                                                {% elif seq_item.type == 'invab' %} rgb(178, 136, 252);
-                                                                {% elif seq_item.type == 'unknown' %} rgb(163, 163, 163);
-                                                                {% endif %};"
-                                                        >
-                                                        {{ seq_item.char }}
-                                                        </span>
+                                                        style="background-color: 
+                                                            {% if seq_item.type == 'normal' %} rgb(189, 199, 248);
+                                                            {% elif seq_item.type == 'f' %} rgb(22, 245, 22);
+                                                            {% elif seq_item.type == 'm' %} rgb(68, 68, 68); color: white;
+                                                            {% elif seq_item.type == 'd' %} rgb(212, 93, 245);
+                                                            {% elif seq_item.type == 's' %} rgb(253, 246, 61);
+                                                            {% elif seq_item.type == 'o' %} rgb(198, 196, 198);
+                                                            {% elif seq_item.type == 'ss' %} rgb(212, 93, 245);
+                                                            {% elif seq_item.type == 'moe' %} rgb(212, 93, 245);
+                                                            {% elif seq_item.type == 'OCF3' %} rgb(212, 93, 245);
+                                                            {% elif seq_item.type == 'GNA' %} rgb(212, 93, 245);
+                                                            {% elif seq_item.type == 'TNA' %}rgb(245, 86, 86); color: white;
+                                                            {% elif seq_item.type == 'I' %} rgb(212, 93, 245);
+                                                            {% comment %} {% elif seq_item.type == 'invab' %} rgb(178, 136, 252); {% endcomment %}
+                                                            {% elif seq_item.type == 'unknown' %} rgb(163, 163, 163);
+                                                            {% endif %};"
+                                                    >
+                                                    {{ seq_item.char }}
+                                                    </span>
                                                         <span class="seq-count" style="width: auto;">
                                                             {% if seq_item.count %} {{ seq_item.count }} {% else %} &nbsp; {% endif %}
                                                         </span>

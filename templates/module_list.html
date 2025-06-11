@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <title>序列管理系统</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <!-- jQuery UI -->
     <link href="https://code.jquery.com/ui/1.10.3/themes/redmond/jquery-ui.css" rel="stylesheet" media="screen">
 
@@ -130,6 +133,7 @@
                             <span class="caret pull-right"></span>
                         </a>
                         <ul>
+                            <li><a href="/module_list/">注册模块列表</a></li>
                             <li><a href="/register_seq/">序列注册</a></li>
                             <li><a href="/reg_seq_list/">注册序列列表</a></li>
                             <li><a href="/seq_delivery/">序列信息上传</a></li>
@@ -173,7 +177,8 @@
                                 <th><input type="checkbox" id="select-all"></th> 
                                 <th>Number</th>
                                 <th>Moudle</th>
-                                <th>Type</th>
+                                <th>Type Code</th>
+                                <th>Molecular weight</th>
                                 <th>操作</th>
                             </tr>
                         </thead>
@@ -184,17 +189,30 @@
                                     <td style="white-space: nowrap; width: 100px;">{{ module.id}}</td>
                                     <td style="white-space: nowrap; width: 100px;">{{ module.keyword }}</td>
                                     <td style="white-space: nowrap; width: auto; ">{{ module.type_code }}</td>
+                                    <td style="white-space: nowrap; width: auto; ">{{ module.Strand_MWs }}</td>
                             
                                     <td>
                                         <div class="action-buttons">
-                                            <a class="btn btn-info btn-sm" href="/edit_module/?id={{ module.id }}">编辑</a>
-                                            <a class="btn btn-info btn-sm" href="/upload_modules">上传</a>
+                                            <a class="btn btn-info btn-sm" href="/edit_module/?id={{ module.id }}">更新数据</a>
+                                            <a class="btn btn-success btn-sm" href="/edit_module/" style="margin-left: 5px;">新增模块</a>
+                                            <a class="btn btn-info btn-sm" href="/upload_modules" style="margin-left: 5px;">批量上传注册</a>
+                                            <form method="POST" action="/delete_module/" style="display:inline; margin-left: 5px;">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="id" value="{{ module.id }}">
+                                                <button type="submit" class="btn btn-danger btn-sm single-delete-btn">删除</button>
+                                            </form>
                                         </div>
                                     </td>
+
                                 </tr>
                             {% endfor %}
                         </tbody>
                     </table>
+                </div>
+                <div class="alert alert-warning text-center" style="font-size: 18px;">
+                    <strong>注意事项：</strong> 每个 Type Code 对应特定颜色，相同的 Type Code 对应相同的颜色。
+                    <br>
+                    <strong>温馨提示：</strong> 请保持团队内的一致沟通和协调，避免随意更改，确保项目的统一性和规范性。
                 </div>
             </div>
         </div>

@@ -48,6 +48,8 @@ urlpatterns = [
     path('module_list/', views.module_list, name='module_list'),
     re_path(r'^edit_module/', views.edit_module),     # 编辑序列
     path('upload_modules/', views.upload_modules, name='upload_modules'),
+    path('delete_module/', views.delete_module, name='delete_module'),
+
 
     path('download_selected/', views.download_selected, name='download_selected'),
 

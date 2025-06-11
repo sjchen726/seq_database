@@ -152,4 +152,8 @@ class LmsUser(AbstractUser):
 #注册模块分类
 class DeliveryModule(models.Model):
     keyword = models.CharField(max_length=100, unique=True)
-    type_code = models.CharField(max_length=10, unique=False, blank=True)
+    type_code = models.CharField(max_length=10, blank=True)
+    Strand_MWs = models.CharField('Strand_MWs', max_length=64, null=True) # 分子量
+
+    def __str__(self):
+        return self.keyword

@@ -46,10 +46,16 @@
                     <nav class="collapse navbar-collapse bs-navbar-collapse navbar-right" role="navigation">
                         <ul class="nav navbar-nav">
                             <li class="dropdown">
-                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">My Account <b class="caret"></b></a>
+                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">个人信息<b class="caret"></b></a>
                                 <ul class="dropdown-menu animated fadeInUp">
-<!--                                    <li><a href="profile.html">Profile</a></li>-->
-                                    <li><a href="/login">Logout</a></li>
+                                    {% if request.user.is_authenticated %}
+                                        <li><a href="#">用户名: {{ request.user.username }}</a></li>
+                                        <li><a href="#">邮箱: {{ request.user.email }}</a></li>
+                                        <li class="divider"></li>
+                                        <li><a href="/login/">退出登录</a></li>
+                                    {% else %}
+                                        <li><a href="/login/">请登录</a></li>
+                                    {% endif %}
                                 </ul>
                             </li>
                         </ul>
@@ -75,6 +81,7 @@
                         <span class="caret pull-right"></span>
                     </a>
                     <ul>
+                        <li><a href="/module_list/">注册模块列表</a></li>
                         <li><a href="/register_seq/">序列注册</a></li>
                         <li><a href="/reg_seq_list/">注册序列列表</a></li>
                         <li><a href="/seq_delivery/">序列信息上传</a></li>

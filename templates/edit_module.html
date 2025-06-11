@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>编辑模块 - 序列管理系统</title>
+    <title>序列管理系统</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- jQuery UI -->
     <link href="https://code.jquery.com/ui/1.10.3/themes/redmond/jquery-ui.css" rel="stylesheet" media="screen">
@@ -66,6 +66,25 @@
     </div>
 </div>
 
+<!-- JavaScript 提示 -->
+<script type="text/javascript">
+    {% if messages %}
+        const messages = [
+            {% for message in messages %}
+                "{{ message|escapejs }}",
+            {% endfor %}
+        ];
+
+        function displayMessages(messages) {
+            messages.forEach(function(msg) {
+                alert(msg);  // 弹出窗口显示消息
+            });
+        }
+
+        displayMessages(messages);
+    {% endif %}
+</script>
+
 <div class="page-content">
     <div class="row">
         <div class="col-md-2">
@@ -93,32 +112,49 @@
                     <div class="panel-title">编辑模块</div>
                 </div>
                 <div class="panel-body">
-                    <form method="POST" action="/edit_module/?id={{ module.id }}">
+                    <form class="form-horizontal" method="POST" action="{% if module %}/edit_module/?id={{ module.id }}{% else %}/edit_module/{% endif %}">
                         {% csrf_token %}
-                        
+
                         <div class="form-group">
                             <label for="keyword" class="col-sm-2 control-label">Module</label>
-                            <div class="col-sm-10">
-                                <input type="text" id="keyword" name="keyword" class="form-control" value="{{ module.keyword }}" required>
+                            <div class="col-sm-4">
+                                <input type="text" id="keyword" name="keyword" class="form-control"
+                                    placeholder="模块名"
+                                    value="{% if form_data %}{{ form_data.keyword }}{% elif module %}{{ module.keyword }}{% endif %}"
+                                    {% if module %}readonly{% endif %} required>
                             </div>
                         </div>
 
                         <div class="form-group">
                             <label for="type_code" class="col-sm-2 control-label">Type Code</label>
-                            <div class="col-sm-10">
-                                <input type="text" id="type_code" name="type_code" class="form-control" value="{{ module.type_code }}" required>
+                            <div class="col-sm-4">
+                                <input type="text" id="type_code" name="type_code" class="form-control"
+                                    placeholder="类型编码"
+                                    value="{% if form_data %}{{ form_data.type_code }}{% elif module %}{{ module.type_code }}{% endif %}" required>
                             </div>
                         </div>
 
                         <div class="form-group">
-                            <div class="col-sm-offset-2 col-sm-10">
-                                <button type="submit" class="btn btn-primary" onclick="return confirm('此操作将修改当前数据，您确定要更新吗？');">更新</button>
-<!--                                <button type="" class="btn btn-default">返回</button>-->
-                                <button type="submit" formmethod="get" formaction="/module_list" class="btn btn-default">返回</button>
+                            <label for="type_code" class="col-sm-2 control-label">Molecular weight</label>
+                            <div class="col-sm-4">
+                                <input type="text" id="Strand_MWs" name="Strand_MWs" class="form-control"
+                                    placeholder="分子量"
+                                    value="{% if form_data %}{{ form_data.Strand_MWs}}{% elif module %}{{ module.Strand_MWs }}{% endif %}" required>
                             </div>
+                        </div>
+                        
 
+                        <div class="form-group">
+                            <div class="col-sm-offset-2 col-sm-10">
+                                <button type="submit" class="btn btn-primary"
+                                        onclick="return confirm('{% if module %}此操作将修改当前数据，您确定要更新吗？{% else %}此操作将创建新模块，您确定吗？{% endif %}');">
+                                    {% if module %}更新{% else %}创建{% endif %}
+                                </button>
+                                <a href="/module_list" class="btn btn-default" style="margin-left: 10px;">返回</a>
+                            </div>
                         </div>
                     </form>
+
                 </div>
             </div>
         </div>
