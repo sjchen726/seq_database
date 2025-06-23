@@ -281,7 +281,7 @@ def login_view(request):
         password = request.POST.get("password")
 
         # 验证用户
-        print(f"Submitted username: {username}, password: {password}")
+      #  print(f"Submitted username: {username}, password: {password}")
         user = authenticate(request, username=username, password=password)
 
         if user:
@@ -985,7 +985,7 @@ def add_o_to_all_rules(modify_seq):
     linker_seq = ""
     i = 0
 
-    print(f"modify_seq: {modify_seq}")  # 调试输出
+ #   print(f"modify_seq: {modify_seq}")  # 调试输出
     # 遍历 modify_seq 字符串
 
     while i < len(modify_seq):
@@ -1070,7 +1070,7 @@ def add_o_to_all_rules(modify_seq):
 
         i += 1
 
-        print(f"linker_seq: {linker_seq[:-1]}")  # 调试输出
+ #      print(f"linker_seq: {linker_seq[:-1]}")  # 调试输出
 
     return linker_seq[:-1]
 
@@ -1210,9 +1210,9 @@ def assign_duplex_ids(df, ss_groups, repeated_ids):
     duplex_id_map = {}
     valid_groups = [group for _, _, group in ss_groups if not repeated_ids.intersection(group)]
 
-    pattern = re.compile(r"^BP_(\d{6})$")
+    pattern = re.compile(r"^BP(\d{6})$")
     existing_ids = Delivery.objects.filter(
-        duplex_id__startswith="BP_"
+        duplex_id__startswith="BP"
     ).values_list('duplex_id', flat=True)
 
     existing_numbers = [
@@ -1222,7 +1222,7 @@ def assign_duplex_ids(df, ss_groups, repeated_ids):
 
     for group in valid_groups:
         serial = f"{next_number:06d}"
-        duplex_id = f"BP_{serial}"
+        duplex_id = f"BP{serial}"
         for row_id in group:
             duplex_id_map[row_id] = duplex_id
         next_number += 1
@@ -1556,7 +1556,19 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq, sele
 def get_sequence_info(request):
     permissions_projects = getattr(request.user, 'permissions_project', '')
     user_type = getattr(request.user, 'user_type', 'guest')
-    selected_seq_type = request.GET.get('seq_type', 'SS')  #默认为"AS (5'-3')
+    # selected_seq_type = request.GET.get('seq_type', 'SS')  #默认为"AS (5'-3')
+    # 显式定义用户名到默认 seq_type 的映射
+    user_default_seq_map = {
+        # 'Y2024': 'SS',
+        'Y2325': 'AS',
+        # 可以继续加
+    }
+
+    # 获取当前用户名
+    username = request.user.username if request.user.is_authenticated else ''
+
+    # 优先从 GET 参数获取，其次从映射中获取，最后默认 'SS'
+    selected_seq_type = request.GET.get('seq_type', user_default_seq_map.get(username, 'SS'))
     
 
  #   print(f"222222Selected sequence type: {selected_seq_type}")  # 调试输出
@@ -1662,16 +1674,19 @@ def get_sequence_info(request):
 def cor_seq(request):
    
     query_id_tmp  = request.GET.get('id')  # 获取 URL 参数
-    selected_seq_type = request.GET.get('sorted_seq_type', 'SS')  #默认为"AS (5'-3')
-
-    print(f"4444:{selected_seq_type}")
-   # selected_seq_type = "SS"
-   # print(query_id_tmp)
-   # print(query_id)
-    
     seq_type = request.GET.get('seq_type')  # 获取 URL 参数
-   # print(f'1,{seq_type}')
-  #  print(query_prefix)
+    # selected_seq_type = request.GET.get('sorted_seq_type', 'SS')  #默认为"AS (5'-3')
+
+    # 用户名 → 默认序列方向 映射
+    user_default_seq_map = {
+        'Y2325': 'AS',
+    }
+
+    username = request.user.username if request.user.is_authenticated else ''
+   
+    # 优先从 GET 参数获取，其次从映射中获取，最后默认 'SS'
+    selected_seq_type = request.GET.get('sorted_seq_type', user_default_seq_map.get(username, 'SS'))
+
     #seq_prefix = request.GET.get('seq_prefix', '')  # 获取 seq_prefix 参数
 
     # 获取当前用户的 'permissions_project' 字段，存储允许查看的项目号
@@ -1962,13 +1977,15 @@ def download_selected(request):
     try:
         ids = json.loads(selected_ids)
         types = json.loads(selected_seq_types)
+        seq_ids = [t.split('_', 1)[-1] if '_' in t else t for t in types]
         columns = json.loads(selected_columns)
     except json.JSONDecodeError:
         return HttpResponse("参数格式错误", status=400)
 
     query = Q()
-    for duplex_id, seq_type in zip(ids, types):
-        query |= Q(duplex_id=duplex_id, seq_type=seq_type)
+    for duplex_id, seq_ids in zip(ids, seq_ids):
+        query |= Q(duplex_id=duplex_id, id=seq_ids)
+     #   print(duplex_id, seq_ids)
 
     deliveries = Delivery.objects.filter(query)\
         .select_related('sequence')\
@@ -1998,6 +2015,12 @@ def download_selected(request):
                 part2 = getattr(seqinfo, 'Remark', '') if seqinfo else ''
                 val = f"{part1}\n{part2}".strip("\n") if (part1 or part2) else ''
       #          print(val)
+            
+            elif col_lc == 'id':
+            # 假设 seq_type 是从 `d.sequence.seq_type` 获取的
+                seq_type = getattr(d, 'seq_type', '') 
+                duplex_id = getattr(d, 'id', '')  # 获取 duplex_id
+                val = f"{seq_type}_{duplex_id}"  # 拼接 seq_type 和 duplex_id
             
             # ✅ 其他字段
             elif hasattr(d, col):

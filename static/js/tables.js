@@ -173,8 +173,8 @@ document.getElementById('download-selected').addEventListener('click', function(
     }
 
     // ✅ 强制要求选择关键字段
-    if (!selectedColumns.includes('duplex_id') || !selectedColumns.includes('seq_type')) {
-        alert("导出必须包含字段：Starnd ID 和 Sequence Type");
+    if (!selectedColumns.includes('duplex_id') || !selectedColumns.includes('id')) {
+        alert("导出必须包含字段：Starnd ID 和 Sequence ID");
         return;
     }
 
