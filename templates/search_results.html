@@ -80,7 +80,6 @@
                                 </div>
                             </form>
                         </div>
-
                     </div>
                 </div>
             </div>
@@ -319,7 +318,6 @@
                                                             {% elif seq_item.type == 'I' %} rgb(212, 93, 245);
                                                             {% comment %} {% elif seq_item.type == 'invab' %} rgb(178, 136, 252); {% endcomment %}
                                                             {% elif seq_item.type == 'unknown' %} rgb(163, 163, 163);
-                                                            {% elif seq_item.type == 'others' %} rgba(255, 160, 160, 1);
                                                             {% endif %};"
                                                     >
                                                     {{ seq_item.char }}
@@ -431,7 +429,6 @@
                                                             {% elif seq_item.type == 'GNA' %} rgb(212, 93, 245);
                                                             {% elif seq_item.type == 'TNA' %}rgb(245, 86, 86); color: white;
                                                             {% elif seq_item.type == 'I' %} rgb(212, 93, 245);
-                                                            {% elif seq_item.type == 'others' %} rgba(255, 160, 160, 1);
                                                             {% comment %} {% elif seq_item.type == 'invab' %} rgb(178, 136, 252); {% endcomment %}
                                                             {% elif seq_item.type == 'unknown' %} rgb(163, 163, 163);
                                                             {% endif %};"
@@ -490,6 +487,7 @@
                         </tbody>
                     </table>
                 </div>
+
             </div>
         </div>
     </div>
@@ -525,34 +523,6 @@ document.getElementById('seq_type_selector').addEventListener('change', function
     // 跳转到新 URL，触发后端视图
     window.location.href = url.toString();
 });
-
-// 🟢 滚动条同步逻辑
-const topScroll = document.getElementById('scroll-top');
-const bottomScroll = document.getElementById('scroll-bottom');
-
-// 绑定同步事件
-topScroll.addEventListener('scroll', () => {
-    bottomScroll.scrollLeft = topScroll.scrollLeft;
-});
-bottomScroll.addEventListener('scroll', () => {
-    topScroll.scrollLeft = bottomScroll.scrollLeft;
-});
-
-// （可选）在页面加载完成后，根据表格宽度自动设置顶部滚动条宽度
-window.addEventListener('load', () => {
-    const table = document.querySelector('#example');
-    const topScroller = document.querySelector('#scroll-top');
-
-    // 清空旧内容并设置宽度
-    if (table && topScroller) {
-        const dummy = document.createElement('div');
-        dummy.style.width = table.scrollWidth + 'px';
-        dummy.style.height = '1px';
-        topScroller.innerHTML = '';
-        topScroller.appendChild(dummy);
-    }
-});
 </script>
-
 </body>
 </html>

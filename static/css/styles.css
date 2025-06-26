@@ -972,6 +972,39 @@ body {
 
 /* 使表格响应式，防止溢出 */
 
+
+/* 顶部模拟滚动条 */
+
+.scroll-sync-top {
+    overflow-x: auto;
+    overflow-y: hidden;
+    height: 16px;
+    width: 100%;
+    margin-bottom: 4px;
+}
+
+
+/* 底部滚动区域 */
+
+.scroll-sync-wrapper {
+    overflow-x: auto;
+    overflow-y: visible;
+    width: 100%;
+    max-width: 100vw;
+    position: relative;
+}
+
+
+/* 生成顶部滚动条的“内容宽度” */
+
+.scroll-sync-top::before {
+    content: "";
+    display: block;
+    width: 2500px;
+    /* 可根据你的表格宽度调整；或在JS中动态设置 */
+    height: 1px;
+}
+
 .table-container {
     overflow-x: auto;
     /* 允许横向滚动条 */

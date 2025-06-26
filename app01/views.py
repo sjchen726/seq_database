@@ -15,6 +15,7 @@ from django.db.models import Q
 from django.db import IntegrityError
 import os, csv
 from django.utils.timezone import now
+from tomlkit import item
 from app01 import models
 from .models import *
 LmsUser = get_user_model()
@@ -180,7 +181,7 @@ def get_delivery_colored(seq: str, selected_seq_type: str, seq_type: str) -> lis
 def get_modify_seq_colored(seq, selected_seq_type, seq_type):
     # 使用正则表达式来提取符合条件的片段
     sequence = re.findall(
-        r'G\(moe\)|U\(moe\)|C\(moe\)|A\(moe\)|G\(OCF3\)|U\(OCF3\)|C\(OCF3\)|A\(OCF3\)|I|invab|GA02|GU02|GC02|TA12|TC12|TG12|TU0|ss|Af|Cf|Uf|Gf|Am|Cm|Um|Gm|dA|dT|dG|dC|dU|s|ss|o|[ACGUT]|.', seq or ""
+        r'G\(moe\)|U\(moe\)|C\(moe\)|A\(moe\)|G\(OCF3\)|U\(OCF3\)|C\(OCF3\)|A\(OCF3\)|I|invab|GA02|GU02|GC02|TA12|TC12|TG12|TU0|C16|Cn1|Uy1|Un2|U22|An1|An2|Gn2|Cn2|ss|Af|Cf|Uf|Gf|Am|Cm|Um|Gm|dA|dT|dG|dC|dU|s|ss|o|[ACGUT]|.', seq or ""
     )
 
     # delivery = Delivery.objects.filter(linker_seq=seq).first()
@@ -226,6 +227,7 @@ def get_modify_seq_colored(seq, selected_seq_type, seq_type):
                 "I" if char in ['I'] else
                 "invab" if char in ['invab'] else
                 "normal" if char in ['A', 'C', 'G', 'U'] else
+                "others" if char in ['Cn1', 'Uy1', 'Un2', 'U22', 'An1', 'An2', 'Gn2', 'Cn2'] else
                 "o" if char == 'o' else
                 "s" if char == 's' else
                 "ss" if char == 'ss' else
@@ -721,7 +723,7 @@ def edit_seq(request):
 
             logger = logging.getLogger('edit_seqs')
 
-            log_message = f"用户 {request.user.username} 在 {new_datetime} 编辑了项目 {delivery.project}中ID为 {delivery.id} 的序列 ，修改内容为: "
+            log_message = f"用户 {request.user.username} 在 {new_datetime} 编辑了项目 {delivery.project}中ID为 {delivery.delivery_id} 的序列 ，修改内容为: "
             log_details = []
 
             for change in changes:
@@ -1022,6 +1024,7 @@ def add_o_to_all_rules(modify_seq):
 
         # 4. TU0 后面加 "o"
         elif i + 2 < len(modify_seq) and modify_seq[i:i+3].upper() in [
+            # 'TU0','Cn1', 'Uy1','Un2','U22','An1','An2','Gn2','Cn2'
             'TU0'
         ]:
              # 判断紧跟后面那个字符是不是 's'
@@ -1247,6 +1250,12 @@ def save_deliveries(df, duplex_id_map, username):
         detailed_rows = []
 
         for row in rows:
+
+            row = {
+                k: ('' if isinstance(v, str) and v.strip() == '' else v)
+                for k, v in row.items()
+            }
+
             full_seq = row['Modify_seq']
             # 捕获序列最左侧的内容
             d5 = re.search(r'^\[([^\[\]]*)\]', full_seq)
@@ -1305,31 +1314,56 @@ def save_deliveries(df, duplex_id_map, username):
             # 如果整组未注册，跳过后续处理
             continue
 
+        seen_combinations = {}  # key: (base_id, delivery5, linker_seq, delivery3) → delivery_id
+
         # 处理每个详细行
         for item in detailed_rows:
             row = item['row']
             sequence_obj = Sequence.objects.get(seq=item['naked_seq'])
-
-            # 基础ID为裸序列对应的 Sequence 主键（如 SEQ001）
             base_id = sequence_obj.rm_code
+            current_delivery5 = item['delivery5']
+            current_delivery3 = item['delivery3']
+            current_linker_seq = add_o_to_all_rules(item['modify_seq'])
 
-            # 查找现有 Delivery 中以该 base_id 开头的 ID，统计已有数量
-            # 统一使用 base_id + .数字 作为 id
-            existing_ids = Delivery.objects.filter(id__startswith=base_id).values_list('id', flat=True)
+            # print(f"Processing item: {current_delivery3}, {current_delivery5}, {current_linker_seq}")
 
-            # 提取所有已存在的后缀数字
-            suffix_numbers = [
-                int(i.split(".")[-1]) for i in existing_ids
-                if "." in i and i.split(".")[0] == base_id and i.split(".")[-1].isdigit()
-            ]
 
-            # 第一个就是 .1
-            next_suffix = max(suffix_numbers, default=0) + 1
-            delivery_id = f"{base_id}.{next_suffix}"
+            key = (base_id, current_delivery5, current_linker_seq, current_delivery3)
 
+            # print(f"Key for this item: {key}")  # 调试输出
+            # print(f"Seen combinations so far: {seen_combinations}")  # 调试输出
+
+            # 优先查数据库中是否有重复
+            duplicate = Delivery.objects.filter(
+         #       id__startswith=base_id,
+                delivery5=current_delivery5,
+                delivery3=current_delivery3,
+                linker_seq=current_linker_seq
+            ).first()
+
+            if duplicate:
+                print(f"Found duplicate in database: {duplicate.delivery_id}")  # 调试输出
+                delivery_id = duplicate.delivery_id
+            elif key in seen_combinations:
+                delivery_id = seen_combinations[key]
+                # print(f"Reusing delivery ID from seen combinations: {delivery_id}")  # 调试输出
+            else:
+                print(f"Creating new delivery ID")  # 调试输出
+                existing_ids = Delivery.objects.filter(delivery_id__startswith=base_id).values_list('delivery_id', flat=True)
+
+                suffix_numbers = [
+                    int(i.split(".")[-1]) for i in existing_ids
+                    if "." in i and i.split(".")[0] == base_id and i.split(".")[-1].isdigit()
+                ]
+
+                print(f"Next suffix number: {suffix_numbers}")  # 调试输出
+                next_suffix = max(suffix_numbers, default=0) + 1
+                print(f"Next suffix number: {next_suffix}")  # 调试输出
+                delivery_id = f"{base_id}.{next_suffix}"
+                seen_combinations[key] = delivery_id
 
             Delivery.objects.create(
-                id=delivery_id,
+                delivery_id=delivery_id,
                 sequence=sequence_obj,
                 modify_seq=item['modify_seq'],
                 linker_seq=add_o_to_all_rules(item['modify_seq']),
@@ -1542,7 +1576,7 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq, sele
                 'Parents': getattr(d, 'parents', None),
                 'Target': getattr(d, 'Target', None),
                 'Seq_type': getattr(d, 'seq_type', None),
-                'delivery_id': getattr(d, 'id', None),
+                'delivery_id': getattr(d, 'delivery_id', None),
                 'delivery5': getattr(d, 'delivery5', None),
                 'delivery3': getattr(d, 'delivery3', None),
                 'Strand_MWs': getattr(d, 'Strand_MWs', None),
@@ -2180,3 +2214,165 @@ def delete_module(request):
         return redirect('/module_list/')  # 推荐跳回列表页
     except DeliveryModule.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': '模块不存在'})
+    
+def search(request):
+    # 获取用户权限和类型
+    permissions_projects = getattr(request.user, 'permissions_project', '')
+    user_type = getattr(request.user, 'user_type', 'guest')
+
+    # 显式定义用户名到默认 seq_type 的映射
+    user_default_seq_map = {
+        'Y2325': 'AS',
+    }
+
+    username = request.user.username if request.user.is_authenticated else ''
+    selected_seq_type = request.GET.get('seq_type', user_default_seq_map.get(username, 'SS'))
+
+    # 数据权限控制
+    if request.user.is_superuser:
+        delivery_qs = Delivery.objects.all()
+    elif permissions_projects:
+        allowed_projects = [p.strip() for p in permissions_projects.split(',')]
+        delivery_qs = Delivery.objects.filter(project__in=allowed_projects)
+    else:
+        delivery_qs = Delivery.objects.none()
+
+    # # 获取表单筛选条件
+    filters = {
+        'filterSequence': request.GET.get('filterSequence'),
+        'filter5Delivery': request.GET.get('filter5Delivery'),
+        'filterSeq': request.GET.get('filterSeq'),
+        'filterTarget': request.GET.get('filterTarget'),
+        'filterStrandMWs': request.GET.get('filterStrandMWs'),
+        'filterRemarks': request.GET.get('filterRemarks'),
+        'filterAsSeqtype': request.GET.get('filterAsSeqtype'),
+        'filterProject': request.GET.get('filterProject'),
+        'filter3Delivery': request.GET.get('filter3Delivery'),
+        'filterModifySeq': request.GET.get('filterModifySeq'),
+        'filterTranscript': request.GET.get('filterTranscript'),
+        'filterPos': request.GET.get('filterPos'),
+        'filterParents': request.GET.get('filterParents'),
+    }
+
+    # Step 1: 用筛选条件找出命中记录
+    filtered_qs = delivery_qs
+
+    if filters.get('filterSequence'):
+        filtered_qs = filtered_qs.filter(duplex_id__icontains=filters['filterSequence'])
+    if filters.get('filter5Delivery'):
+        filtered_qs = filtered_qs.filter(delivery5__icontains=filters['filter5Delivery'])
+    if filters.get('filterSeq'):
+        filtered_qs = filtered_qs.filter(modify_seq__icontains=filters['filterSeq'])
+    if filters.get('filterTarget'):
+        filtered_qs = filtered_qs.filter(Target__icontains=filters['filterTarget'])
+    if filters.get('filterStrandMWs'):
+        filtered_qs = filtered_qs.filter(Strand_MWs__icontains=filters['filterStrandMWs'])
+    if filters.get('filterRemarks'):
+        filtered_qs = filtered_qs.filter(Remark__icontains=filters['filterRemarks'])
+    if filters.get('filterAsSeqtype'):
+        filtered_qs = filtered_qs.filter(seq_type__icontains=filters['filterAsSeqtype'])
+    if filters.get('filterProject'):
+        filtered_qs = filtered_qs.filter(project__icontains=filters['filterProject'])
+    if filters.get('filter3Delivery'):
+        filtered_qs = filtered_qs.filter(delivery3__icontains=filters['filter3Delivery'])
+    if filters.get('filterModifySeq'):
+        filtered_qs = filtered_qs.filter(modify_seq__icontains=filters['filterModifySeq'])
+    if filters.get('filterTranscript'):
+        filtered_qs = filtered_qs.filter(linker_seq__icontains=filters['filterTranscript'])
+    if filters.get('filterPos'):
+        filtered_qs = filtered_qs.filter(position__icontains=filters['filterPos'])
+    if filters.get('filterParents'):
+        filtered_qs = filtered_qs.filter(parents__icontains=filters['filterParents'])
+
+    # Step 2: 提取命中记录的 (project, duplex_id)
+    # print(f"Filtered queryset count: {filtered_qs}")  # 调试输出
+
+    if any(filters.values()):
+        matched_pairs = filtered_qs.values_list('project', 'duplex_id').distinct()
+        q_objects = Q()
+        for proj, dup_id in matched_pairs:
+            q_objects |= Q(project=proj, duplex_id=dup_id)
+        delivery_qs = delivery_qs.filter(q_objects)
+
+    # 初始化数据结构
+    rmcode_to_seqid = {}
+    delivery_map = defaultdict(list)
+
+    for d in delivery_qs:
+        if d.id and d.sequence_id:
+            rmcode_to_seqid[d.id] = d.sequence_id
+            delivery_map[d.id].append(d)
+
+    rm_codes = list(rmcode_to_seqid.keys())
+    sequence_ids = list(set(rmcode_to_seqid.values()))
+
+    sequence_map = {
+        s.rm_code: s for s in Sequence.objects.filter(rm_code__in=sequence_ids)
+    }
+    seqinfo_map = {
+        s.sequence_id: s for s in SeqInfo.objects.filter(sequence_id__in=sequence_ids)
+    }
+
+    duplex_group_map = defaultdict(list)
+
+    for rm_code in rm_codes:
+        sequence_id = rmcode_to_seqid[rm_code]
+        sequence = sequence_map.get(sequence_id)
+        seqinfo = seqinfo_map.get(sequence_id)
+        deliveries = delivery_map.get(rm_code, [])
+
+        grouped_deliveries = defaultdict(list)
+        for d in deliveries:
+            project = getattr(d, 'project', None)
+            duplex_id = getattr(d, 'duplex_id', None)
+            if project and duplex_id:
+                grouped_deliveries[(project, duplex_id)].append(d)
+
+        for (project, duplex_id), group_deliveries in grouped_deliveries.items():
+            linker_seqs = [d.linker_seq for d in group_deliveries if getattr(d, 'linker_seq', None)]
+
+            if linker_seqs:
+                for linker_seq in linker_seqs:
+                    item = build_sequence_data(
+                        rm_code=rm_code,
+                        seqinfo=seqinfo,
+                        sequence=sequence,
+                        deliveries=group_deliveries,
+                        linker_seq=linker_seq,
+                        selected_seq_type=selected_seq_type
+                    )
+                    duplex_group_map[(project, duplex_id)].append(item)
+            else:
+                item = build_sequence_data(
+                    rm_code=rm_code,
+                    seqinfo=seqinfo,
+                    sequence=sequence,
+                    deliveries=group_deliveries,
+                    linker_seq=None,
+                    selected_seq_type=selected_seq_type
+                )
+                duplex_group_map[(project, duplex_id)].append(item)
+
+    sequence_groups = []
+    for (project, duplex_id), items in duplex_group_map.items():
+        sorted_items = sorted(
+            items,
+            key=lambda item: (
+                item['deliveries'][0]['Seq_type'] != 'SS'
+                if item['deliveries'] else True
+            )
+        )
+
+        sequence_groups.append({
+            'project': project,
+            'duplex_id': duplex_id,
+            'items': sorted_items,
+        })
+
+    context = {
+        'user_type': user_type,
+        'sequence_groups': sequence_groups,
+        'selected_seq_type': selected_seq_type,
+    }
+
+    return render(request, 'search_results.html', context)

@@ -50,6 +50,8 @@ urlpatterns = [
     path('upload_modules/', views.upload_modules, name='upload_modules'),
     path('delete_module/', views.delete_module, name='delete_module'),
 
+    path('search/', views.search, name='search'),  # 搜索功能
+
 
     path('download_selected/', views.download_selected, name='download_selected'),
 

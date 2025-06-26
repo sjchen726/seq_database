@@ -76,9 +76,9 @@ class Author(models.Model):
     permissions_project = models.CharField('available_pro', max_length=256, null=True, blank=True)  
 
 
-
 class Delivery(models.Model):
-    id = models.CharField('id', max_length=12, primary_key=True, unique=True)  # RM_7编号
+    id = models.AutoField(primary_key=True)  # 默认自增主键
+    delivery_id = models.CharField('Delivery ID', max_length=20, null=True)  # 可重复  # 原始 delivery ID（如 SEQ001.1）
     duplex_id = models.CharField('duplex_id', max_length=24, null=True)  # duplex_id编号
     sequence = models.ForeignKey(Sequence, on_delete=models.CASCADE, related_name='deliveries')  # 外键关联到Sequence表，裸序列的相关ID
     modify_seq = models.CharField('modify_seq', max_length=100, null=True)  # 存储序列（如 AUGC）
