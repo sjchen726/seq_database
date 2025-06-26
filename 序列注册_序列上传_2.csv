@@ -1,0 +1,35 @@
+Project,Target,Seq_type,Modify_seq,Strand_MWs,Parents,Remarks
+BPR-3T03,SOD1,SS,[NH2-C6sinvAbs]CmsAmUmUmUmUmAmAmUfCfCfUmCmAmCmUmCmUmAmAmAm[sinvAboC6-SLP01]
+BPR-3T03,SOD1,AS,[Vp]UmsUfsUmsAfGmAmGmUmGmAmGmGfAmUfUmAfAmAfAmUfsGm,
+BPR-3T03,SOD1,SS,[NH2-C6sinvAbs]CmsAmUmUmUmUmAmAmUfCfCfUmCmAmCmUmCmUmAmAmAm[sinvAboC6-SLP01a], , ,mAdi 2
+BPR-3T03,SOD1,AS,[Vp]UmsUfsUmsAfGmAmGmUmGmAmGmGfAmUfUmAfAmAfAmUfsGm,
+BPR-3T03,SOD1,SS,[NH2-C6sinvAbs]CmsAmUmUmUmUmAmAmUfCfCfUmCmAmCmUmCmUmAmAmAm[sinvAboC6-SLP01h], , ,mAdi 3
+BPR-3T03,SOD1,AS,[Vp]UmsUfsUmsAfGmAmGmUmGmAmGmGfAmUfUmAfAmAfAmUfsGm,
+BPR-3T03,SOD1,SS,[NH2-C6sinvAbs]CmsAmUmUmUmUmAmAmUfCfCfUmCmAmCmUmCmUmAmAmAm[sinvAboC6-SLP01d], , ,mAdi_3
+BPR-3T03,SOD1,AS,[Vp]UmsUfsUmsAfGmAmGmUmGmAmGmGfAmUfUmAfAmAfAmUfsGm,
+BPR-3T03,SOD1,SS,[NH2-C6sinvAbs]CmsAmUmUmUmUmAmAmUfCfCfUmCmAmCmUmCmUmAmAmAm[sinvAboC6-SLP04], , ,018003-7 mAdi-4
+BPR-3T03,SOD1,AS,[Vp]UmsUfsUmsAfGmAmGmUmGmAmGmGfAmUfUmAfAmAfAmUfsGm,
+BPR-3T03,SOD1,SS,[NH2-C6sinvAbs]CmsAmUmUmUmUmAmAmUfCfCfUmCmAmCmUmCmUmAmAmAm[C6-SLP01d], , ,mAdi_3
+BPR-3T03,SOD1,AS,[Vp]UmsUfsUmsAfGmAmGmUmGmAmGmGfAmUfUmAfAmAfAmUfsGm,
+BPR-3T03,SOD1,SS,[NH2-C6sinvAbs]CmsAmUmUmUmUmAmAmUfCfCfUmCmAmCmUmCmUmAmAmAm, , ,018003-7 mAdi-4
+BPR-3T03,SOD1,AS,[Vp]UmsUfsUmsAfGmAmGmUmGmAmGmGfAmUfUmAfAmAfAmUfsGm,
+BPR-350,SOD1,SS,[NH2-C6sinvAbs]CmsAmUmUmUmUmAmAmUfCfCfUmCmAmCmUmCmUmAmAmAms
+BPR-350,SOD1,AS,[Vp]UmsUfsUmsAfGmAmGmUmGmAmGmGfAmUfUmAfAmAfAmUfsGm,
+BPR-350,SOD1,SS,[NH2-C6sinvAbs]CmsAmUmUmUmUmAmAmUfCfCfUmCmAmCmUmCmUmAmAmsAm, , ,mAdi 2
+BPR-350,SOD1,AS,[Vp]UmsUfsUmsAfGmAmGmUmGmAmGmGfAmUfUmAfAmAfAmUfsGm,
+BPR-350,SOD1,SS,[NH2-C6sinvAbs]CmsAmUmUmUmUmAmAmUfCfCfUmCmAmCmUmCmUmAmsAmAm, , ,mAdi 3
+BPR-350,SOD1,AS,[Vp]UmsUfsUmsAfGmAmGmUmGmAmGmGfAmUfUmAfAmAfAmUfsGm,
+BPR-350,SOD1,SS,[NH2-C6sinvAbs]CmsAmUmUmUmUmAmAmUfCfCfUmCmAmCmUmCmUmsAmAmAm, , ,mAdi_3
+BPR-350,SOD1,AS,[Vp]UmsUfsUmsAfGmAmGmUmGmAmGmGfAmUfUmAfAmAfAmUfsGm,
+BPR-350,SOD1,SS,[NH2-C6sinvAbs]CmsAmUmUmUmUmAmAmUfCfCfUmCmAmCmUmCmsUmAmAmAm, , ,018003-7 mAdi-4
+BPR-350,SOD1,AS,[Vp]UmsUfsUmsAfGmAmGmUmGmAmGmGfAmUfUmAfAmAfAmUfsGm,
+BPR-350,SOD1,SS,[NH2-C6sinvAbs]CmsAmUmUmUmUmAmAmUfCfCfUmCmAmCmsUmCmUmAmAmAm, , ,mAdi_3
+BPR-350,SOD1,AS,[Vp]UmsUfsUmsAfGmAmGmUmGmAmGmGfAmUfUmAfAmAfAmUfsGm,
+BPR-350,SOD1,SS,[NH2-C6sinvAbs]CmsAmUmUmUmUmAmAmUfCfCfUmCmsAmCmUmCmUmAmAmAm, , ,018003-7 mAdi-4
+BPR-350,SOD1,AS,[Vp]UmsUfsUmsAfGmAmGmUmGmAmGmGfAmUfUmAfAmAfAmUfsGm,
+BPR-350,SOD1,SS,[NH2-C6sinvAbs]CmsAmUmUmUmUmAmAmUfCfCfUmCmsAmCmUmCmUmAmAmAms, , ,018003-7 mAdi-4
+BPR-350,SOD1,AS,[Vp]UmsUfsUmsAfGmAmGmUmGn2AmGmGfAmUfUmAfAmAfAmUfsGm,
+
+
+
+
