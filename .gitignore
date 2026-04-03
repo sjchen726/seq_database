@@ -48,6 +48,22 @@ coverage.xml
 *.cover
 *.py,cover
 .hypothesis/
+
+# Logs
+logs/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Excel temp files
+~$*.xlsx
+~$*.xls
+
+# Download files
+*.crdownload
 .pytest_cache/
 cover/
 
