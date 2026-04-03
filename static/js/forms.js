@@ -1,107 +1,72 @@
 document.addEventListener('DOMContentLoaded', function() {
     const searchBtn = document.getElementById('searchBtn');
     const searchInput = document.getElementById('searchInput');
-    const advancedSearchBtn = document.getElementById('advancedSearchBtn');
-    const advancedSearchPanel = document.getElementById('advancedSearchPanel');
-    const applyFilters = document.getElementById('applyFilters');
-    const clearFilters = document.getElementById('clearFilters');
-    const closeSearchPanel = document.getElementById('closeSearchPanel');
+
+    // 基础元素不存在就退出，避免脚本报错导致其它功能失效
+    if (!searchBtn || !searchInput) return;
+
+    const table = window.table;
+    if (!table) {
+        console.error('[forms.js] window.table 未初始化，请确保 tables.js 在 forms.js 之前加载。');
+        return;
+    }
 
     let activeFilters = {};
 
-    const table = window.table; // 从 tables.js 中获取已经初始化的 DataTable
+    // ✅ 注册 DataTables 自定义搜索：只注册一次，避免重复 push
+    if (!window.__normalSearchRegistered) {
+        $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+            const row = settings.aoData[dataIndex].nTr;
+            const cells = data.map(cell => String(cell || '').toLowerCase());
 
-    // ✅ 注册 DataTables 的自定义搜索
-    $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
-        const row = settings.aoData[dataIndex].nTr;
-        const cells = data.map(cell => cell.toLowerCase());
+            const modifySeqCell = row ? row.querySelector('[data-modify-seq]') : null;
+            let modifySeqData = modifySeqCell ? (modifySeqCell.getAttribute('data-modify-seq') || '').toLowerCase() : '';
+            modifySeqData = modifySeqData.replace(/[osf]/g, '');
 
-        const modifySeqCell = row.querySelector('[data-modify-seq]');
-        let modifySeqData = modifySeqCell ? modifySeqCell.getAttribute('data-modify-seq').toLowerCase() : '';
-        modifySeqData = modifySeqData.replace(/[osf]/g, '');
+            // 只做普通搜索：activeFilters.query
+            if (activeFilters.query) {
+                const queries = activeFilters.query
+                    .split(',')
+                    .map(q => q.trim())
+                    .filter(Boolean);
 
-        // 普通搜索
-        if (activeFilters.query) {
-            const queries = activeFilters.query.split(',').map(q => q.trim());
-            return cells.some(text => queries.some(q => text.includes(q))) ||
-                queries.some(q => modifySeqData.includes(q));
-        }
-
-        // 高级搜索
-        for (const [key, value] of Object.entries(activeFilters)) {
-            if (!value || key === 'query') continue;
-            const queryList = value.split(',').map(q => q.trim());
-
-            if (key === 'modifySeq') {
-                const filtered = queryList.map(v => v.replace(/[ofs\s]/g, ''));
-                if (!filtered.some(val => modifySeqData.includes(val))) return false;
-            } else {
-                if (!queryList.some(query => cells.some(cell => cell.includes(query)))) return false;
+                return (
+                    cells.some(text => queries.some(q => text.includes(q))) ||
+                    queries.some(q => modifySeqData.includes(q))
+                );
             }
-        }
 
-        return true;
-    });
+            // 没有普通搜索关键字时，不拦截（放行）
+            return true;
+        });
 
-    // 普通搜索按钮
-    searchBtn.addEventListener('click', function() {
+        window.__normalSearchRegistered = true;
+    }
+
+    // 工具：本次 draw 完成后，如果过滤结果为 0 就弹窗（只弹一次）
+    function alertIfNoMatchOnce() {
+        table.one('draw', function() {
+            const count = table.rows({ filter: 'applied' }).count();
+            if (count === 0) alert('没有搜索到指定内容');
+        });
+    }
+
+    // 普通搜索按钮（不跳转）
+    searchBtn.addEventListener('click', function(e) {
+        e.preventDefault(); // ✅ 防止表单提交/跳转
+
         const query = searchInput.value.trim().toLowerCase();
         activeFilters = { query };
+
+        alertIfNoMatchOnce(); // ✅ 先绑定，再 draw
         table.draw();
     });
 
-    // 回车触发搜索
+    // 回车触发搜索（不跳转）
     searchInput.addEventListener('keypress', function(event) {
         if (event.key === 'Enter') {
+            event.preventDefault(); // ✅ 防止回车触发表单提交/跳转
             searchBtn.click();
         }
     });
-
-    // 显示/隐藏高级搜索面板
-    advancedSearchBtn.addEventListener('click', function() {
-        if (advancedSearchPanel.style.display === 'none' || advancedSearchPanel.style.display === '') {
-            advancedSearchPanel.style.display = 'block';
-        } else {
-            advancedSearchPanel.style.display = 'none';
-        }
-    });
-
-    // 关闭高级搜索面板
-    closeSearchPanel.addEventListener('click', function() {
-        advancedSearchPanel.style.display = 'none';
-    });
-
-    // 应用高级筛选
-    applyFilters.addEventListener('click', function() {
-        activeFilters = {
-            sequence: getInputValue('filterSequence'),
-            project: getInputValue('filterProject'),
-            delivery5: getInputValue('filter5Delivery'),
-            delivery3: getInputValue('filter3Delivery'),
-            modifySeq: getInputValue('filterModifySeq'),
-            transcript: getInputValue('filterTranscript'),
-            target: getInputValue('filterTarget'),
-            pos: getInputValue('filterPos'),
-            strandMWs: getInputValue('filterStrandMWs'),
-            parents: getInputValue('filterParents'),
-            remarks: getInputValue('filterRemarks'),
-            asSeqId: getInputValue('filterAsSeqId'),
-        };
-        table.draw(false);
-    });
-
-    // 清除高级筛选
-    clearFilters.addEventListener('click', function() {
-        document.querySelectorAll('#advancedSearchPanel input').forEach(input => input.value = '');
-        activeFilters = {};
-        searchInput.value = '';
-        table.search('').draw(); // 清除全局搜索
-        table.draw(); // 清除高级搜索
-    });
-
-    // 获取表单字段的值
-    function getInputValue(id) {
-        const input = document.getElementById(id);
-        return input ? input.value.trim().toLowerCase() : '';
-    }
 });

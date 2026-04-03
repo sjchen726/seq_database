@@ -154,8 +154,129 @@ $(document).ready(function() {
         updateSelectAllState(); // 每次绘制后更新全选状态
     });
 
-    // 初始渲染
-    table.draw();
+    // 每次重绘后，确保编辑/关联链接包含当前页码参数 dt_page
+    table.on('draw', function() {
+        try {
+            const currentPage = table.page(); // 0-based
+            // 编辑链接
+            $('#example a[href*="/edit_seq/"]').each(function() {
+                const $a = $(this);
+                const url = new URL($a.prop('href'), window.location.origin);
+                url.searchParams.set('dt_page', currentPage);
+                $a.prop('href', url.toString());
+            });
+            // 关联链接
+            $('#example a[href*="/cor_seq/"]').each(function() {
+                const $a = $(this);
+                const url = new URL($a.prop('href'), window.location.origin);
+                url.searchParams.set('dt_page', currentPage);
+                $a.prop('href', url.toString());
+            });
+
+            // 将当前页码写入浏览器地址栏（不刷新页面），以便 F5 刷新时能保留页码
+            try {
+                const curUrl = new URL(window.location.href);
+                curUrl.searchParams.set('dt_page', currentPage);
+                window.history.replaceState({}, document.title, curUrl.toString());
+            } catch (e) {
+                console.warn('update URL dt_page failed', e);
+            }
+        } catch (e) {
+            console.warn('append dt_page failed', e);
+        }
+    });
+
+    // 高亮处理：读取 URL 参数 highlight_duplex / highlight_delivery 并在表格中标记对应行
+    function applyHighlights() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const hDuplex = params.get('highlight_duplex');
+            const hDelivery = params.get('highlight_delivery');
+            const hSeqType = params.get('highlight_seq_type');
+
+            // 先移除旧的高亮
+            $('#example tbody tr').removeClass('highlight-row');
+
+            if (!hDuplex && !hDelivery) return;
+
+            // 搜索并标记行：我们在模板里把 rm_code 或 delivery id 放在 tr 的 data 属性
+            let matched = $();
+            $('#example tbody tr').each(function() {
+                const $tr = $(this);
+                const duplexText = $tr.find('td:nth-child(2)').text().trim(); // Strand ID 列
+                const deliveryId = $tr.data('delivery-id');
+                const rmCode = $tr.data('rm-code');
+
+                // 仅在 seq_type 匹配时才高亮（如果提供了 hSeqType）
+                const rowSeqType = $tr.data('seq-type') || $tr.attr('data-seq-type') || '';
+                const seqTypeMatches = !hSeqType || String(rowSeqType) === String(hSeqType);
+
+                if (seqTypeMatches && hDuplex && duplexText && duplexText.indexOf(hDuplex) !== -1) {
+                    matched = matched.add($tr);
+                }
+
+                if (seqTypeMatches && hDelivery && deliveryId && String(deliveryId) === String(hDelivery)) {
+                    matched = matched.add($tr);
+                }
+
+                // 兼容 rm_code 高亮（部分场景）
+                if (seqTypeMatches && hDelivery && rmCode && String(rmCode) === String(hDelivery)) {
+                    matched = matched.add($tr);
+                }
+            });
+
+            if (matched.length) {
+                matched.addClass('highlight-row');
+
+                // 滚动到第一个匹配行（若不在可视区域）
+                const first = matched.first();
+                const pageTop = $(window).scrollTop();
+                const offset = first.offset().top - 100;
+                $('html, body').animate({ scrollTop: offset }, 300);
+
+                // 5 秒后移除高亮并从 URL 中移除相关参数（历史替换）
+                setTimeout(function() {
+                    matched.removeClass('highlight-row');
+                    try {
+                        const url = new URL(window.location.href);
+                        url.searchParams.delete('highlight_duplex');
+                        url.searchParams.delete('highlight_delivery');
+                        window.history.replaceState({}, document.title, url.toString());
+                    } catch (e) {}
+                }, 5000);
+            }
+        } catch (e) {
+            console.warn('applyHighlights failed', e);
+        }
+    }
+
+    // 在每次 draw 后应用高亮（以应对分页恢复）
+    table.on('draw', function() {
+        applyHighlights();
+    });
+
+    // 初始调用
+    applyHighlights();
+
+    // 初始渲染：优先从 URL 恢复 dt_page，然后再绘制（避免初始 draw 覆盖 URL）
+    (function initDrawWithDtPage() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const dtPage = params.get('dt_page');
+            if (dtPage !== null) {
+                const pageIndex = parseInt(dtPage, 10);
+                if (!isNaN(pageIndex)) {
+                    table.page(pageIndex).draw(false);
+                    return;
+                }
+            }
+        } catch (e) {
+            console.warn('读取 dt_page 失败', e);
+        }
+
+        // 默认绘制第一页
+        table.draw();
+    })();
 });
 
 //下载选中项

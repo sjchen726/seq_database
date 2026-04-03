@@ -81,8 +81,8 @@ class Delivery(models.Model):
     delivery_id = models.CharField('Delivery ID', max_length=20, null=True)  # 可重复  # 原始 delivery ID（如 SEQ001.1）
     duplex_id = models.CharField('duplex_id', max_length=24, null=True)  # duplex_id编号
     sequence = models.ForeignKey(Sequence, on_delete=models.CASCADE, related_name='deliveries')  # 外键关联到Sequence表，裸序列的相关ID
-    modify_seq = models.CharField('modify_seq', max_length=100, null=True)  # 存储序列（如 AUGC）
-    linker_seq = models.CharField('linker_seq', max_length=100, null=True)  # 存储序列（如 AoUoGo）
+    modify_seq = models.CharField('modify_seq', max_length=500, null=True)  # 存储序列（如 AUGC）
+    linker_seq = models.CharField('linker_seq', max_length=500, null=True)  # 存储序列（如 AoUoGo）
     naked_length = models.CharField('Naked Length', max_length=100, null=True)  # Naked Length
     delivery5 = models.CharField('Delivery5', max_length=100, null=True)  # 递送内容 5
     delivery3 = models.CharField('Delivery3', max_length=100, null=True)  # 递送内容 3

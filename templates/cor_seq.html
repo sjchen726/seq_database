@@ -43,34 +43,37 @@
                         </div>
 
                         <!-- 高级搜索面板 -->
-                        <div id="advancedSearchPanel">
-                            <div class="search-header" id="dragHandle">
-                                <span>🔍 高级搜索</span>
-                                <button id="closeSearchPanel">✖</button>
-                            </div>
-                            <div class="advanced-search-grid">
-                                <div class="search-column">
-                                    <label>Strand ID: <input type="text" id="filterSequence"></label>
-                                    <label>5' Ligand: <input type="text" id="filter5Delivery"></label>
-                                    <label>Sequences: <input type="text" id="filterSeq"></label>
-                                    <label>Target: <input type="text" id="filterTarget"></label>
-                                    <label>Strand_MWs: <input type="text" id="filterStrandMWs"></label>
-                                    <label>Remarks: <input type="text" id="filterRemarks"></label>
-                                    <label>Sequence ID: <input type="text" id="filterAsSeqtype"></label>
+                        <div id="advancedSearchPanel" style="display: none;">
+                            <form id="advancedSearchForm" method="GET" action="{% url 'search' %}">
+                                {% csrf_token %}
+                                <div class="search-header" id="dragHandle">
+                                    <span>🔍 高级搜索</span>
+                                    <button id="closeSearchPanel" type="button">✖</button>
                                 </div>
-                                <div class="search-column">
-                                    <label>Project: <input type="text" id="filterProject"></label>
-                                    <label>3' Ligand: <input type="text" id="filter3Delivery"></label>
-                                    <label>Modify Sequences: <input type="text" id="filterModifySeq"></label>
-                                    <label>Transcript: <input type="text" id="filterTranscript"></label>
-                                    <label>Position: <input type="text" id="filterPos"></label>
-                                    <label>Parents: <input type="text" id="filterParents"></label>
+                                <div class="advanced-search-grid">
+                                    <div class="search-column">
+                                        <label>Strand ID: <input type="text" name="filterSequence"></label>
+                                        <label>5' Ligand: <input type="text" name="filter5Delivery"></label>
+                                        <label>Sequences: <input type="text" name="filterSeq"></label>
+                                        <label>Target: <input type="text" name="filterTarget"></label>
+                                        <label>Strand_MWs: <input type="text" name="filterStrandMWs"></label>
+                                        <label>Remarks: <input type="text" name="filterRemarks"></label>
+                                        <label>Sequence ID: <input type="text" name="filterAsSeqtype"></label>
+                                    </div>
+                                    <div class="search-column">
+                                        <label>Project: <input type="text" name="filterProject"></label>
+                                        <label>3' Ligand: <input type="text" name="filter3Delivery"></label>
+                                        <label>Modify Sequences: <input type="text" name="filterModifySeq"></label>
+                                        <label>Transcript: <input type="text" name="filterTranscript"></label>
+                                        <label>Position: <input type="text" name="filterPos"></label>
+                                        <label>Parents: <input type="text" name="filterParents"></label>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="search-buttons">
-                                <button id="applyFilters">✅ 应用筛选</button>
-                                <button id="clearFilters">❌ 清除筛选</button>
-                            </div>
+                                <div class="search-buttons">
+                                    <button type="submit" id="applyFilters">✅ 应用筛选</button>
+                                    <a href="{% url 'search' %}" id="clearFilters" class="button-style">❌ 清除筛选</a>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -131,7 +134,7 @@
                             <i class="glyphicon glyphicon-pencil"></i> 序列信息管理
                             <span class="caret pull-right"></span>
                         </a>
-                        <ul>
+                        <ul style="display: block;">
                             <li><a href="/module_list/">注册模块列表</a></li>
                             <li><a href="/register_seq/">序列注册</a></li>
                             <li><a href="/reg_seq_list/">注册序列列表</a></li>
@@ -299,6 +302,7 @@
                                                                         {% elif seq_item.type == 'GNA' %} rgb(212, 93, 245);
                                                                         {% elif seq_item.type == 'TNA' %}rgb(245, 86, 86); color: white;
                                                                         {% elif seq_item.type == 'I' %} rgb(212, 93, 245);
+                                                                        {% elif seq_item.type == 'others' %} rgba(112, 203, 248, 1);
                                                                         {% comment %} {% elif seq_item.type == 'invab' %} rgb(178, 136, 252); {% endcomment %}
                                                                         {% elif seq_item.type == 'unknown' %} rgb(163, 163, 163);
                                                                         {% endif %};"
@@ -378,6 +382,7 @@
 <script src="/static/vendors/datatables/dataTables.bootstrap.js"></script>
 <script src="/static/js/custom.js"></script>
 <script src="/static/js/tables.js"></script>
+<script src="/static/js/forms.js"></script>
 <script src="/static/js/search.js"></script>
 <script src="/static/js/drag.js"></script>
 <script>

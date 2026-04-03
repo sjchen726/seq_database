@@ -1,0 +1,35 @@
+<!-- Reusable clone modal include -->
+<style>
+  /* Normalize labels and heading spacing inside clone modal for consistent alignment */
+  #cloneModal .form-group label { display: block; margin-bottom: .25rem; text-align: left; }
+  #cloneModal .form-row { margin-left: -5px; margin-right: -5px; }
+  #cloneModal .form-row .form-group { padding-left: 5px; padding-right: 5px; }
+  #cloneModal .clone-row h6 { margin-top: 0.25rem; margin-bottom: 0.5rem; }
+  #cloneModal .clone-row input.form-control { width: 100%; }
+  /* Decorative divider: soft gradient band with a centered dashed line */
+  #cloneModal .clone-divider { position: relative; display:block; height: 16px; width:100%; margin: 0.75rem 0 1rem 0; clear: both; background: linear-gradient(90deg, rgba(74,163,223,0.12), rgba(74,163,223,0.06)); }
+  #cloneModal .clone-divider::before { content: ''; position: absolute; left: 5%; right: 5%; top: 50%; height: 0; border-top: 1px dashed rgba(74,163,223,0.6); transform: translateY(-50%); }
+  #cloneModal hr.my-2 { display:none; }
+</style>
+<div class="modal fade" id="cloneModal" tabindex="-1" role="dialog" aria-labelledby="cloneModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header p-2">
+        <div class="search-header d-flex align-items-center w-100" id="cloneDragHandle" style="justify-content: space-between;">
+          <span style="font-weight:1200; font-size:2rem;">🧬 克隆序列 - Strand ID: <span id="cloneStrandId"></span></span>
+          <button type="button" class="btn btn-light btn-sm" data-dismiss="modal" aria-label="Close">✖</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <form id="cloneForm">
+          <input type="hidden" name="strand_id" id="modal_strand_id" />
+          <div id="cloneRowsContainer"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-primary" id="confirmCloneBtn">克隆序列</button>
+      </div>
+    </div>
+  </div>
+</div>

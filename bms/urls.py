@@ -38,7 +38,7 @@ urlpatterns = [
     re_path(r'^drop_author/', views.drop_author),    # 删除作者
     re_path(r'^edit_author/', views.edit_author),    # 编辑作者    
     
-    re_path(r'^edit_seq/', views.edit_seq),     # 编辑序列
+    re_path(r'^edit_seq/', views.edit_seq, name='edit_seq'),     # 编辑序列
     re_path(r'^cor_seq/', views.cor_seq),     # 编辑序列
 
     re_path(r'^change_password/', views.change_password, name='change_password'),     # 修改密码
@@ -51,6 +51,7 @@ urlpatterns = [
     path('delete_module/', views.delete_module, name='delete_module'),
 
     path('search/', views.search, name='search'),  # 搜索功能
+    re_path(r'^clone_delivery/', views.clone_delivery, name='clone_delivery'),
 
 
     path('download_selected/', views.download_selected, name='download_selected'),

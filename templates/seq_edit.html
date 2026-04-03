@@ -98,9 +98,11 @@
                     <div class="panel-title">编辑序列信息</div>
                 </div>
                 <div class="panel-body">
-                    <form class="form-horizontal" role="form" action="/edit_seq/?id={{ delivery.id }}&strand_MWs={{ delivery.Strand_MWs}}" method="post">
+                    <form class="form-horizontal" role="form" action="/edit_seq/?id={{ delivery.id }}&strand_MWs={{ delivery.Strand_MWs}}&next={{ request.GET.next|urlencode }}" method="post">
                                                     <input type="text" name="edit_id" value="{{ delivery.id }}" class="hide">
                         {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.GET.next }}">
+                        <input type="hidden" name="dt_page" value="{{ request.GET.dt_page }}">      
                         <div class="form-group">
                             <label for="input1" class="col-sm-2 control-label">Project</label>
                             <div class="col-sm-10">
@@ -188,7 +190,7 @@
                             <div class="col-sm-offset-2 col-sm-10">
                                 <button type="submit" class="btn btn-primary" onclick="return confirm('此操作将修改当前数据，您确定要更新吗？');">更新</button>
 <!--                                <button type="" class="btn btn-default">返回</button>-->
-                                <button type="submit" formmethod="get" formaction="/seq_list" class="btn btn-default">返回</button>
+                                <button type="button" id="cancelBtn" class="btn btn-default">返回</button>
                             </div>
 
                         </div>
@@ -228,5 +230,29 @@
 
 <script src="/static/js/custom.js"></script>
 <script src="/static/js/tables.js"></script>
+<script>
+    // 返回到传入的 next URL（如果有），并附加 dt_page 参数以保持 DataTable 页码
+    (function() {
+        var btn = document.getElementById('cancelBtn');
+        if (!btn) return;
+        btn.addEventListener('click', function() {
+            var nextInput = document.querySelector('input[name="next"]');
+            var dtInput = document.querySelector('input[name="dt_page"]');
+            var next = nextInput && nextInput.value ? nextInput.value : '/seq_list/';
+            var dt = dtInput && dtInput.value ? dtInput.value : null;
+
+            try {
+                var url = new URL(next, window.location.origin);
+                if (dt) url.searchParams.set('dt_page', dt);
+                window.location.href = url.toString();
+            } catch (e) {
+                // next may be a relative/path or malformed; fallback
+                var final = next;
+                if (dt) final += (next.indexOf('?') === -1 ? '?' : '&') + 'dt_page=' + encodeURIComponent(dt);
+                window.location.href = final;
+            }
+        });
+    })();
+</script>
 </body>
 </html>
