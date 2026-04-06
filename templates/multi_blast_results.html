@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Blast 比对结果 - 序列管理系统</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/styles.css" rel="stylesheet">
+</head>
+<body>
+
+<!-- Header（与主页一致） -->
+<div class="header">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-10">
+                <div class="logo">
+                    <h1><a href="/seq_list">序列管理系统</a></h1>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="navbar navbar-inverse" role="banner">
+                    <nav class="collapse navbar-collapse bs-navbar-collapse navbar-right" role="navigation">
+                        <ul class="nav navbar-nav">
+                            <li class="dropdown">
+                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">个人信息<b class="caret"></b></a>
+                                <ul class="dropdown-menu animated fadeInUp">
+                                    {% if request.user.is_authenticated %}
+                                        <li><a href="#">用户名: {{ request.user.username }}</a></li>
+                                        <li><a href="#">邮箱: {{ request.user.email }}</a></li>
+                                        <li class="divider"></li>
+                                        <li><a href="/login/">退出登录</a></li>
+                                    {% else %}
+                                        <li><a href="/login/">请登录</a></li>
+                                    {% endif %}
+                                </ul>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 面包屑 -->
+<div class="breadcrumb-bar">
+    <div class="container">
+        <a href="/seq_list/">序列管理系统</a>
+        <span class="sep">›</span>
+        <a href="{% url 'multi_blast' %}">多序列 Blast</a>
+        <span class="sep">›</span>
+        <span class="current">比对结果</span>
+    </div>
+</div>
+
+<!-- 主体 -->
+<div class="result-wrapper">
+
+    <!-- 统计栏 -->
+    <div class="result-stat-bar">
+        <h4>Blast 比对结果</h4>
+        <span class="stat-divider">|</span>
+        <span class="stat-item">SS 链：<span class="cnt">{{ ss_entries|length }}</span> 条</span>
+        <span class="stat-divider">·</span>
+        <span class="stat-item">AS 链：<span class="cnt">{{ as_entries|length }}</span> 条</span>
+        {% if not_found %}
+        <span class="stat-divider">·</span>
+        <span class="stat-item" style="color:#dc2626;">未找到：<span class="cnt" style="color:#dc2626;">{{ not_found|length }}</span> 条</span>
+        {% endif %}
+        {% if ss_entries or as_entries %}
+        <button class="btn-expand-all" id="btn-expand-all">展开全部修饰</button>
+        {% endif %}
+    </div>
+
+    {% if not_found %}
+    <div class="not-found-alert">
+        <strong>以下 ID 未找到对应数据：</strong>
+        {% for nf in not_found %}<code style="margin: 0 6px 0 0; background:#fee2e2; padding:1px 6px; border-radius:3px;">{{ nf }}</code>{% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- SS 比对表 -->
+    {% if ss_entries %}
+    <div class="group-card group-card-ss">
+        <div class="group-header group-header-ss">
+            <span class="group-title group-title-ss">SS 链比对</span>
+            <span class="group-count group-count-ss">{{ ss_entries|length }} 条序列</span>
+        </div>
+        <table class="cmp-table">
+            <thead>
+                <tr>
+                    <th>Strand ID</th>
+                    <th>Project</th>
+                    <th>Target</th>
+                    <th>Sequence ID</th>
+                    <th style="text-align:right;">5' Ligand</th>
+                    <th>Sequences</th>
+                    <th>3' Ligand</th>
+                    <th>Strand_MWs</th>
+                    <th>Parents</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for entry in ss_entries %}
+                <tr>
+                    <td><strong>{{ entry.duplex_id }}</strong></td>
+                    <td>{{ entry.item.Project|default_if_none:'—' }}</td>
+                    <td>{{ entry.item.deliveries.0.Target|default_if_none:'—' }}</td>
+                    <td>SS_{{ entry.item.deliveries.0.delivery_id|default_if_none:'' }}</td>
+                    <td>
+                        <div class="delivery-container" style="justify-content:flex-end;">
+                            {% with entry.item.deliveries.0.delivery5_colored as delivery_colored %}{% include "char_block_SS.html" %}{% endwith %}
+                        </div>
+                    </td>
+                    <td>{% include "blast_seq_blocks.html" with seq_colored=entry.item.modify_seq_colored %}</td>
+                    <td>
+                        <div class="delivery-container" style="justify-content:flex-start;">
+                            {% with entry.item.deliveries.0.delivery3_colored as delivery_colored %}{% include "char_block_SS.html" %}{% endwith %}
+                        </div>
+                    </td>
+                    <td>{{ entry.item.deliveries.0.Strand_MWs|default_if_none:'—' }}</td>
+                    <td>{{ entry.item.deliveries.0.Parents|default_if_none:'—' }}</td>
+                    <td>
+                        <button class="expand-btn" data-target="ss-mods-{{ forloop.counter }}">
+                            全部修饰（{{ entry.all_mods_count }}）
+                        </button>
+                    </td>
+                </tr>
+                <tr class="mods-row" id="ss-mods-{{ forloop.counter }}">
+                    <td colspan="10" style="padding:0;">
+                        <div class="mods-inner">
+                            <div class="mods-inner-header">
+                                裸序列 <strong style="font-family:monospace;">{{ entry.naked_seq }}</strong> 的全部 SS 修饰（{{ entry.all_mods_count }} 条）
+                            </div>
+                            <table class="mods-table">
+                                <thead><tr>
+                                    <th>Strand ID</th><th>Project</th><th>Target</th><th>Sequence ID</th>
+                                    <th style="text-align:right;">5' Ligand</th><th>Sequences</th><th>3' Ligand</th>
+                                    <th>Strand_MWs</th><th>Parents</th><th>裸序列</th>
+                                </tr></thead>
+                                <tbody>
+                                {% for mod in entry.all_mods %}
+                                <tr {% if mod.deliveries.0.duplex_id == entry.duplex_id %}class="is-current"{% endif %}>
+                                    <td>{{ mod.deliveries.0.duplex_id|default_if_none:'—' }}{% if mod.deliveries.0.duplex_id == entry.duplex_id %}<span class="current-mark">当前</span>{% endif %}</td>
+                                    <td>{{ mod.Project|default_if_none:'—' }}</td>
+                                    <td>{{ mod.deliveries.0.Target|default_if_none:'—' }}</td>
+                                    <td>SS_{{ mod.deliveries.0.delivery_id|default_if_none:'' }}</td>
+                                    <td><div class="delivery-container" style="justify-content:flex-end;">{% with mod.deliveries.0.delivery5_colored as delivery_colored %}{% include "char_block_SS.html" %}{% endwith %}</div></td>
+                                    <td>{% include "blast_seq_blocks.html" with seq_colored=mod.modify_seq_colored %}</td>
+                                    <td><div class="delivery-container" style="justify-content:flex-start;">{% with mod.deliveries.0.delivery3_colored as delivery_colored %}{% include "char_block_SS.html" %}{% endwith %}</div></td>
+                                    <td>{{ mod.deliveries.0.Strand_MWs|default_if_none:'—' }}</td>
+                                    <td>{{ mod.deliveries.0.Parents|default_if_none:'—' }}</td>
+                                    <td style="font-family:monospace; color:#1a6496; white-space:nowrap;">{{ entry.naked_seq }}</td>
+                                </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- AS 比对表 -->
+    {% if as_entries %}
+    <div class="group-card group-card-as">
+        <div class="group-header group-header-as">
+            <span class="group-title group-title-as">AS 链比对</span>
+            <span class="group-count group-count-as">{{ as_entries|length }} 条序列</span>
+        </div>
+        <table class="cmp-table">
+            <thead>
+                <tr>
+                    <th>Strand ID</th>
+                    <th>Project</th>
+                    <th>Target</th>
+                    <th>Sequence ID</th>
+                    <th style="text-align:right;">5' Ligand</th>
+                    <th>Sequences</th>
+                    <th>3' Ligand</th>
+                    <th>Strand_MWs</th>
+                    <th>Parents</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for entry in as_entries %}
+                <tr>
+                    <td><strong>{{ entry.duplex_id }}</strong></td>
+                    <td>{{ entry.item.Project|default_if_none:'—' }}</td>
+                    <td>{{ entry.item.deliveries.0.Target|default_if_none:'—' }}</td>
+                    <td>AS_{{ entry.item.deliveries.0.delivery_id|default_if_none:'' }}</td>
+                    <td>
+                        <div class="delivery-container" style="justify-content:flex-end;">
+                            {% with entry.item.deliveries.0.delivery5_colored as delivery_colored %}{% include "char_block_SS.html" %}{% endwith %}
+                        </div>
+                    </td>
+                    <td>{% include "blast_seq_blocks.html" with seq_colored=entry.item.modify_seq_colored %}</td>
+                    <td>
+                        <div class="delivery-container" style="justify-content:flex-start;">
+                            {% with entry.item.deliveries.0.delivery3_colored as delivery_colored %}{% include "char_block_SS.html" %}{% endwith %}
+                        </div>
+                    </td>
+                    <td>{{ entry.item.deliveries.0.Strand_MWs|default_if_none:'—' }}</td>
+                    <td>{{ entry.item.deliveries.0.Parents|default_if_none:'—' }}</td>
+                    <td>
+                        <button class="expand-btn" data-target="as-mods-{{ forloop.counter }}">
+                            全部修饰（{{ entry.all_mods_count }}）
+                        </button>
+                    </td>
+                </tr>
+                <tr class="mods-row" id="as-mods-{{ forloop.counter }}">
+                    <td colspan="10" style="padding:0;">
+                        <div class="mods-inner">
+                            <div class="mods-inner-header">
+                                裸序列 <strong style="font-family:monospace;">{{ entry.naked_seq }}</strong> 的全部 AS 修饰（{{ entry.all_mods_count }} 条）
+                            </div>
+                            <table class="mods-table">
+                                <thead><tr>
+                                    <th>Strand ID</th><th>Project</th><th>Target</th><th>Sequence ID</th>
+                                    <th style="text-align:right;">5' Ligand</th><th>Sequences</th><th>3' Ligand</th>
+                                    <th>Strand_MWs</th><th>Parents</th><th>裸序列</th>
+                                </tr></thead>
+                                <tbody>
+                                {% for mod in entry.all_mods %}
+                                <tr {% if mod.deliveries.0.duplex_id == entry.duplex_id %}class="is-current"{% endif %}>
+                                    <td>{{ mod.deliveries.0.duplex_id|default_if_none:'—' }}{% if mod.deliveries.0.duplex_id == entry.duplex_id %}<span class="current-mark">当前</span>{% endif %}</td>
+                                    <td>{{ mod.Project|default_if_none:'—' }}</td>
+                                    <td>{{ mod.deliveries.0.Target|default_if_none:'—' }}</td>
+                                    <td>AS_{{ mod.deliveries.0.delivery_id|default_if_none:'' }}</td>
+                                    <td><div class="delivery-container" style="justify-content:flex-end;">{% with mod.deliveries.0.delivery5_colored as delivery_colored %}{% include "char_block_SS.html" %}{% endwith %}</div></td>
+                                    <td>{% include "blast_seq_blocks.html" with seq_colored=mod.modify_seq_colored %}</td>
+                                    <td><div class="delivery-container" style="justify-content:flex-start;">{% with mod.deliveries.0.delivery3_colored as delivery_colored %}{% include "char_block_SS.html" %}{% endwith %}</div></td>
+                                    <td>{{ mod.deliveries.0.Strand_MWs|default_if_none:'—' }}</td>
+                                    <td>{{ mod.deliveries.0.Parents|default_if_none:'—' }}</td>
+                                    <td style="font-family:monospace; color:#1a6496; white-space:nowrap;">{{ entry.naked_seq }}</td>
+                                </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if not ss_entries and not as_entries and not not_found %}
+    <div class="result-empty-state">没有输入任何序列，请<a href="{% url 'multi_blast' %}">返回</a>重新输入。</div>
+    {% endif %}
+
+</div><!-- /.result-wrapper -->
+
+<script src="https://code.jquery.com/jquery.js"></script>
+<script src="/static/bootstrap/js/bootstrap.min.js"></script>
+<script>
+// 展开/收起单行
+document.querySelectorAll('.expand-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var row = document.getElementById(this.dataset.target);
+        var open = row.classList.toggle('open');
+        this.classList.toggle('active', open);
+        this.textContent = open
+            ? this.textContent.replace('全部修饰', '收起修饰')
+            : this.textContent.replace('收起修饰', '全部修饰');
+    });
+});
+
+// 展开/收起全部
+var expandAllBtn = document.getElementById('btn-expand-all');
+if (expandAllBtn) {
+    var allExpanded = false;
+    expandAllBtn.addEventListener('click', function() {
+        allExpanded = !allExpanded;
+        document.querySelectorAll('.mods-row').forEach(function(row) {
+            row.classList.toggle('open', allExpanded);
+        });
+        document.querySelectorAll('.expand-btn').forEach(function(btn) {
+            btn.classList.toggle('active', allExpanded);
+            btn.textContent = allExpanded
+                ? btn.textContent.replace('全部修饰', '收起修饰')
+                : btn.textContent.replace('收起修饰', '全部修饰');
+        });
+        expandAllBtn.textContent = allExpanded ? '收起全部修饰' : '展开全部修饰';
+    });
+}
+</script>
+</body>
+</html>

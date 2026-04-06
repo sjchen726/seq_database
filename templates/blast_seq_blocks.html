@@ -1,0 +1,30 @@
+<div style="display:flex; justify-content:flex-start;">
+{% if seq_colored %}
+    {% for seq_item in seq_colored %}
+    <div style="display:flex; flex-direction:column; align-items:center;">
+        <span class="seq-count" style="width:auto;">
+            {% if seq_item.count %} {{ seq_item.count }} {% else %} &nbsp; {% endif %}
+        </span>
+        <span class="seq-container {% if seq_item.char == 's' or seq_item.char == 'o' %}seq-narrow{% else %}seq-wide{% endif %}"
+              style="background-color:
+                {% if seq_item.type == 'normal' %}rgb(189,199,248);
+                {% elif seq_item.type == 'f' %}rgb(22,245,22);
+                {% elif seq_item.type == 'm' %}rgb(68,68,68);color:white;
+                {% elif seq_item.type == 'd' %}rgb(212,93,245);
+                {% elif seq_item.type == 's' %}rgb(253,246,61);
+                {% elif seq_item.type == 'o' %}rgb(198,196,198);
+                {% elif seq_item.type == 'ss' %}rgb(212,93,245);
+                {% elif seq_item.type == 'moe' %}rgb(212,93,245);
+                {% elif seq_item.type == 'OCF3' %}rgb(212,93,245);
+                {% elif seq_item.type == 'GNA' %}rgb(212,93,245);
+                {% elif seq_item.type == 'TNA' %}rgb(245,86,86);color:white;
+                {% elif seq_item.type == 'I' %}rgb(212,93,245);
+                {% elif seq_item.type == 'unknown' %}rgb(163,163,163);
+                {% elif seq_item.type == 'others' %}rgba(112,203,248,1);
+                {% endif %};">{{ seq_item.char }}</span>
+    </div>
+    {% endfor %}
+{% else %}
+    <span style="color:#bbb;">—</span>
+{% endif %}
+</div>

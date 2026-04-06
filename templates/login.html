@@ -38,7 +38,7 @@
 			<div class="col-md-4 col-md-offset-4">
 				<div class="login-wrapper">
 			        <div class="box">
-							<h6>登录</h6>
+							<div class="login-box-title">登录</div>
 							<form class="content-wrap" role="form" action="/login/" method="post">
 								{% csrf_token %}
 			                <input class="form-control" id="username" name='username' type="text" placeholder="username">
@@ -59,10 +59,8 @@
 
 
 
-    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://code.jquery.com/jquery.js"></script>
-    <!-- Include all compiled plugins (below), or include individual files as needed -->
-    <script src="bootstrap/js/bootstrap.min.js"></script>
-    <script src="js/custom.js"></script>
+    <script src="/static/bootstrap/js/bootstrap.min.js"></script>
+    <script src="/static/js/custom.js"></script>
   </body>
 </html>

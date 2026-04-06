@@ -1,9 +1,8 @@
-<!-- 以下是更新后的 upload_delivery_info.html -->
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>序列管理系统</title>
+    <title>序列信息上传 - 序列管理系统</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://code.jquery.com/ui/1.10.3/themes/redmond/jquery-ui.css" rel="stylesheet">
     <link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet">
@@ -21,9 +20,9 @@
             </div>
             <div class="col-md-5">
                 <div class="input-group form">
-                    <input type="text" class="form-control" placeholder="Search...">
+                    <input type="text" class="form-control" placeholder="快速搜索...">
                     <span class="input-group-btn">
-                        <button class="btn btn-primary" type="button">Search...</button>
+                        <button class="btn btn-primary" type="button">搜索</button>
                     </span>
                 </div>
             </div>
@@ -67,7 +66,7 @@
                             <li><a href="/module_list/">注册模块列表</a></li>
                             <li><a href="/register_seq/">序列注册</a></li>
                             <li><a href="/reg_seq_list/">注册序列列表</a></li>
-                            <li><a href="/seq_delivery/">序列信息上传</a></li>
+                            <li><a href="/seq_delivery/" class="active">序列信息上传</a></li>
                             <li><a href="/seq_list/">序列信息列表</a></li>
                         </ul>
                     </li>
@@ -89,54 +88,53 @@
                 </div>
                 <div class="panel-body">
 
-                    <!-- ✅ 消息提示区 -->
+                    <!-- 消息提示区 -->
                     {% if messages %}
                         {% for message in messages %}
                             {% if "成功上传" in message.message %}
-                                <div class="alert alert-success alert-dismissible d-flex align-items-center" role="alert" style="font-size: 15px;">
+                                <div class="alert alert-success alert-dismissible" role="alert">
                                     <button type="button" class="close" data-dismiss="alert">&times;</button>
-                                    <span class="mr-2">✅</span> {{ message.message }}
+                                    <strong>✓</strong> {{ message.message }}
                                 </div>
 
                             {% elif "重复序列" in message.message and repeated_count %}
-                                <div class="alert alert-warning alert-dismissible d-flex align-items-center" role="alert" style="font-size: 15px;">
+                                <div class="alert alert-warning alert-dismissible" role="alert">
                                     <button type="button" class="close" data-dismiss="alert">&times;</button>
-                                    <span class="mr-2">⚠</span> 共发现 <strong>{{ repeated_count }}</strong> 条重复序列。
-                                    <form method="get" action="" style="display:inline;">
+                                    <strong>⚠</strong> 共发现 <strong>{{ repeated_count }}</strong> 条重复序列。
+                                    <form method="get" action="" style="display:inline; margin-left:8px;">
                                         <input type="hidden" name="download" value="repeats">
-                                        <button type="submit" class="btn btn-warning btn-sm ml-2">下载重复序列 CSV</button>
+                                        <button type="submit" class="btn btn-warning btn-xs">下载重复序列 CSV</button>
                                     </form>
                                 </div>
 
                             {% elif "序列未注册" in message.message %}
-                                <div class="alert alert-danger alert-dismissible d-flex align-items-center" role="alert" style="font-size: 15px;">
+                                <div class="alert alert-danger alert-dismissible" role="alert">
                                     <button type="button" class="close" data-dismiss="alert">&times;</button>
-                                    <span class="mr-2">❗</span> {{ message.message }}
-                                    <form method="get" action="" style="display:inline;">
+                                    <strong>✗</strong> {{ message.message }}
+                                    <form method="get" action="" style="display:inline; margin-left:8px;">
                                         <input type="hidden" name="download" value="unregistered">
-                                        <button type="submit" class="btn btn-danger btn-sm ml-2">下载未注册序列 CSV</button>
+                                        <button type="submit" class="btn btn-danger btn-xs">下载未注册序列 CSV</button>
                                     </form>
                                 </div>
-                            
+
                             {% elif "未成对的 SS 或 AS 序列" in message.message %}
-                                <div class="alert alert-warning alert-dismissible d-flex align-items-center" role="alert" style="font-size: 15px;">
+                                <div class="alert alert-warning alert-dismissible" role="alert">
                                     <button type="button" class="close" data-dismiss="alert">&times;</button>
-                                    <span class="mr-2">⚠</span> {{ message.message }}
-                                    <form method="get" action="" style="display:inline;">
+                                    <strong>⚠</strong> {{ message.message }}
+                                    <form method="get" action="" style="display:inline; margin-left:8px;">
                                         <input type="hidden" name="download" value="unpaired_ss_as">
-                                        <button type="submit" class="btn btn-warning btn-sm ml-2">下载未成对序列 CSV</button>
+                                        <button type="submit" class="btn btn-warning btn-xs">下载未成对序列 CSV</button>
                                     </form>
                                 </div>
 
                             {% elif "无新的序列信息上传" in message.message %}
-                                <div class="alert alert-info alert-dismissible d-flex align-items-center" role="alert" style="font-size: 15px;">
+                                <div class="alert alert-info alert-dismissible" role="alert">
                                     <button type="button" class="close" data-dismiss="alert">&times;</button>
-                                    <span class="mr-2">ℹ️</span>
-                                    <strong>无新的序列信息上传！</strong> 
+                                    <strong>ℹ</strong> 无新的序列信息上传！
                                 </div>
 
                             {% else %}
-                                <div class="alert alert-{{ message.tags }} alert-dismissible d-flex align-items-center" role="alert" style="font-size: 15px;">
+                                <div class="alert alert-{{ message.tags }} alert-dismissible" role="alert">
                                     <button type="button" class="close" data-dismiss="alert">&times;</button>
                                     {{ message }}
                                 </div>
@@ -144,31 +142,27 @@
                         {% endfor %}
                     {% endif %}
 
-
                     <form method="POST" enctype="multipart/form-data" action="/seq_delivery/"
-                          style="max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #ddd; border-radius: 8px; background-color: #f9f9f9;">
+                          class="upload-form-box">
                         {% csrf_token %}
 
-                        <div style="margin-bottom: 18px;">
-                            <label for="file" style="font-size: 18px; font-weight: bold;">选择 CSV 文件：</label>
-                            <p style="font-size: 14px; color: #666;">请按照平台提供的模板填写并上传，注意递送请用[ ]标记。</p>
-                            <a href="/static/example/2_info.csv" download class="btn btn-sm btn-info" style="margin-bottom: 10px;">
-                                下载 CSV 示例模板
+                        <div>
+                            <label class="upload-form-label" for="file">选择 CSV 文件</label>
+                            <p class="upload-form-hint">
+                                请按照平台提供的模板填写并上传。注意：递送修饰请用 <code>[ ]</code> 括号标记。
+                            </p>
+                            <a href="/static/example/2_info.csv" download class="btn btn-sm btn-info" style="margin-bottom: 12px;">
+                                <i class="glyphicon glyphicon-download-alt"></i> 下载 CSV 示例模板
                             </a>
-                            <input type="file" name="file" accept=".csv" required
-                                   style="width: 100%; padding: 12px; border-radius: 5px; border: 1px solid #ccc; font-size: 15px;">
+                            <input type="file" name="file" id="file" accept=".csv" required
+                                   class="upload-file-input">
                         </div>
 
-                        <div style="text-align: center; margin-top: 30px;">
-                            <button type="submit" class="btn btn-success" style="padding: 10px 30px; font-size: 16px; border-radius: 6px;">
-                                上传
+                        <div class="upload-form-actions">
+                            <button type="submit" class="btn btn-success">
+                                <i class="glyphicon glyphicon-upload"></i> 上传
                             </button>
-
-                            <a href="/seq_list" class="btn btn-secondary"
-                                style="padding: 10px 30px; font-size: 16px; border-radius: 6px;">
-                                返回
-                            </a>
-
+                            <a href="/seq_list" class="btn btn-default">返回列表</a>
                         </div>
                     </form>
 
@@ -186,13 +180,9 @@
     </div>
 </footer>
 
-<link href="/static/vendors/datatables/dataTables.bootstrap.css" rel="stylesheet">
 <script src="https://code.jquery.com/jquery.js"></script>
 <script src="https://code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
 <script src="/static/bootstrap/js/bootstrap.min.js"></script>
-<script src="/static/vendors/datatables/js/jquery.dataTables.min.js"></script>
-<script src="/static/vendors/datatables/dataTables.bootstrap.js"></script>
 <script src="/static/js/custom.js"></script>
-<script src="/static/js/tables.js"></script>
 </body>
 </html>

@@ -76,7 +76,7 @@
                                 </div>
                                 <div class="search-buttons">
                                     <button type="submit" id="applyFilters">✅ 应用筛选</button>
-                                    <a href="{% url 'search' %}" id="clearFilters" class="button-style">❌ 清除筛选</a>
+                                    <button type="button" id="clearFilters" class="button-style">❌ 清除筛选</button>
                                 </div>
                             </form>
                         </div>
@@ -110,24 +110,17 @@
     </div>
 </div>
 
-<!-- JavaScript 提示 -->
-<script type="text/javascript">
-    {% if messages %}
-        const messages = [
-            {% for message in messages %}
-                "{{ message|escapejs }}",
-            {% endfor %}
-        ];
-
-        function displayMessages(messages) {
-            messages.forEach(function(msg) {
-                alert(msg);  // 弹出窗口显示消息
-            });
-        }
-
-        displayMessages(messages);
-    {% endif %}
-</script>
+{% if messages %}
+<div id="msg-toast-container">
+    {% for message in messages %}
+    <div class="msg-toast">
+        <span class="msg-toast-text">{{ message }}</span>
+        <button class="msg-toast-close" onclick="this.parentElement.remove()">&times;</button>
+    </div>
+    {% endfor %}
+</div>
+<script>setTimeout(function(){var c=document.getElementById('msg-toast-container');if(c)c.style.opacity='0';setTimeout(function(){if(c)c.remove();},400);},5000);</script>
+{% endif %}
 
 <div class="page-content">
     <div class="row">
@@ -145,85 +138,77 @@
                             <li><a href="/register_seq/">序列注册</a></li>
                             <li><a href="/reg_seq_list/">注册序列列表</a></li>
                             <li><a href="/seq_delivery/">序列信息上传</a></li>
-                            <li><a href="/seq_list/">序列信息列表</a></li>
+                            <li><a href="/seq_list/" class="active">序列信息列表</a></li>
                         </ul>
                     </li>
-
                     <li class="submenu">
                         <a href="#">
                             <i class="glyphicon glyphicon-list"></i> 系统设置
                             <span class="caret pull-right"></span>
                         </a>
-                        <!-- Sub menu -->
                         <ul>
-                           <!-- <li><a href="/login">登陆</a></li> -->
                             <li><a href="/signup">注册</a></li>
                             <li><a href="/change_password">修改密码</a></li>
                         </ul>
                     </li>
-
-                    <div class="content-box p-3 mb-4 border rounded bg-light" style="max-width: 800px; margin: auto;"> 
-                        <div class="row">
-                            <!-- 左侧字段选择 -->
-                            <div class="col-md-8" style="min-width: 300px;">
-                                <h5 class="mb-3" style="font-size: 16px;"><strong>选择显示/导出字段</strong></h5>
-                                <div class="field-box" id="column-controls">
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="1" value="duplex_id" checked> Strand ID</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="2" value="project" checked> Project</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="3" value="Target" checked> Target</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="4" value="id" checked> Sequence ID</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="5" value="delivery5" checked> Ligand 1</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="6" value="modify_seq" checked> Sequences</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="7" value="delivery3" checked> Ligand 2</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="8" value="Transcript" checked> Transcript</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="9" value="Pos" checked> Position</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="10" value="Strand_MWs" checked> Strand_MWs</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="11" value="parents" checked> Parents</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="12" value="remarks" checked> Remarks</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="13" value="created_at" checked> Update Time</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="14" value="操作" checked> 操作</label>
-                                    
-                                </div>
-                            </div>
-                        </div>
-                        <!-- 右侧按钮 -->
-
-                        <div class="col-md-4 d-flex justify-content-start align-items-center" style="min-width: 200px; margin-top: 60px;">
-                            <button id="show-selected" type="button" class="btn btn-success custom-btn me-2" style="font-size: 18px;">
-                                ✅ 显示选中序列
-                            </button>
-                            <button id="download-selected" class="btn btn-info custom-btn" style="font-size: 18px; margin-top: 20px;">
-                                ⬇️ 下载选中项
-                            </button>
-                        </div>
-
-                    </div>
-
-
-                        
                 </ul>
             </div>
         </div>
         <div class="col-md-10">
             <div class="content-box-large">
                 <div class="panel-heading">
-                    <div class="panel-title">序列信息列表</div>
-                          
-                    <button id="toggleCollapseBtn" class="btn btn-info custom-btn" style="font-size: 16px;margin-top:20px;">📁 组合/展开</button>
+                    <div class="panel-title">搜索结果</div>
+                </div>
 
-                    {% comment %} <label for="seq_type_selector">Sequence Display Type:</label>
-                            <select id="seq_type_selector" class="form-control form-control-sm" style="width: 200px; display: inline-block;">
-                                <option value="AS" {% if selected_seq_type == 'AS' %}selected{% endif %}>SS （5'-3'）</option>
-                                <option value="SS" {% if selected_seq_type == 'SS' %}selected{% endif %}>AS （5'-3'）</option>
-                            </select>        {% endcomment %}
+                <!-- 工具栏 -->
+                <div class="seq-toolbar">
+                    <div class="seq-toolbar-left">
+                        <button id="toggleCollapseBtn" type="button" class="btn btn-default btn-sm">
+                            <i class="glyphicon glyphicon-resize-small"></i> 组合/展开
+                        </button>
+                        <button id="show-selected" type="button" class="btn btn-success btn-sm">
+                            <i class="glyphicon glyphicon-eye-open"></i> 显示选中
+                        </button>
+                        <button id="download-selected" class="btn btn-info btn-sm">
+                            <i class="glyphicon glyphicon-download-alt"></i> 下载选中
+                        </button>
+                        <button type="button" class="btn btn-default btn-sm" id="toggleColumnPanel">
+                            <i class="glyphicon glyphicon-th-list"></i> 列显示
+                        </button>
                     </div>
-                    
-                    {% if search_message %}
-                        <div class="alert alert-warning" role="alert" style="margin: 15px 0;">
-                            {{ search_message }}
-                        </div>
-                    {% endif %}
+                </div>
 
+                <!-- 列显示控制面板 -->
+                <div id="columnFilterPanel" class="seq-panel" style="display:none;">
+                    <div class="seq-panel-header">
+                        <span>选择显示/导出字段</span>
+                        <button type="button" class="btn btn-default btn-xs" id="closeColumnPanel">收起</button>
+                    </div>
+                    <div class="seq-panel-checkboxes" id="column-controls">
+                        <label class="seq-panel-check-label"><input type="checkbox" class="toggle-vis export-field" data-column="1" value="duplex_id" checked> Strand ID</label>
+                        <label class="seq-panel-check-label"><input type="checkbox" class="toggle-vis export-field" data-column="2" value="project" checked> Project</label>
+                        <label class="seq-panel-check-label"><input type="checkbox" class="toggle-vis export-field" data-column="3" value="Target" checked> Target</label>
+                        <label class="seq-panel-check-label"><input type="checkbox" class="toggle-vis export-field" data-column="4" value="id" checked> Sequence ID</label>
+                        <label class="seq-panel-check-label"><input type="checkbox" class="toggle-vis export-field" data-column="5" value="delivery5" checked> Ligand 1</label>
+                        <label class="seq-panel-check-label"><input type="checkbox" class="toggle-vis export-field" data-column="6" value="modify_seq" checked> Sequences</label>
+                        <label class="seq-panel-check-label"><input type="checkbox" class="toggle-vis export-field" data-column="7" value="delivery3" checked> Ligand 2</label>
+                        <label class="seq-panel-check-label"><input type="checkbox" class="toggle-vis export-field" data-column="8" value="Transcript" checked> Transcript</label>
+                        <label class="seq-panel-check-label"><input type="checkbox" class="toggle-vis export-field" data-column="9" value="Pos" checked> Position</label>
+                        <label class="seq-panel-check-label"><input type="checkbox" class="toggle-vis export-field" data-column="10" value="Strand_MWs" checked> Strand_MWs</label>
+                        <label class="seq-panel-check-label"><input type="checkbox" class="toggle-vis export-field" data-column="11" value="parents" checked> Parents</label>
+                        <label class="seq-panel-check-label"><input type="checkbox" class="toggle-vis export-field" data-column="12" value="remarks" checked> Remarks</label>
+                        <label class="seq-panel-check-label"><input type="checkbox" class="toggle-vis export-field" data-column="13" value="created_at" checked> Update Time</label>
+                        <label class="seq-panel-check-label"><input type="checkbox" class="toggle-vis export-field" data-column="14" value="操作" checked> 操作</label>
+                    </div>
+                </div>
+
+                {% if search_message %}
+                    <div class="alert alert-warning" role="alert" style="margin: 8px 16px;">
+                        {{ search_message }}
+                    </div>
+                {% endif %}
+
+                <div class="panel-body" style="padding: 0;">
                     <table id="example" class="table table-container table-bordered" style="width:100%">
                         <thead>
                             <tr>
@@ -512,11 +497,6 @@
 </footer>
 
 <link href="/static/vendors/datatables/dataTables.bootstrap.css" rel="stylesheet" media="screen">
-<!-- 引入脚本 -->
-<style>
-/* 高亮编辑后的行 */
-.highlight-row td { background: #fff3b0 !important; box-shadow: inset 0 0 8px rgba(255,200,0,0.3); }
-</style>
 <script src="https://code.jquery.com/jquery.js"></script>
 <script src="https://code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
 <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
@@ -529,6 +509,21 @@
 {% include 'clone_modal.html' %}
 <script src="/static/js/clone_delivery.js"></script>
 <script>
+// 列显示面板切换
+(function() {
+    function setupPanelToggle(toggleId, panelId, closeId) {
+        var btn = document.getElementById(toggleId);
+        var panel = document.getElementById(panelId);
+        var closeBtn = closeId ? document.getElementById(closeId) : null;
+        if (!btn || !panel) return;
+        btn.addEventListener('click', function() {
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        });
+        if (closeBtn) closeBtn.addEventListener('click', function() { panel.style.display = 'none'; });
+    }
+    setupPanelToggle('toggleColumnPanel', 'columnFilterPanel', 'closeColumnPanel');
+})();
+
 document.getElementById('seq_type_selector').addEventListener('change', function () {
     const selectedType = this.value;
 

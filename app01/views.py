@@ -12,10 +12,9 @@ import pandas as pd
 from django.contrib import messages
 from datetime import datetime
 from django.db.models import Q
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 import os, csv
 from django.utils.timezone import now
-from tomlkit import item
 from app01 import models
 from .models import *
 LmsUser = get_user_model()
@@ -29,10 +28,6 @@ from django.conf import settings
 
 
 
-
-# 处理空值
-def clean_value(value):
-        return None if pd.isna(value) or value == '' else value
 
 # 生成颜色映射规则
 def get_color_map():
@@ -1401,10 +1396,11 @@ def normalize_tmp_seq_with_combo(modify_seq: str) -> str:
     return tmp_seq
 
 
+@transaction.atomic
 def save_deliveries(df, duplex_id_map, username):
     upload_log = []
     upload_meg = []
-    unregistered_meg = []  
+    unregistered_meg = []
     unregistered_log = []
 
     # 构建：duplex_id → [row1, row2]
@@ -1483,7 +1479,6 @@ def save_deliveries(df, duplex_id_map, username):
             tmp_seq = re.sub(r'GU27', 'U', tmp_seq)
             tmp_seq = re.sub(r'B04', 'A', tmp_seq)
             tmp_seq = re.sub(r'\(.*?\)', '', tmp_seq)
-            print(f"111{tmp_seq}")
             matches = re.findall(r'(INVAB|[AUGCI])', tmp_seq)
             naked_seq = ''.join(matches)
             naked_length = len(matches)
@@ -1530,8 +1525,6 @@ def save_deliveries(df, duplex_id_map, username):
             current_delivery3 = item['delivery3']
             current_linker_seq = add_o_to_all_rules(item['modify_seq'])
 
-            print(f"Processing item: {current_delivery3}, {current_delivery5}, {current_linker_seq}")
-
 
             key = (base_id, current_delivery5, current_linker_seq, current_delivery3)
 
@@ -1547,23 +1540,16 @@ def save_deliveries(df, duplex_id_map, username):
             ).first()
 
             if duplicate:
-                print(f"Found duplicate in database: {duplicate.delivery_id}")  # 调试输出
                 delivery_id = duplicate.delivery_id
             elif key in seen_combinations:
                 delivery_id = seen_combinations[key]
-                # print(f"Reusing delivery ID from seen combinations: {delivery_id}")  # 调试输出
             else:
-                print(f"Creating new delivery ID")  # 调试输出
                 existing_ids = Delivery.objects.filter(delivery_id__startswith=base_id).values_list('delivery_id', flat=True)
-
                 suffix_numbers = [
                     int(i.split(".")[-1]) for i in existing_ids
                     if "." in i and i.split(".")[0] == base_id and i.split(".")[-1].isdigit()
                 ]
-
-                print(f"Next suffix number: {suffix_numbers}")  # 调试输出
                 next_suffix = max(suffix_numbers, default=0) + 1
-                print(f"Next suffix number: {next_suffix}")  # 调试输出
                 delivery_id = f"{base_id}.{next_suffix}"
                 seen_combinations[key] = delivery_id
 
@@ -1876,6 +1862,38 @@ def clone_delivery(request):
 
     return JsonResponse({'error': 'method not allowed'}, status=405)
 
+# ─────────────────────────────────────────────────────────────
+# 通用辅助函数
+# ─────────────────────────────────────────────────────────────
+
+def get_user_default_seq_type(user):
+    """
+    返回指定用户的默认序列方向（SS / AS）。
+    优先读取数据库中 LmsUser 的 default_seq_type 字段（如有），
+    否则回落到硬编码映射，最终默认 'SS'。
+    """
+    user_default_seq_map = {
+        'Y2325': 'AS',
+    }
+    username = user.username if user.is_authenticated else ''
+    return user_default_seq_map.get(username, 'SS')
+
+
+def get_permitted_delivery_qs(user):
+    """
+    根据用户权限返回可见的 Delivery 查询集：
+    - 超级管理员：全部
+    - 普通用户：仅限 permissions_project 包含的项目
+    - 无权限：空集
+    """
+    if user.is_superuser:
+        return Delivery.objects.all()
+    allowed = user.get_allowed_projects()
+    if allowed:
+        return Delivery.objects.filter(project__in=allowed)
+    return Delivery.objects.none()
+
+
 def get_attr(d, key):
     if isinstance(d, dict):
         return d.get(key, '')
@@ -1933,75 +1951,34 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq, sele
         ]
     }
 
-def get_sequence_info(request):
-    permissions_projects = getattr(request.user, 'permissions_project', '')
-    user_type = getattr(request.user, 'user_type', 'guest')
-    # --- 新增：计算 allowed_projects 和 selected_projects（用于前端项目筛选） ---
-    # allowed_projects: 超管为所有 project，否则解析用户权限字段
-    if request.user.is_superuser:
-        allowed_projects_qs = Delivery.objects.values_list('project', flat=True).distinct()
-        allowed_projects = sorted([p for p in allowed_projects_qs if p])
-    else:
-        allowed_projects = [p.strip() for p in permissions_projects.split(',') if p.strip()]
+def build_duplex_groups(delivery_qs, selected_seq_type):
+    """
+    给定一个 Delivery 查询集，构建按 (project, duplex_id) 分组的展示数据。
 
-    # 解析 GET 中的 projects 参数：支持 ?projects=A&projects=B 或 ?projects=A,B
-    raw_projects = request.GET.getlist('projects') or request.GET.get('projects', '')
-    selected_projects = []
-    if isinstance(raw_projects, list) and raw_projects:
-        for p in raw_projects:
-            # 支持逗号分隔的值
-            selected_projects += [x.strip() for x in str(p).split(',') if x.strip()]
-    elif isinstance(raw_projects, str) and raw_projects:
-        selected_projects = [x.strip() for x in raw_projects.split(',') if x.strip()]
+    返回值格式：
+        [
+            {
+                'project': str,
+                'duplex_id': str,
+                'items': [build_sequence_data(...), ...],  # SS 在前
+            },
+            ...
+        ]
 
-    # 若未提供 selected_projects，则默认全选 allowed_projects
-    if not selected_projects:
-        selected_projects = allowed_projects[:]
-    # selected_seq_type = request.GET.get('seq_type', 'SS')  #默认为"AS (5'-3')
-    # 显式定义用户名到默认 seq_type 的映射
-    user_default_seq_map = {
-        # 'Y2024': 'SS',
-        'Y2325': 'AS',
-        # 可以继续加
-    }
-
-    # 获取当前用户名
-    username = request.user.username if request.user.is_authenticated else ''
-
-    # 优先从 GET 参数获取，其次从映射中获取，最后默认 'SS'
-    selected_seq_type = request.GET.get('seq_type', user_default_seq_map.get(username, 'SS'))
-    
-
- #   print(f"222222Selected sequence type: {selected_seq_type}")  # 调试输出
-
-    if request.user.is_superuser:
-        delivery_qs = Delivery.objects.all()
-    elif permissions_projects:
-        allowed_projects = [p.strip() for p in permissions_projects.split(',')]
-        delivery_qs = Delivery.objects.filter(project__in=allowed_projects)
-    else:
-        delivery_qs = Delivery.objects.none()
-
-    # --- 应用 selected_projects 进一步过滤（确保不能越权） ---
-    if selected_projects:
-        # 只保留在 allowed_projects 范围内的选中项目
-        safe_selected = [p for p in selected_projects if p in allowed_projects]
-        if safe_selected:
-            delivery_qs = delivery_qs.filter(project__in=safe_selected)
-        else:
-            # 如果用户传入不在 allowed_projects 的项目，返回空结果（不能越权）
-            delivery_qs = Delivery.objects.none()
-
-    rmcode_to_seqid = {}
+    注意：
+        delivery_id_to_seq_id 的 key 是 Delivery.id（自增整数），
+        value 是 Sequence.rm_code（6 位字符串）。
+        此处命名保留原逻辑，避免影响 build_sequence_data 及模板。
+    """
+    delivery_id_to_seq_id = {}
     delivery_map = defaultdict(list)
 
     for d in delivery_qs:
         if d.id and d.sequence_id:
-            rmcode_to_seqid[d.id] = d.sequence_id
+            delivery_id_to_seq_id[d.id] = d.sequence_id
             delivery_map[d.id].append(d)
 
-    rm_codes = list(rmcode_to_seqid.keys())
-    sequence_ids = list(set(rmcode_to_seqid.values()))
+    sequence_ids = list(set(delivery_id_to_seq_id.values()))
 
     sequence_map = {
         s.rm_code: s for s in Sequence.objects.filter(rm_code__in=sequence_ids)
@@ -2010,17 +1987,13 @@ def get_sequence_info(request):
         s.sequence_id: s for s in SeqInfo.objects.filter(sequence_id__in=sequence_ids)
     }
 
-    # 分组数据结构，key: duplex_id, value: list of items
-    # ✅ 正确分组结构
     duplex_group_map = defaultdict(list)
 
-    for rm_code in rm_codes:
-        sequence_id = rmcode_to_seqid[rm_code]
+    for delivery_id, sequence_id in delivery_id_to_seq_id.items():
         sequence = sequence_map.get(sequence_id)
         seqinfo = seqinfo_map.get(sequence_id)
-        deliveries = delivery_map.get(rm_code, [])
+        deliveries = delivery_map.get(delivery_id, [])
 
-        # ✅ 改成按 project + duplex_id 分组
         grouped_deliveries = defaultdict(list)
         for d in deliveries:
             project = getattr(d, 'project', None)
@@ -2028,97 +2001,160 @@ def get_sequence_info(request):
             if project and duplex_id:
                 grouped_deliveries[(project, duplex_id)].append(d)
 
-        # ✅ 每组生成 item
         for (project, duplex_id), group_deliveries in grouped_deliveries.items():
             linker_seqs = [d.linker_seq for d in group_deliveries if getattr(d, 'linker_seq', None)]
-
             if linker_seqs:
                 for linker_seq in linker_seqs:
                     item = build_sequence_data(
-                        rm_code=rm_code,
+                        rm_code=delivery_id,
                         seqinfo=seqinfo,
                         sequence=sequence,
                         deliveries=group_deliveries,
                         linker_seq=linker_seq,
-                        selected_seq_type=selected_seq_type
+                        selected_seq_type=selected_seq_type,
                     )
                     duplex_group_map[(project, duplex_id)].append(item)
             else:
                 item = build_sequence_data(
-                    rm_code=rm_code,
+                    rm_code=delivery_id,
                     seqinfo=seqinfo,
                     sequence=sequence,
                     deliveries=group_deliveries,
                     linker_seq=None,
-                    selected_seq_type=selected_seq_type
+                    selected_seq_type=selected_seq_type,
                 )
                 duplex_group_map[(project, duplex_id)].append(item)
 
-    # 更新 sequence_groups，包含 project 和 duplex_id
     sequence_groups = []
-
     for (project, duplex_id), items in duplex_group_map.items():
-        # 按照 SS -> AS 排序（默认 SS 在前）
         sorted_items = sorted(
             items,
-            key=lambda item: (
-                item['deliveries'][0]['Seq_type'] != 'SS'  # SS 为 False, AS 为 True
-                if item['deliveries'] else True
-            )
+            key=lambda x: (
+                x['deliveries'][0]['Seq_type'] != 'SS'
+                if x['deliveries'] else True
+            ),
         )
-
         sequence_groups.append({
             'project': project,
             'duplex_id': duplex_id,
             'items': sorted_items,
         })
-    
+
+    return sequence_groups
+
+
+def get_sequence_info(request):
+    user_type = getattr(request.user, 'user_type', 'guest')
+    selected_seq_type = request.GET.get('seq_type', get_user_default_seq_type(request.user))
+
+    # allowed_projects：超管为全部，否则取用户权限列表
+    if request.user.is_superuser:
+        allowed_projects = sorted(filter(None, Delivery.objects.values_list('project', flat=True).distinct()))
+    else:
+        allowed_projects = request.user.get_allowed_projects()
+
+    # 解析 GET 中的 projects 参数：支持 ?projects=A&projects=B 或 ?projects=A,B
+    raw_projects = request.GET.getlist('projects') or request.GET.get('projects', '')
+    selected_projects = []
+    if isinstance(raw_projects, list) and raw_projects:
+        for p in raw_projects:
+            selected_projects += [x.strip() for x in str(p).split(',') if x.strip()]
+    elif isinstance(raw_projects, str) and raw_projects:
+        selected_projects = [x.strip() for x in raw_projects.split(',') if x.strip()]
+
+    if not selected_projects:
+        selected_projects = allowed_projects[:]
+
+    # 获取权限内的 Delivery 集合
+    delivery_qs = get_permitted_delivery_qs(request.user)
+
+    # 在权限范围内进一步按 selected_projects 过滤（防止越权）
+    if selected_projects:
+        safe_selected = [p for p in selected_projects if p in allowed_projects]
+        if safe_selected:
+            delivery_qs = delivery_qs.filter(project__in=safe_selected)
+        else:
+            delivery_qs = Delivery.objects.none()
+
+    # === 搜索过滤 ===
+    # 全局快速搜索（单框搜索多字段）
+    q = request.GET.get('q', '').strip()
+
+    # 高级字段搜索
+    SEARCH_FIELD_MAP = {
+        'filterSequence':    'duplex_id__icontains',
+        'filterNakedSeq':    'sequence__seq__icontains',
+        'filterSeq':         'modify_seq__icontains',
+        'filter5Delivery':   'delivery5__icontains',
+        'filter3Delivery':   'delivery3__icontains',
+        'filterTarget':      'Target__icontains',
+        'filterProject':     'project__icontains',
+        'filterSeqType':     'seq_type__icontains',
+        'filterTranscript':  'linker_seq__icontains',
+        'filterParents':     'parents__icontains',
+        'filterRemarks':     'Remark__icontains',
+    }
+    field_filters = {k: request.GET.get(k, '').strip() for k in SEARCH_FIELD_MAP}
+    has_search = bool(q) or any(field_filters.values())
+
+    if has_search:
+        search_qs = delivery_qs
+
+        if q:
+            terms = split_terms(q)
+            if terms:
+                q_obj = Q()
+                for term in terms:
+                    q_obj |= (
+                        Q(duplex_id__icontains=term) |
+                        Q(Target__icontains=term) |
+                        Q(project__icontains=term) |
+                        Q(modify_seq__icontains=term) |
+                        Q(parents__icontains=term) |
+                        Q(delivery_id__icontains=term) |
+                        Q(linker_seq__icontains=term)
+                    )
+                search_qs = search_qs.filter(q_obj)
+
+        for form_key, lookup in SEARCH_FIELD_MAP.items():
+            search_qs = apply_or_terms(search_qs, lookup, field_filters.get(form_key))
+
+        if not search_qs.exists():
+            messages.warning(request, '没有搜索到指定内容')
+            delivery_qs = Delivery.objects.none()
+        else:
+            # 展开到完整的 duplex 对（保证 AS+SS 同时显示）
+            matched_pairs = search_qs.values_list('project', 'duplex_id').distinct()
+            q_objects = Q()
+            for proj, dup_id in matched_pairs:
+                q_objects |= Q(project=proj, duplex_id=dup_id)
+            delivery_qs = delivery_qs.filter(q_objects)
+
+    sequence_groups = build_duplex_groups(delivery_qs, selected_seq_type)
 
     context = {
         'user_type': user_type,
         'sequence_groups': sequence_groups,
-        'selected_seq_type': selected_seq_type,  # 返回前端，保持选中状态
+        'selected_seq_type': selected_seq_type,
         'allowed_projects': allowed_projects,
         'selected_projects': selected_projects,
+        'search_q': q,
+        'field_filters': field_filters,
+        'has_search': has_search,
     }
 
     return render(request, 'seq_list.html', context)
 
 def cor_seq(request):
-   
-    query_id_tmp  = request.GET.get('id')  # 获取 URL 参数
-    seq_type = request.GET.get('seq_type')  # 获取 URL 参数
-    # selected_seq_type = request.GET.get('sorted_seq_type', 'SS')  #默认为"AS (5'-3')
+    query_id_tmp = request.GET.get('id')
+    seq_type = request.GET.get('seq_type')
 
-    # 用户名 → 默认序列方向 映射
-    user_default_seq_map = {
-        'Y2325': 'AS',
-    }
-
-    username = request.user.username if request.user.is_authenticated else ''
-   
-    # 优先从 GET 参数获取，其次从映射中获取，最后默认 'SS'
-    selected_seq_type = request.GET.get('sorted_seq_type', user_default_seq_map.get(username, 'SS'))
-
-    #seq_prefix = request.GET.get('seq_prefix', '')  # 获取 seq_prefix 参数
-
-    # 获取当前用户的 'permissions_project' 字段，存储允许查看的项目号
-    permissions_projects = getattr(request.user, 'permissions_project', '')
-    # 获取用户类型（默认为 'guest'）
+    selected_seq_type = request.GET.get('sorted_seq_type', get_user_default_seq_type(request.user))
     user_type = getattr(request.user, 'user_type', 'guest')
 
-    # 获取权限范围（项目过滤）
-    if request.user.is_superuser:
-        # 超级管理员可见全部
-        delivery_qs = Delivery.objects.all()
-    elif permissions_projects:
-        allowed_projects = [p.strip() for p in permissions_projects.split(',')]
-        delivery_qs = Delivery.objects.filter(project__in=allowed_projects)
-    else:
-        delivery_qs = Delivery.objects.none()
-
-    # 获取当前用户可见的序列ID（以交付表为基础）
-    visible_seq_ids = delivery_qs.values_list('sequence_id', flat=True)
+    # 权限过滤，获取当前用户可见的 sequence_id 集合
+    base_delivery_qs = get_permitted_delivery_qs(request.user)
+    visible_seq_ids = base_delivery_qs.values_list('sequence_id', flat=True)
     
     # 获取 Delivery 对象并获取 sequence_id
     delivery = get_object_or_404(Delivery, Q(id=query_id_tmp)&Q(seq_type=seq_type))  # 根据 query_id 获取 Delivery 对象
@@ -2144,86 +2180,54 @@ def cor_seq(request):
         return render(request, 'cor_seq.html', {'error': '无效的 seq_prefix'})
 
 
-    # --------------------------
-    # 3. 获取相关表数据
-    # --------------------------
-
-    related_ids = list(related_ids)  # 将查询结果转换为列表
-    related_ids.insert(0, query_id_tmp)  # 将当前查询的 ID 添加到列表中
-    
-   # print(related_ids)
+    # 收集当前及关联的 Delivery id 列表
+    related_ids = list(related_ids)
+    related_ids.insert(0, query_id_tmp)
 
     delivery_qs = Delivery.objects.filter(id__in=related_ids)
+    all_sequence_ids = list(delivery_qs.values_list('sequence_id', flat=True))
 
-    # 获取所有对应的 sequence_id
-    all_sequence_ids = delivery_qs.values_list('sequence_id', flat=True)
+    sequence_map = {s.rm_code: s for s in Sequence.objects.filter(rm_code__in=all_sequence_ids)}
+    seqinfo_map = {s.sequence_id: s for s in SeqInfo.objects.filter(sequence_id__in=all_sequence_ids)}
 
-    #  查询 SeqInfo 和 Sequence 表
-    seqinfo_qs = SeqInfo.objects.filter(sequence_id__in=all_sequence_ids)
-    sequence_qs = Sequence.objects.filter(rm_code__in=all_sequence_ids)  # 假设 rm_code = sequence_id
-
-
-    # --------------------------
-    # 4. 构建映射（同 get_sequence_info）
-    # --------------------------
-    rmcode_to_seqid = {}
+    # 构建展示数据（cor_seq 为扁平列表，不按 duplex_id 分组）
+    delivery_id_to_seq_id = {d.id: d.sequence_id for d in delivery_qs if d.id and d.sequence_id}
     delivery_map = defaultdict(list)
-
     for d in delivery_qs:
-        if d.id and d.sequence_id:
-            rmcode_to_seqid[d.id] = d.sequence_id
-            delivery_map[d.id].append(d)
+        delivery_map[d.id].append(d)
 
-    sequence_map = {
-        s.rm_code: s for s in sequence_qs
-    }
-
-    seqinfo_map = {
-        s.sequence_id: s for s in seqinfo_qs
-    }
-
-    # --------------------------
-    # 5. 构建最终展示数据
-    # --------------------------
     seq_list = []
-
-    for rm_code, sequence_id in rmcode_to_seqid.items():
-        sequence = sequence_map.get(sequence_id)
-        seqinfo = seqinfo_map.get(sequence_id)
-        deliveries = delivery_map.get(rm_code, [])
-
+    for d_id, seq_id in delivery_id_to_seq_id.items():
+        sequence = sequence_map.get(seq_id)
+        seqinfo = seqinfo_map.get(seq_id)
+        deliveries = delivery_map.get(d_id, [])
         linker_seqs = [d.linker_seq for d in deliveries if getattr(d, 'linker_seq', None)]
 
         if linker_seqs:
             for linker_seq in linker_seqs:
                 seq_list.append(build_sequence_data(
-                    rm_code=sequence_id,
+                    rm_code=seq_id,
                     seqinfo=seqinfo,
                     sequence=sequence,
                     deliveries=deliveries,
                     linker_seq=linker_seq,
-                    selected_seq_type=selected_seq_type
+                    selected_seq_type=selected_seq_type,
                 ))
         else:
             seq_list.append(build_sequence_data(
-                rm_code=sequence_id,
+                rm_code=seq_id,
                 seqinfo=seqinfo,
                 sequence=sequence,
                 deliveries=deliveries,
                 linker_seq=None,
-                selected_seq_type=selected_seq_type
+                selected_seq_type=selected_seq_type,
             ))
-
-    # --------------------------
-    # 6. 渲染页面
-    # --------------------------
-    user_type = getattr(request.user, 'user_type', 'guest')
 
     return render(request, 'cor_seq.html', {
         'user_type': user_type,
         'sequence_list': seq_list,
         'query_id': query_id,
-        'selected_seq_type': selected_seq_type,  # 返回前端，保持选中状态
+        'selected_seq_type': selected_seq_type,
     })
 
 def reg_seq_list(request):
@@ -2327,7 +2331,7 @@ def edit_reg_seq(request):
             # 更新 SeqInfo 对象 和 delivery 对象
             seqinfo.created_at = new_datetime  # 更新时间
             Seq.created_at = new_datetime  # 更新时间
-            Seq.save
+            Seq.save()
             seqinfo.save()
 
              # 记录修改日志
@@ -2427,8 +2431,7 @@ def download_selected(request):
                 part1 = getattr(d, 'Remark', '') or ''
                 part2 = getattr(seqinfo, 'Remark', '') if seqinfo else ''
                 val = f"{part1}\n{part2}".strip("\n") if (part1 or part2) else ''
-                print(val)
-            
+
             elif col_lc == 'id':
             # 假设 seq_type 是从 `d.sequence.seq_type` 获取的
                 seq_type = getattr(d, 'seq_type', '')
@@ -2463,7 +2466,7 @@ def module_list(request):
 
 def edit_module(request):
 
-    if not request.user.is_authenticated or request.user.username not in ['Y2325', 'Y2355', 'Y2341']:
+    if not request.user.is_authenticated or not request.user.can_manage_modules():
         return HttpResponse("""
             <script>
                 alert('您没有操作权限！');
@@ -2518,7 +2521,7 @@ def edit_module(request):
 def upload_modules(request):
 
     # 权限控制
-    if not request.user.is_authenticated or request.user.username not in ['Y2325', 'Y2355', 'Y2341']:
+    if not request.user.is_authenticated or not request.user.can_manage_modules():
         return HttpResponse("""
             <script>
                 alert('您没有操作权限！');
@@ -2578,7 +2581,7 @@ def upload_modules(request):
 @require_POST
 def delete_module(request):
 
-    if not request.user.is_authenticated or request.user.username not in ['Y2325', 'Y2355', 'Y2341']:
+    if not request.user.is_authenticated or not request.user.can_manage_modules():
         return HttpResponse("""
             <script>
                 alert('您没有权限删除模块！');
@@ -2610,26 +2613,9 @@ def apply_or_terms(qs, lookup: str, raw: str):
     return qs.filter(q)
 
 def search(request):
-    # 获取用户权限和类型
-    permissions_projects = getattr(request.user, 'permissions_project', '')
     user_type = getattr(request.user, 'user_type', 'guest')
-
-    # 显式定义用户名到默认 seq_type 的映射
-    user_default_seq_map = {
-        'Y2325': 'AS',
-    }
-
-    username = request.user.username if request.user.is_authenticated else ''
-    selected_seq_type = request.GET.get('seq_type', user_default_seq_map.get(username, 'SS'))
-
-    # 数据权限控制
-    if request.user.is_superuser:
-        delivery_qs = Delivery.objects.all()
-    elif permissions_projects:
-        allowed_projects = [p.strip() for p in permissions_projects.split(',')]
-        delivery_qs = Delivery.objects.filter(project__in=allowed_projects)
-    else:
-        delivery_qs = Delivery.objects.none()
+    selected_seq_type = request.GET.get('seq_type', get_user_default_seq_type(request.user))
+    delivery_qs = get_permitted_delivery_qs(request.user)
 
     # # 获取表单筛选条件
     filters = {
@@ -2716,87 +2702,185 @@ def search(request):
             q_objects |= Q(project=proj, duplex_id=dup_id)
         delivery_qs = delivery_qs.filter(q_objects)
 
-    # 初始化数据结构
-    rmcode_to_seqid = {}
-    delivery_map = defaultdict(list)
-
-    for d in delivery_qs:
-        if d.id and d.sequence_id:
-            rmcode_to_seqid[d.id] = d.sequence_id
-            delivery_map[d.id].append(d)
-
-    rm_codes = list(rmcode_to_seqid.keys())
-    sequence_ids = list(set(rmcode_to_seqid.values()))
-
-    sequence_map = {
-        s.rm_code: s for s in Sequence.objects.filter(rm_code__in=sequence_ids)
-    }
-    seqinfo_map = {
-        s.sequence_id: s for s in SeqInfo.objects.filter(sequence_id__in=sequence_ids)
-    }
-
-    duplex_group_map = defaultdict(list)
-
-    for rm_code in rm_codes:
-        sequence_id = rmcode_to_seqid[rm_code]
-        sequence = sequence_map.get(sequence_id)
-        seqinfo = seqinfo_map.get(sequence_id)
-        deliveries = delivery_map.get(rm_code, [])
-
-        grouped_deliveries = defaultdict(list)
-        for d in deliveries:
-            project = getattr(d, 'project', None)
-            duplex_id = getattr(d, 'duplex_id', None)
-            if project and duplex_id:
-                grouped_deliveries[(project, duplex_id)].append(d)
-
-        for (project, duplex_id), group_deliveries in grouped_deliveries.items():
-            linker_seqs = [d.linker_seq for d in group_deliveries if getattr(d, 'linker_seq', None)]
-
-            if linker_seqs:
-                for linker_seq in linker_seqs:
-                    item = build_sequence_data(
-                        rm_code=rm_code,
-                        seqinfo=seqinfo,
-                        sequence=sequence,
-                        deliveries=group_deliveries,
-                        linker_seq=linker_seq,
-                        selected_seq_type=selected_seq_type
-                    )
-                    duplex_group_map[(project, duplex_id)].append(item)
-            else:
-                item = build_sequence_data(
-                    rm_code=rm_code,
-                    seqinfo=seqinfo,
-                    sequence=sequence,
-                    deliveries=group_deliveries,
-                    linker_seq=None,
-                    selected_seq_type=selected_seq_type
-                )
-                duplex_group_map[(project, duplex_id)].append(item)
-
-    sequence_groups = []
-    for (project, duplex_id), items in duplex_group_map.items():
-        sorted_items = sorted(
-            items,
-            key=lambda item: (
-                item['deliveries'][0]['Seq_type'] != 'SS'
-                if item['deliveries'] else True
-            )
-        )
-
-        sequence_groups.append({
-            'project': project,
-            'duplex_id': duplex_id,
-            'items': sorted_items,
-        })
+    sequence_groups = build_duplex_groups(delivery_qs, selected_seq_type)
 
     context = {
-    'user_type': user_type,
-    'sequence_groups': sequence_groups,
-    'selected_seq_type': selected_seq_type,
-    'search_message': '',
+        'user_type': user_type,
+        'sequence_groups': sequence_groups,
+        'selected_seq_type': selected_seq_type,
+        'search_message': '',
     }
 
-
     return render(request, 'search_results.html', context)
+
+
+@login_required
+def blast_seq(request):
+    """展示与指定 Delivery 相同裸序列、相同 seq_type 的所有修饰版本（不做 duplex 配对）。"""
+    delivery_id = request.GET.get('delivery_id')
+    seq_type = request.GET.get('seq_type')
+
+    if not delivery_id or not seq_type:
+        return HttpResponse('参数缺失', status=400)
+
+    # 获取来源 Delivery，确认其裸序列
+    source_delivery = get_object_or_404(
+        get_permitted_delivery_qs(request.user),
+        id=delivery_id
+    )
+    sequence_obj = source_delivery.sequence
+    naked_seq = sequence_obj.seq if sequence_obj else None
+
+    if not naked_seq:
+        messages.warning(request, '该序列无裸序列信息')
+        return redirect('seq_list')
+
+    # 查找所有权限内、相同裸序列、相同 seq_type 的 Delivery
+    delivery_qs = (
+        get_permitted_delivery_qs(request.user)
+        .filter(sequence__seq=naked_seq, seq_type=seq_type)
+        .select_related('sequence')
+        .order_by('project', 'duplex_id', 'delivery_id')
+    )
+
+    # 构建展示数据（复用 build_sequence_data，每条 Delivery 单独一行）
+    seqinfo_cache = {
+        s.sequence_id: s
+        for s in SeqInfo.objects.filter(
+            sequence_id__in=delivery_qs.values_list('sequence_id', flat=True)
+        )
+    }
+
+    results = []
+    for d in delivery_qs:
+        seqinfo = seqinfo_cache.get(d.sequence_id)
+        item = build_sequence_data(
+            rm_code=d.id,
+            seqinfo=seqinfo,
+            sequence=d.sequence,
+            deliveries=[d],
+            linker_seq=d.linker_seq,
+            selected_seq_type=seq_type,
+        )
+        results.append(item)
+
+    context = {
+        'naked_seq': naked_seq,
+        'seq_type': seq_type,
+        'selected_seq_type': seq_type,
+        'results': results,
+        'result_count': len(results),
+        'source_duplex_id': source_delivery.duplex_id,
+    }
+    return render(request, 'blast_results.html', context)
+
+
+def _resolve_duplex_id(seq_id, user):
+    """根据输入 ID 解析出对应的 duplex_id。支持多种格式。"""
+    qs = get_permitted_delivery_qs(user)
+
+    # 格式 "AS_xxx" / "SS_xxx"
+    m = re.match(r'^(AS|SS)_(.+)$', seq_id, re.IGNORECASE)
+    if m:
+        d = qs.filter(delivery_id=m.group(2), seq_type=m.group(1).upper()).first()
+        if d and d.duplex_id:
+            return d.duplex_id
+
+    # 直接 Strand ID (duplex_id)
+    if qs.filter(duplex_id=seq_id).exists():
+        return seq_id
+
+    # delivery_id
+    d = qs.filter(delivery_id=seq_id).first()
+    if d and d.duplex_id:
+        return d.duplex_id
+
+    return None
+
+
+def _build_all_mods(naked_seq, seq_type, user):
+    """获取某裸序列+链型的所有修饰版本展示数据。"""
+    all_deliveries = (
+        get_permitted_delivery_qs(user)
+        .filter(sequence__seq=naked_seq, seq_type=seq_type)
+        .select_related('sequence')
+        .order_by('project', 'duplex_id', 'delivery_id')
+    )
+    seqinfo_cache = {
+        s.sequence_id: s
+        for s in SeqInfo.objects.filter(
+            sequence_id__in=all_deliveries.values_list('sequence_id', flat=True)
+        )
+    }
+    return [
+        build_sequence_data(
+            rm_code=d.id,
+            seqinfo=seqinfo_cache.get(d.sequence_id),
+            sequence=d.sequence,
+            deliveries=[d],
+            linker_seq=d.linker_seq,
+            selected_seq_type=seq_type,
+        )
+        for d in all_deliveries
+    ]
+
+
+@login_required
+def multi_blast(request):
+    """GET → 输入页面；POST → SS/AS 分组横向比对结果页面。"""
+    if request.method == 'GET':
+        return render(request, 'multi_blast.html', {})
+
+    seq_ids = [s.strip() for s in request.POST.getlist('seq_id') if s.strip()]
+    base_qs = get_permitted_delivery_qs(request.user).select_related('sequence')
+
+    ss_entries = []
+    as_entries = []
+    not_found = []
+    seen_duplex = set()
+
+    for seq_id in seq_ids:
+        duplex_id = _resolve_duplex_id(seq_id, request.user)
+        if not duplex_id:
+            not_found.append(seq_id)
+            continue
+        if duplex_id in seen_duplex:
+            continue
+        seen_duplex.add(duplex_id)
+
+        deliveries = list(base_qs.filter(duplex_id=duplex_id))
+        ss_list = [d for d in deliveries if d.seq_type == 'SS']
+        as_list = [d for d in deliveries if d.seq_type == 'AS']
+
+        def make_entry(d, seq_id=seq_id, duplex_id=duplex_id):
+            seqinfo = SeqInfo.objects.filter(sequence_id=d.sequence_id).first()
+            item = build_sequence_data(
+                rm_code=d.id,
+                seqinfo=seqinfo,
+                sequence=d.sequence,
+                deliveries=[d],
+                linker_seq=d.linker_seq,
+                selected_seq_type=d.seq_type,
+            )
+            naked_seq = d.sequence.seq if d.sequence else None
+            all_mods = _build_all_mods(naked_seq, d.seq_type, request.user) if naked_seq else []
+            return {
+                'input_id': seq_id,
+                'duplex_id': duplex_id,
+                'item': item,
+                'naked_seq': naked_seq,
+                'all_mods': all_mods,
+                'all_mods_count': len(all_mods),
+            }
+
+        if ss_list:
+            ss_entries.append(make_entry(ss_list[0]))
+        if as_list:
+            as_entries.append(make_entry(as_list[0]))
+
+    return render(request, 'multi_blast_results.html', {
+        'ss_entries': ss_entries,
+        'as_entries': as_entries,
+        'not_found': not_found,
+        'seq_ids': seq_ids,
+    })

@@ -2,45 +2,46 @@ document.addEventListener('DOMContentLoaded', function() {
     const advancedSearchBtn = document.getElementById('advancedSearchBtn');
     const advancedSearchPanel = document.getElementById('advancedSearchPanel');
     const closeSearchPanel = document.getElementById('closeSearchPanel');
-    const form = document.getElementById('advancedSearchForm');
 
-    // 切换显示/隐藏（但不自动关闭）
-    if (advancedSearchBtn && advancedSearchPanel) {
+    if (!advancedSearchPanel) return;
+
+    // 面板默认关闭，搜索后不自动展开（活跃筛选条已显示当前筛选条件）
+
+    // 点击按钮切换面板显示
+    if (advancedSearchBtn) {
         advancedSearchBtn.addEventListener('click', function() {
             const visible = advancedSearchPanel.style.display === 'block';
             advancedSearchPanel.style.display = visible ? 'none' : 'block';
         });
     }
 
-    // ✅ 只有点击“✖”才关闭
-    if (closeSearchPanel && advancedSearchPanel) {
+    // 点击”✖”关闭
+    if (closeSearchPanel) {
         closeSearchPanel.addEventListener('click', function() {
             advancedSearchPanel.style.display = 'none';
         });
     }
 
-    // ✅ 加载上次表单记录（localStorage）
-    const savedFilters = JSON.parse(localStorage.getItem('advancedSearchValues') || '{}');
-    Object.entries(savedFilters).forEach(([name, value]) => {
-        const input = form.querySelector(`[name="${name}"]`);
-        if (input) input.value = value;
-    });
+    // 应用筛选后自动关闭面板
+    const applyBtn = document.getElementById('applyFilters');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', function() {
+            advancedSearchPanel.style.display = 'none';
+        });
+    }
 
-    // ✅ 提交前保存表单值
-    form.addEventListener('submit', function() {
-        const formData = new FormData(form);
-        const filtersToSave = {};
-        for (let [name, value] of formData.entries()) {
-            filtersToSave[name] = value;
-        }
-        localStorage.setItem('advancedSearchValues', JSON.stringify(filtersToSave));
-    });
-
-    // ✅ 点击“清除筛选”时清除保存
+    // 清除筛选按钮：通过 JS 跳转清除所有高级筛选参数
     const clearBtn = document.getElementById('clearFilters');
     if (clearBtn) {
-        clearBtn.addEventListener('click', function() {
-            localStorage.removeItem('advancedSearchValues');
+        clearBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const url = new URL(window.location.href);
+            const advancedKeys = ['filterSequence','filterNakedSeq','filterSeq','filter5Delivery','filter3Delivery',
+                                  'filterTarget','filterProject','filterSeqType','filterTranscript',
+                                  'filterParents','filterRemarks','filterStrandMWs','filterPos','filterAsSeqtype',
+                                  'filterModifySeq','filterParents','filterRemarks'];
+            advancedKeys.forEach(k => url.searchParams.delete(k));
+            window.location.href = url.toString();
         });
     }
 });

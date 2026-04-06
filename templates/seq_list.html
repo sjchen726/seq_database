@@ -41,44 +41,62 @@
                 <div class="row">
                     <div class="col-lg-12">
                         <div class="input-group form">
-                            <input type="text" id="searchInput" class="form-control" placeholder="Search...">
+                            <input type="text" id="searchInput" class="form-control" placeholder="快速搜索 Strand ID / Target / Sequence..." value="{{ search_q }}">
                             <span class="input-group-btn">
-                                <button class="btn btn-primary" id="searchBtn" type="button">Search...</button>
-                                <button class="btn btn-info" id="advancedSearchBtn" type="button" style="margin-left: 10px;">高级搜索</button>         
+                                <button class="btn btn-primary" id="searchBtn" type="button">搜索</button>
+                                {% if has_search %}
+                                    <a href="{% url 'seq_list' %}{% if selected_seq_type %}?seq_type={{ selected_seq_type }}{% endif %}" class="btn btn-default" id="clearAllSearch" style="margin-left: 6px;">✕ 清除</a>
+                                {% endif %}
+                                <button class="btn btn-info" id="advancedSearchBtn" type="button" style="margin-left: 6px;">高级搜索{% if has_search and not search_q %} ●{% endif %}</button>
                             </span>
                         </div>
 
-                    
+                        <!-- 活跃搜索条 -->
+                        {% if has_search %}
+                        <div id="activeFilterBar" style="margin-top: 4px; font-size: 12px; color: #555;">
+                            {% if search_q %}<span class="label label-primary" style="margin-right:4px;">关键词: {{ search_q }}</span>{% endif %}
+                            {% if field_filters.filterSequence %}<span class="label label-default" style="margin-right:4px;">Strand ID: {{ field_filters.filterSequence }}</span>{% endif %}
+                            {% if field_filters.filterNakedSeq %}<span class="label label-default" style="margin-right:4px;">Naked Seq: {{ field_filters.filterNakedSeq }}</span>{% endif %}
+                            {% if field_filters.filterSeq %}<span class="label label-default" style="margin-right:4px;">Sequence: {{ field_filters.filterSeq }}</span>{% endif %}
+                            {% if field_filters.filterTarget %}<span class="label label-default" style="margin-right:4px;">Target: {{ field_filters.filterTarget }}</span>{% endif %}
+                            {% if field_filters.filterProject %}<span class="label label-default" style="margin-right:4px;">Project: {{ field_filters.filterProject }}</span>{% endif %}
+                            {% if field_filters.filterSeqType %}<span class="label label-default" style="margin-right:4px;">Seq Type: {{ field_filters.filterSeqType }}</span>{% endif %}
+                            {% if field_filters.filter5Delivery %}<span class="label label-default" style="margin-right:4px;">5' Ligand: {{ field_filters.filter5Delivery }}</span>{% endif %}
+                            {% if field_filters.filter3Delivery %}<span class="label label-default" style="margin-right:4px;">3' Ligand: {{ field_filters.filter3Delivery }}</span>{% endif %}
+                            {% if field_filters.filterTranscript %}<span class="label label-default" style="margin-right:4px;">Transcript: {{ field_filters.filterTranscript }}</span>{% endif %}
+                            {% if field_filters.filterParents %}<span class="label label-default" style="margin-right:4px;">Parents: {{ field_filters.filterParents }}</span>{% endif %}
+                            {% if field_filters.filterRemarks %}<span class="label label-default" style="margin-right:4px;">Remarks: {{ field_filters.filterRemarks }}</span>{% endif %}
+                        </div>
+                        {% endif %}
+
                         <!-- 高级搜索面板 -->
                         <div id="advancedSearchPanel" style="display: none;">
-                            <form id="advancedSearchForm" method="GET" action="{% url 'search' %}">
-                                {% csrf_token %}
+                            <form id="advancedSearchForm" method="GET" action="{% url 'seq_list' %}">
+                                <input type="hidden" name="seq_type" value="{{ selected_seq_type }}">
                                 <div class="search-header" id="dragHandle">
                                     <span>🔍 高级搜索</span>
                                     <button id="closeSearchPanel" type="button">✖</button>
                                 </div>
                                 <div class="advanced-search-grid">
                                     <div class="search-column">
-                                        <label>Strand ID: <input type="text" name="filterSequence"></label>
-                                        <label>5' Ligand: <input type="text" name="filter5Delivery"></label>
-                                        <label>Sequences: <input type="text" name="filterSeq"></label>
-                                        <label>Target: <input type="text" name="filterTarget"></label>
-                                        <label>Strand_MWs: <input type="text" name="filterStrandMWs"></label>
-                                        <label>Remarks: <input type="text" name="filterRemarks"></label>
-                                        <label>Sequence ID: <input type="text" name="filterAsSeqtype"></label>
+                                        <label>Strand ID: <input type="text" name="filterSequence" value="{{ field_filters.filterSequence }}"></label>
+                                        <label>Naked Sequence: <input type="text" name="filterNakedSeq" value="{{ field_filters.filterNakedSeq }}" placeholder="如 CAUGGC"></label>
+                                        <label>Sequence: <input type="text" name="filterSeq" value="{{ field_filters.filterSeq }}"></label>
+                                        <label>Target: <input type="text" name="filterTarget" value="{{ field_filters.filterTarget }}"></label>
+                                        <label>Project: <input type="text" name="filterProject" value="{{ field_filters.filterProject }}"></label>
+                                        <label>Seq Type (AS/SS): <input type="text" name="filterSeqType" value="{{ field_filters.filterSeqType }}"></label>
                                     </div>
                                     <div class="search-column">
-                                        <label>Project: <input type="text" name="filterProject"></label>
-                                        <label>3' Ligand: <input type="text" name="filter3Delivery"></label>
-                                        <label>Modify Sequences: <input type="text" name="filterModifySeq"></label>
-                                        <label>Transcript: <input type="text" name="filterTranscript"></label>
-                                        <label>Position: <input type="text" name="filterPos"></label>
-                                        <label>Parents: <input type="text" name="filterParents"></label>
+                                        <label>5' Ligand: <input type="text" name="filter5Delivery" value="{{ field_filters.filter5Delivery }}"></label>
+                                        <label>3' Ligand: <input type="text" name="filter3Delivery" value="{{ field_filters.filter3Delivery }}"></label>
+                                        <label>Transcript: <input type="text" name="filterTranscript" value="{{ field_filters.filterTranscript }}"></label>
+                                        <label>Parents: <input type="text" name="filterParents" value="{{ field_filters.filterParents }}"></label>
+                                        <label>Remarks: <input type="text" name="filterRemarks" value="{{ field_filters.filterRemarks }}"></label>
                                     </div>
                                 </div>
                                 <div class="search-buttons">
                                     <button type="submit" id="applyFilters">✅ 应用筛选</button>
-                                    <a href="{% url 'search' %}" id="clearFilters" class="button-style">❌ 清除筛选</a>
+                                    <button type="button" id="clearFilters" class="button-style">❌ 清除筛选</button>
                                 </div>
                             </form>
                         </div>
@@ -112,24 +130,17 @@
     </div>
 </div>
 
-<!-- JavaScript 提示 -->
-<script type="text/javascript">
-    {% if messages %}
-        const messages = [
-            {% for message in messages %}
-                "{{ message|escapejs }}",
-            {% endfor %}
-        ];
-
-        function displayMessages(messages) {
-            messages.forEach(function(msg) {
-                alert(msg);  // 弹出窗口显示消息
-            });
-        }
-
-        displayMessages(messages);
-    {% endif %}
-</script>
+{% if messages %}
+<div id="msg-toast-container">
+    {% for message in messages %}
+    <div class="msg-toast">
+        <span class="msg-toast-text">{{ message }}</span>
+        <button class="msg-toast-close" onclick="this.parentElement.remove()">&times;</button>
+    </div>
+    {% endfor %}
+</div>
+<script>setTimeout(function(){var c=document.getElementById('msg-toast-container');if(c)c.style.opacity='0';setTimeout(function(){if(c)c.remove();},400);},5000);</script>
+{% endif %}
 
 <div class="page-content">
     <div class="row">
@@ -150,91 +161,93 @@
                             <li><a href="/seq_list/">序列信息列表</a></li>
                         </ul>
                     </li>
-
                     <li class="submenu">
                         <a href="#">
                             <i class="glyphicon glyphicon-list"></i> 系统设置
                             <span class="caret pull-right"></span>
                         </a>
-                        <!-- Sub menu -->
                         <ul>
-                           <!-- <li><a href="/login">登陆</a></li> -->
                             <li><a href="/signup">注册</a></li>
                             <li><a href="/change_password">修改密码</a></li>
                         </ul>
                     </li>
-
-                    <div class="content-box p-3 mb-4 border rounded bg-light" style="max-width: 800px; margin: auto;"> 
-                        <div class="row">
-                            <!-- 左侧字段选择 -->
-                            <div class="col-md-8" style="min-width: 300px;">
-                                <h5 class="mb-3" style="font-size: 16px;"><strong>选择显示/导出字段</strong></h5>
-                                <div class="field-box" id="column-controls">
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="1" value="duplex_id" checked> Strand ID</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="2" value="project" checked> Project</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="3" value="Target" checked> Target</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="4" value="id" checked> Sequence ID</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="5" value="delivery5" checked> Ligand 1</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="6" value="modify_seq" checked> Sequences</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="7" value="delivery3" checked> Ligand 2</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="8" value="Transcript" checked> Transcript</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="9" value="Pos" checked> Position</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="10" value="Strand_MWs" checked> Strand_MWs</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="11" value="parents" checked> Parents</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="12" value="remarks" checked> Remarks</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="13" value="created_at" checked> Update Time</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="14" value="操作" checked> 操作</label>
-                                    
-                                </div>
-                            </div>
-                        </div>
-                        <!-- 右侧按钮 -->
-
-                    <!-- 项目筛选区域（移到显示按钮上方） -->
-                    <div class="content-box p-3 mb-4 border rounded bg-white" style="max-width: 800px; margin: 12px auto;">
-                        <h5><strong>项目筛选</strong></h5>
-                        <div>
-                            <button id="projects-select-toggle" type="button" class="btn btn-sm btn-outline-secondary">全选/取消全选</button>
-                            <button id="projects-apply" type="button" class="btn btn-sm btn-primary">应用筛选</button>
-                            <button id="projects-clear" type="button" class="btn btn-sm btn-link">清除筛选</button>
-                        </div>
-                        <form id="projectsFilterForm" method="GET" action="" style="margin-top:10px;">
-                            <div id="projectsCheckboxes" class="d-flex flex-wrap">
-                                {% for proj in allowed_projects %}
-                                    <label style="width:48%; margin-right:4%;"><input type="checkbox" name="projects" value="{{ proj }}" {% if proj in selected_projects %}checked{% endif %}> {{ proj }}</label>
-                                {% endfor %}
-                            </div>
-                        </form>
-                    </div>
-
-                        <div class="col-md-4 d-flex justify-content-start align-items-center" style="min-width: 200px; margin-top: 12px;">
-                            <button id="show-selected" type="button" class="btn btn-success custom-btn me-2" style="font-size: 18px;">
-                                ✅ 显示选中序列
-                            </button>
-                            <button id="download-selected" class="btn btn-info custom-btn" style="font-size: 18px; margin-top: 20px;">
-                                ⬇️ 下载选中项
-                            </button>
-                        </div>
-
-                    </div>
-
-
-                        
+                    <li>
+                        <a href="{% url 'multi_blast' %}">
+                            <i class="glyphicon glyphicon-search"></i> 多序列 Blast
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>
         <div class="col-md-10">
             <div class="content-box-large">
-                <div class="panel-heading">
-                    <div class="panel-title">序列信息列表</div>
-                          
-                    <button id="toggleCollapseBtn" class="btn btn-info custom-btn" style="font-size: 16px;margin-top:20px;">📁 组合/展开</button>
 
-                    {% comment %} <label for="seq_type_selector">Sequence Display Type:</label>
-                            <select id="seq_type_selector" class="form-control form-control-sm" style="width: 200px; display: inline-block;">
-                                <option value="AS" {% if selected_seq_type == 'AS' %}selected{% endif %}>SS （5'-3'）</option>
-                                <option value="SS" {% if selected_seq_type == 'SS' %}selected{% endif %}>AS （5'-3'）</option>
-                            </select>        {% endcomment %}
+                <!-- 工具栏 -->
+                <div class="seq-toolbar">
+                    <div class="seq-toolbar-left">
+                        <span class="seq-toolbar-title">序列信息列表</span>
+                    </div>
+                    <div class="seq-toolbar-right">
+                        <button id="toggleCollapseBtn" class="btn btn-default btn-sm">
+                            <i class="glyphicon glyphicon-folder-open"></i> 组合/展开
+                        </button>
+                        <button id="show-selected" type="button" class="btn btn-success btn-sm">
+                            <i class="glyphicon glyphicon-eye-open"></i> 显示选中
+                        </button>
+                        <button id="download-selected" class="btn btn-info btn-sm">
+                            <i class="glyphicon glyphicon-download-alt"></i> 下载选中
+                        </button>
+                        <button id="toggleProjectPanel" type="button" class="btn btn-default btn-sm">
+                            <i class="glyphicon glyphicon-filter"></i> 项目筛选{% if selected_projects %} <span class="badge" style="background:#e67e22;color:#fff;">{{ selected_projects|length }}</span>{% endif %}
+                        </button>
+                        <button id="toggleColumnPanel" type="button" class="btn btn-default btn-sm">
+                            <i class="glyphicon glyphicon-th-list"></i> 列显示
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 项目筛选面板（可折叠） -->
+                <div id="projectFilterPanel" class="seq-panel" style="display:none;">
+                    <div class="seq-panel-header">
+                        <strong>项目筛选</strong>
+                        <div class="seq-panel-actions">
+                            <button id="projects-select-toggle" type="button" class="btn btn-xs btn-default">全选/取消</button>
+                            <button id="projects-apply" type="button" class="btn btn-xs btn-primary">应用筛选</button>
+                            <button id="projects-clear" type="button" class="btn btn-xs btn-link">清除</button>
+                        </div>
+                    </div>
+                    <form id="projectsFilterForm" method="GET" action="">
+                        <div id="projectsCheckboxes" class="seq-panel-checkboxes">
+                            {% for proj in allowed_projects %}
+                                <label class="seq-panel-check-label">
+                                    <input type="checkbox" name="projects" value="{{ proj }}" {% if proj in selected_projects %}checked{% endif %}> {{ proj }}
+                                </label>
+                            {% endfor %}
+                        </div>
+                    </form>
+                </div>
+
+                <!-- 列显示面板（可折叠） -->
+                <div id="columnFilterPanel" class="seq-panel" style="display:none;">
+                    <div class="seq-panel-header">
+                        <strong>选择显示/导出字段</strong>
+                    </div>
+                    <div class="field-box" id="column-controls">
+                        <label><input type="checkbox" class="toggle-vis export-field" data-column="1" value="duplex_id" checked> Strand ID</label>
+                        <label><input type="checkbox" class="toggle-vis export-field" data-column="2" value="project" checked> Project</label>
+                        <label><input type="checkbox" class="toggle-vis export-field" data-column="3" value="Target" checked> Target</label>
+                        <label><input type="checkbox" class="toggle-vis export-field" data-column="4" value="id" checked> Sequence ID</label>
+                        <label><input type="checkbox" class="toggle-vis export-field" data-column="5" value="delivery5" checked> Ligand 1</label>
+                        <label><input type="checkbox" class="toggle-vis export-field" data-column="6" value="modify_seq" checked> Sequences</label>
+                        <label><input type="checkbox" class="toggle-vis export-field" data-column="7" value="delivery3" checked> Ligand 2</label>
+                        <label><input type="checkbox" class="toggle-vis export-field" data-column="8" value="Transcript" checked> Transcript</label>
+                        <label><input type="checkbox" class="toggle-vis export-field" data-column="9" value="Pos" checked> Position</label>
+                        <label><input type="checkbox" class="toggle-vis export-field" data-column="10" value="Strand_MWs" checked> Strand_MWs</label>
+                        <label><input type="checkbox" class="toggle-vis export-field" data-column="11" value="parents" checked> Parents</label>
+                        <label><input type="checkbox" class="toggle-vis export-field" data-column="12" value="remarks" checked> Remarks</label>
+                        <label><input type="checkbox" class="toggle-vis export-field" data-column="13" value="created_at" checked> Update Time</label>
+                        <label><input type="checkbox" class="toggle-vis export-field" data-column="14" value="操作" checked> 操作</label>
+                    </div>
                 </div>
 
                     <table id="example" class="table table-container table-bordered" style="width:100%">
@@ -311,8 +324,8 @@
                                                             {% else %}
                                                                 {{ group.items.0.seq|join:'' }}
                                                             {% endif %}"
-                                            style="display: flex; justify-content: {% if selected_seq_type == 'SS' %}flex-start{% elif selected_seq_type == 'AS' %}flex-end{% else %}center{% endif %};">
-          
+                                            style="display: flex; justify-content: flex-start;">
+
                                             {% for seq_item in group.items.0.modify_seq_colored  %}
                                                 <div style="display: flex; flex-direction: column; align-items: center;">
                                                     <!-- 1. 将数字放在上面 -->
@@ -322,7 +335,7 @@
                                                     
                                                     <!-- 2. 序列字符放在下方 -->
                                                     <span class="seq-container {% if seq_item.char == 's' or seq_item.char == 'o' %}seq-narrow{% else %}seq-wide{% endif %}"
-                                                        style="background-color: 
+                                                        style="background-color:
                                                             {% if seq_item.type == 'normal' %} rgb(189, 199, 248);
                                                             {% elif seq_item.type == 'f' %} rgb(22, 245, 22);
                                                             {% elif seq_item.type == 'm' %} rgb(68, 68, 68); color: white;
@@ -381,8 +394,8 @@
                                     <td>
                                         <div class="action-buttons">
                                             <a class="btn btn-info btn-sm" href="/edit_seq/?id={{ group.items.0.rm_code }}&strand_MWs={{ group.items.0.deliveries.0.Strand_MWs }}&next={{ request.get_full_path|urlencode }}">编辑</a>
-                                            <a class="btn btn-danger btn-sm" href="/cor_seq/?id={{ group.items.0.rm_code }}&seq_type={{  group.items.0.deliveries.0.Seq_type }}">关联序列</a>
                                             <button class="btn btn-primary btn-sm clone-seq-btn" data-strand-id="{{ group.duplex_id }}">克隆序列</button>
+                                            <a class="btn btn-warning btn-sm" href="/blast_seq/?delivery_id={{ group.items.0.rm_code }}&seq_type={{ group.items.0.deliveries.0.Seq_type }}" target="_blank">Blast</a>
                                         </div>
                                     </td>
                                 </tr>
@@ -433,11 +446,11 @@
                                                             {% else %}
                                                                 {{ group.items.1.seq|join:''|slice:'::-1' }}
                                                             {% endif %}"
-                                            style="display: flex; justify-content: {% if selected_seq_type == 'SS' %}flex-start{% elif selected_seq_type == 'AS' %}flex-end{% else %}center{% endif %};">
+                                            style="display: flex; justify-content: flex-start;">
                                                 {% for seq_item in group.items.1.modify_seq_colored %}
                                                     <div style="display: flex; flex-direction: column; align-items: center;">
                                                         <span class="seq-container {% if seq_item.char == 's' or seq_item.char == 'o' %}seq-narrow{% else %}seq-wide{% endif %}"
-                                                        style="background-color: 
+                                                        style="background-color:
                                                             {% if seq_item.type == 'normal' %} rgb(189, 199, 248);
                                                             {% elif seq_item.type == 'f' %} rgb(22, 245, 22);
                                                             {% elif seq_item.type == 'm' %} rgb(68, 68, 68); color: white;
@@ -500,8 +513,8 @@
                                         <td>
                                             <div class="action-buttons">
                                                 <a class="btn btn-info btn-sm" href="/edit_seq/?id={{ group.items.1.rm_code }}&strand_MWs={{ group.items.1.deliveries.0.Strand_MWs }}&next={{ request.get_full_path|urlencode }}">编辑</a>
-                                                <a class="btn btn-danger btn-sm" href="/cor_seq/?id={{ group.items.1.rm_code }}&seq_type={{  group.items.1.deliveries.0.Seq_type }}">关联序列</a>
                                                 <button class="btn btn-primary btn-sm clone-seq-btn" data-strand-id="{{ group.duplex_id }}">克隆序列</button>
+                                                <a class="btn btn-warning btn-sm" href="/blast_seq/?delivery_id={{ group.items.1.rm_code }}&seq_type={{ group.items.1.deliveries.0.Seq_type }}" target="_blank">Blast</a>
                                             </div>
                                         </td>
                                     </tr>
@@ -555,6 +568,22 @@ document.getElementById('seq_type_selector').addEventListener('change', function
 </script>
 
 <script>
+// 工具栏面板折叠/展开
+(function() {
+    function setupPanelToggle(btnId, panelId) {
+        var btn = document.getElementById(btnId);
+        var panel = document.getElementById(panelId);
+        if (!btn || !panel) return;
+        btn.addEventListener('click', function() {
+            var open = panel.style.display === 'none';
+            panel.style.display = open ? 'block' : 'none';
+            btn.classList.toggle('active', open);
+        });
+    }
+    setupPanelToggle('toggleProjectPanel', 'projectFilterPanel');
+    setupPanelToggle('toggleColumnPanel', 'columnFilterPanel');
+})();
+
 // Projects filter behavior
 document.getElementById('projects-select-toggle').addEventListener('click', function() {
     var checkboxes = document.querySelectorAll('#projectsCheckboxes input[type=checkbox]');
@@ -563,16 +592,10 @@ document.getElementById('projects-select-toggle').addEventListener('click', func
 });
 
 document.getElementById('projects-apply').addEventListener('click', function() {
-    // Build URL preserving existing params except projects
     var url = new URL(window.location.href);
-    // remove existing projects params
     url.searchParams.delete('projects');
-
-    // append checked projects
     var checkboxes = document.querySelectorAll('#projectsCheckboxes input[type=checkbox]:checked');
     checkboxes.forEach(function(cb) { url.searchParams.append('projects', cb.value); });
-
-    // navigate to new URL
     window.location.href = url.toString();
 });
 

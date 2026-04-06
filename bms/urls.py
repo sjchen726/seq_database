@@ -55,6 +55,8 @@ urlpatterns = [
 
 
     path('download_selected/', views.download_selected, name='download_selected'),
+    path('blast_seq/', views.blast_seq, name='blast_seq'),
+    path('multi_blast/', views.multi_blast, name='multi_blast'),
 
     #path('test_log/', views.test_log, name='test_log'),
     

@@ -61,7 +61,7 @@ class SeqInfo(models.Model):
     created_at = models.DateTimeField('Created At',  blank=True, null=True)  # 创建时间
 
     def __str__(self):
-        return f"Target: {self.target}, Pos: {self.pos}"
+        return f"Seq: {self.seq}, Pos: {self.Pos}"
     
 
 
@@ -143,6 +143,16 @@ class LmsUser(AbstractUser):
     class Meta:
         verbose_name = '用户'
         verbose_name_plural = '用户'
+
+    def get_allowed_projects(self):
+        """返回该用户有权限查看的项目列表"""
+        if not self.permissions_project:
+            return []
+        return [p.strip() for p in self.permissions_project.split(',') if p.strip()]
+
+    def can_manage_modules(self):
+        """判断该用户是否有权限管理模块"""
+        return self.is_superuser or self.user_type in ('data_admin', 'admin', 'superadmin')
 
     def __str__(self):
         return f"{self.username} ({self.user_type})"
