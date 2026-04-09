@@ -44,4 +44,35 @@ document.addEventListener('DOMContentLoaded', function() {
             window.location.href = url.toString();
         });
     }
+
+    // Modify Sequence 多输入行
+    const addBtn = document.getElementById('addModifySeq');
+    const inputsContainer = document.getElementById('modifySeqInputs');
+
+    function bindRemoveBtn(btn) {
+        btn.addEventListener('click', function() {
+            const items = inputsContainer.querySelectorAll('.modify-seq-item');
+            if (items.length > 1) {
+                btn.closest('.modify-seq-item').remove();
+            } else {
+                // 只剩一个时清空值而不删除
+                btn.closest('.modify-seq-item').querySelector('input').value = '';
+            }
+        });
+    }
+
+    // 绑定已有删除按钮
+    inputsContainer.querySelectorAll('.modify-seq-remove').forEach(bindRemoveBtn);
+
+    if (addBtn) {
+        addBtn.addEventListener('click', function() {
+            const item = document.createElement('div');
+            item.className = 'modify-seq-item';
+            item.innerHTML = '<input type="text" name="filterSeq" value="" placeholder="如 AmGmCm 或 T(MOE)" class="modify-seq-input">'
+                           + '<button type="button" class="modify-seq-remove" title="删除">×</button>';
+            inputsContainer.appendChild(item);
+            bindRemoveBtn(item.querySelector('.modify-seq-remove'));
+            item.querySelector('input').focus();
+        });
+    }
 });

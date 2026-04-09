@@ -5,6 +5,7 @@
         <span class="seq-count" style="width:auto;">
             {% if seq_item.count %} {{ seq_item.count }} {% else %} &nbsp; {% endif %}
         </span>
+        {% if seq_item.is_combo %}<span class="seq-delivery-label" style="background-color:{{ seq_item.delivery_color }};">{{ seq_item.delivery_label }}</span>{% else %}<span class="seq-delivery-placeholder">&nbsp;</span>{% endif %}
         <span class="seq-container {% if seq_item.char == 's' or seq_item.char == 'o' %}seq-narrow{% else %}seq-wide{% endif %}"
               style="background-color:
                 {% if seq_item.type == 'normal' %}rgb(189,199,248);

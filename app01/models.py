@@ -49,7 +49,6 @@ class DuplexRelationship(models.Model):
 # 存储目标信息
 class SeqInfo(models.Model):
     sequence = models.ForeignKey(Sequence, on_delete=models.CASCADE, related_name='target_info')  # 外键关联到Sequence
-    seq = models.CharField('Sequence', max_length=100, null=True)  # 存储序列（如 AUGC）
   #  Target = models.CharField('Target', max_length=64, null=True)
     Pos = models.CharField('Pos', max_length=64, null=True)
     project = models.CharField('项目', max_length=64, null=True)  # 项目号
@@ -61,19 +60,9 @@ class SeqInfo(models.Model):
     created_at = models.DateTimeField('Created At',  blank=True, null=True)  # 创建时间
 
     def __str__(self):
-        return f"Seq: {self.seq}, Pos: {self.Pos}"
+        return f"Seq: {self.sequence.seq if self.sequence_id else ''}, Pos: {self.Pos}"
     
 
-
-# 作者的类
-class Author(models.Model):
-    id = models.AutoField('序号', primary_key=True)
-    name = models.CharField('姓名', max_length=64)
-    sex = models.CharField('性别', max_length=4)
-    age = models.IntegerField('年龄', default=0)
-    tel = models.CharField('联系方式', max_length=64)
-# 允许查看的项目号
-    permissions_project = models.CharField('available_pro', max_length=256, null=True, blank=True)  
 
 
 class Delivery(models.Model):
@@ -164,6 +153,17 @@ class DeliveryModule(models.Model):
     keyword = models.CharField(max_length=100, unique=True)
     type_code = models.CharField(max_length=10, blank=True)
     Strand_MWs = models.CharField('Strand_MWs', max_length=64, null=True) # 分子量
+
+    def __str__(self):
+        return self.keyword
+
+
+# 存储序列规范化修饰模块（用于 save_deliveries 和 add_o_to_all_rules）
+class SeqModule(models.Model):
+    keyword = models.CharField(max_length=100, unique=True)          # 修饰码，如 "VP25A", "GU02", "T(MOE)"
+    base_char = models.CharField(max_length=10, null=True, blank=True)  # 对应裸碱基（A/U/G/C/INVAB），纯连接符留空
+    linker_connector = models.CharField(max_length=2, default='o')   # linker_seq 中当后一位不是 's' 且非末尾时追加的字符
+    description = models.CharField(max_length=200, null=True, blank=True)
 
     def __str__(self):
         return self.keyword

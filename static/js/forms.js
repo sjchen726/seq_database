@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // 清除高级搜索参数，避免冲突
         ['filterSequence','filterNakedSeq','filterSeq','filter5Delivery','filter3Delivery',
          'filterTarget','filterProject','filterSeqType','filterTranscript',
-         'filterParents','filterRemarks'].forEach(k => url.searchParams.delete(k));
+         'filterParents','filterRemarks','filterModifySeq','filterStrandMWs'].forEach(k => url.searchParams.delete(k));
         window.location.href = url.toString();
     }
 

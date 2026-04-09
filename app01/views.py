@@ -29,35 +29,31 @@ from django.conf import settings
 
 
 
-# 生成颜色映射规则
-def get_color_map():
+# 生成颜色映射规则（接受预加载的 modules 避免循环内重复查询）
+def get_color_map(modules=None):
     color_palette = [
         "#e06666", "#f6b26b", "#a0d8ef", "#93c47d", "#76a5af",
         "#6fa8dc", "#8e7cc3", "#c27ba0", "#f4cccc", "#1aac6d",
-        "#f7c6c7", "#c6e860", "#ffd966", "#ffd966", "#f9cb9c",  
+        "#f7c6c7", "#c6e860", "#ffd966", "#ffd966", "#f9cb9c",
         "#d9ead3", "#cfe2f3", "#e6b8af", "#f4cccc", "#b6d7a8",
         "#d5a6bd", "#b4a7d6", "#a2c4c9", "#ffe599", "#b6d7a8",
         "#d9d2e9", "#d0e0e3", "#c9daf8", "#ead1dc", "#fce5cd"
     ]
-    # 特殊颜色映射：'ss' 和 's' 为黄色，'-' 和 'o' 为灰色
     special_colors = {
-        'ss': "#fff30b",  # 黄色
-        's':  "#fff30b",  # 黄色
-        '-':  "#c9c9c9",  # 灰色
-        'o':  '#c9c9c9',  # 灰色
+        'ss': "#fff30b",
+        's':  "#fff30b",
+        '-':  "#c9c9c9",
+        'o':  '#c9c9c9',
     }
 
-    # 获取所有的模块（模块对象）并按 'type_code' 排序
-    modules = DeliveryModule.objects.all().order_by('type_code')
+    if modules is None:
+        modules = DeliveryModule.objects.all().order_by('type_code')
     unique_types = sorted(set(m.type_code for m in modules))
-   # print(f"11111:{unique_types}")
     color_map = {}
 
-    # 先为特殊类型指定颜色
     for type_code in ['ss', 's', '-', 'o']:
         color_map[type_code] = special_colors.get(type_code, '#cccccc')
 
-    # 为剩下的类型分配调色板中的颜色
     i = 0
     for type_code in unique_types:
         if type_code not in color_map:
@@ -67,44 +63,31 @@ def get_color_map():
     return color_map
 
 
-def get_delivery_colored(seq: str, selected_seq_type: str, seq_type: str) -> list:
+def get_delivery_colored(seq: str, selected_seq_type: str, seq_type: str,
+                         modules=None, color_map=None) -> list:
     """
-    给任意 delivery 序列添加颜色标记（不区分 5'/3'）
-    如果 seq_type == 'AS'，将匹配组反向排列（subs 接到上一组的 main 后）
-    
-    返回：
-        [{"char": ..., "type": ...}, ...]
+    给任意 delivery 序列添加颜色标记（不区分 5'/3'）。
+    如果 seq_type == 'AS'，将匹配组反向排列。
+
+    modules / color_map 可由调用方预加载传入，避免循环内重复查询 DB。
     """
-   # print(f"Processing delivery sequence: {seq_type}, type: {selected_seq_type}")
     reversed_seq_type = selected_seq_type
 
-    # --- 处理 seq 中的特殊字符 ---
-    # 正则匹配规则，包含需要标记的所有部分
-    
-    # 从数据库获取所有组件定义
-    modules = DeliveryModule.objects.all()
-    
-    # 构建 keyword -> type_code 映射
+    if modules is None:
+        modules = DeliveryModule.objects.all()
+
     component_type_map = {
         module.keyword.strip(): module.type_code.strip()
         for module in modules
     }
+    component_type_map.update({'ss': 'ss', 's': 's', '-': '-', 'o': 'o'})
 
-    # 手动添加固定的特殊类型（连接）
-    special_keywords = {
-        'ss': 'ss',  # 固定为 ss
-        's': 's',     # 固定为 s
-        '-': '-',     # 固定为 -
-        'o': 'o',     # 固定为 o
-    }
-    component_type_map.update(special_keywords)
-
-    # 构建正则表达式：keyword 降序排序，避免匹配冲突（如 "s" vs "ss"）
     sorted_keywords = sorted(component_type_map.keys(), key=lambda x: -len(x))
     pattern = re.compile(r"|".join(re.escape(k) for k in sorted_keywords))
 
-    # 获取颜色映射
-    type_color_map = get_color_map()
+    if color_map is None:
+        color_map = get_color_map(modules=modules)
+    type_color_map = color_map
     result = []
     pos = 0
     seq = seq or ""
@@ -176,32 +159,40 @@ def get_delivery_colored(seq: str, selected_seq_type: str, seq_type: str) -> lis
 
 
 
-def get_modify_seq_colored(seq, selected_seq_type, seq_type):
+def get_modify_seq_colored(seq, selected_seq_type, seq_type, dm_modules=None, color_map=None):
     # === 1) 准备输入 ===
     seq = seq or ""
 
-    # === 2) 从数据库获取 module.keyword，用于组合 token ===
-    modules = DeliveryModule.objects.all()
-    keywords = [m.keyword.strip() for m in modules if m.keyword and m.keyword.strip()]
-    keywords = sorted(set(keywords), key=len, reverse=True)
-
-    # keyword_pattern：用于 regex，必须 escape
-    keyword_pattern = "|".join(re.escape(k) for k in keywords) if keywords else r"(?!x)x"
-
-    # === 3) 你原来的 token regex（保持完全不变） ===
-    base_pattern = (
-        r'P91|LK1|P93|P96|G\(moe\)|U\(moe\)|C\(moe\)|A\(moe\)|T\(moe\)|G\(OCF3\)|U\(OCF3\)|C\(OCF3\)|A\(OCF3\)|G\(LNA\)|U\(LNA\)|C\(LNA\)|A\(LNA\)|T\(LNA\)|I|invab|VPUm|VP25A|VPAm|VP25|VP34|VP36|VP37|VP41|VP43|VP44|VP45|GA02|GA25|GU25|GC25|GG25|U92|C92|G92|A92|GA30|GU30|GU02|GU19|GU18|GU16|GU20|GU05|GU14|GU13|BU01|GU10|GU27|GC02|TA12|TC12|TG12|TU0|TU|B04|C16|G16|A16|Uy1|U22|An1|Cn1|An2|Gn2|Cn2|Un2|Un16|ss|Af|Cf|Uf|Gf|Am|Cm|Um|Gm|dA|dT|dG|dC|dU|s|ss|o|[ACGUT]|.'
+    # === 2) 从 SeqModule 动态构建 base_pattern，从 DeliveryModule 获取 combo 右侧 keyword ===
+    sm_keywords = sorted(
+        [m.keyword.strip() for m in SeqModule.objects.all() if m.keyword and m.keyword.strip()],
+        key=len, reverse=True,
     )
+    if dm_modules is None:
+        dm_modules = list(DeliveryModule.objects.all())
+    dm_keywords = sorted(
+        [m.keyword.strip() for m in dm_modules if m.keyword and m.keyword.strip()],
+        key=len, reverse=True,
+    )
+    if color_map is None:
+        color_map = get_color_map(modules=dm_modules)
+    # keyword → type_code → color
+    dm_type_map = {m.keyword.strip(): m.type_code for m in dm_modules if m.keyword}
 
-    # === 4) 新增：组合 token regex（左边必须是 base_pattern 命中的 token；右边是 module.keyword） ===
-    # 用 (?:...) 非捕获组，避免 findall 返回 tuple
+    keyword_pattern = "|".join(re.escape(k) for k in dm_keywords) if dm_keywords else r"(?!x)x"
+
+    # === 3) base_pattern：SeqModule token + 固定简单 token + 兜底 . ===
+    sm_part = "|".join(re.escape(k) for k in sm_keywords) if sm_keywords else r"(?!x)x"
+    base_pattern = rf"{sm_part}|ss|s|o|[ACGUT]|."
+
+    # === 4) 组合 token regex（左边 base_pattern，右边 DeliveryModule keyword） ===
     combo_pattern = rf"(?:{base_pattern})-(?:{keyword_pattern})"
 
     # === 5) 最终 pattern：优先匹配组合 token，再匹配原 base_pattern ===
     final_pattern = rf"{combo_pattern}|{base_pattern}"
 
-    # 使用正则表达式来提取符合条件的片段
-    sequence = re.findall(final_pattern, seq)
+    # 使用正则表达式来提取符合条件的片段（IGNORECASE 保证大小写不敏感，如 T(moe)/T(MOE) 均可匹配）
+    sequence = re.findall(final_pattern, seq, re.IGNORECASE)
 
     reversed_seq_type = selected_seq_type
     counter = 0
@@ -209,41 +200,60 @@ def get_modify_seq_colored(seq, selected_seq_type, seq_type):
 
     # === 6) 构造结果 ===
     for char in sequence:
-        if char in ['s', 'ss', 'o']:
+        # 检测 combo token（左=SeqModule, 右=DeliveryModule keyword）
+        is_combo = False
+        delivery_label = None
+        delivery_color = None
+        display_char = char
+
+        if char not in ('s', 'ss', 'o'):
+            for dk in dm_keywords:
+                suffix = '-' + dk
+                if char.endswith(suffix):
+                    is_combo = True
+                    display_char = char[:-len(suffix)]   # e.g. "Cn2"
+                    delivery_label = dk                   # e.g. "LP163"
+                    dm_type = dm_type_map.get(dk, 'unknown')
+                    delivery_color = color_map.get(dm_type, '#cccccc')
+                    break
+
+        if display_char in ['s', 'ss', 'o']:
             count = ""
         else:
             counter += 1
             count = counter
 
         result.append({
-            "char": char,
+            "char": display_char,
             "type": (
-                "evp" if char == '(EVP)' else
-                "moe" if char in ['G(moe)', 'U(moe)', 'C(moe)', 'A(moe)','T(moe)', 'T(LNA)', 'G(LNA)', 'U(LNA)', 'C(LNA)', 'A(LNA)'] else
-                "OCF3" if char in ['G(OCF3)', 'U(OCF3)', 'C(OCF3)', 'A(OCF3)'] else
-                "GNA" if char in ['GA02', 'GU02', 'GC02','GA25','GU25','GC25','GG25','GA30','GU30','GU19','GU18','GU16','GU20','GU05','GU14','GU13','BU01','GU10','GU27'] else
-                "TNA" if char in ['TA12', 'TC12', 'TG12', 'TU0'] else
-                "d" if char in ['dA', 'dT', 'dG', 'dC', 'dU','TU'] else
-                "f" if char in ['Af', 'Cf', 'Uf', 'Gf'] else
-                "m" if char in ['Am', 'Cm', 'Um', 'Gm'] else
-                "I" if char in ['I'] else
-                "invab" if char in ['invab'] else
-                "normal" if char in ['A', 'C', 'G', 'U'] else
-                # ✅ 这里按你的要求：把 combo_pattern 也归类为 others（只在这一行加条件）
+                "evp" if display_char == '(EVP)' else
+                "moe" if display_char.upper() in ['G(MOE)', 'U(MOE)', 'C(MOE)', 'A(MOE)', 'T(MOE)', 'T(LNA)', 'G(LNA)', 'U(LNA)', 'C(LNA)', 'A(LNA)'] else
+                "OCF3" if display_char in ['G(OCF3)', 'U(OCF3)', 'C(OCF3)', 'A(OCF3)'] else
+                "GNA" if display_char in ['GA02', 'GU02', 'GC02','GA25','GU25','GC25','GG25','GA30','GU30','GU19','GU18','GU16','GU20','GU05','GU14','GU13','BU01','GU10','GU27'] else
+                "TNA" if display_char in ['TA12', 'TC12', 'TG12', 'TU0'] else
+                "d" if display_char in ['dA', 'dT', 'dG', 'dC', 'dU','TU'] else
+                "f" if display_char in ['Af', 'Cf', 'Uf', 'Gf'] else
+                "m" if display_char in ['Am', 'Cm', 'Um', 'Gm'] else
+                "I" if display_char in ['I'] else
+                "invab" if display_char in ['invab'] else
+                "normal" if display_char in ['A', 'C', 'G', 'U'] else
                 "others" if (
-                    char in [
+                    display_char in [
                         'Cn1', 'Uy1', 'Un2', 'U22', 'An1', 'An2', 'Gn2', 'Cn2', 'B04',
                         'Un16','C16','G16','A16','U22','P91','LK1','P93','P96',
                         'U92','C92','G92','A92','VP25A','VPAm','VP25','VP34','VP36','VP37','VP41','VP43','VP44','VP45','VPUm'
                     ]
-                    or re.fullmatch(combo_pattern, char)
+                    or re.fullmatch(combo_pattern, display_char)
                 ) else
-                "o" if char == 'o' else
-                "s" if char == 's' else
-                "ss" if char == 'ss' else
+                "o" if display_char == 'o' else
+                "s" if display_char == 's' else
+                "ss" if display_char == 'ss' else
                 "unknown"
             ),
-            "count": count
+            "count": count,
+            "is_combo": is_combo,
+            "delivery_label": delivery_label,
+            "delivery_color": delivery_color,
         })
 
     # === 7) 保留你原来的 SS 分组反转逻辑 ===
@@ -924,7 +934,7 @@ def register_seq(request):
                         Relation_meg.append(f"关系已存在: {AS} <-> {SS} <-> {duplex}")
 
                     # 更新或创建 SS 对应的 SeqInfo
-                    seqinfo_SS = SeqInfo.objects.filter(seq=SS).first()
+                    seqinfo_SS = SeqInfo.objects.filter(sequence=ss_obj).first()
                     if seqinfo_SS:
                         existing_fields = {
                             "Transcript": set(seqinfo_SS.Transcript.split(', ')) if seqinfo_SS.Transcript else set(),
@@ -948,17 +958,14 @@ def register_seq(request):
                     else:
                         SeqInfo.objects.create(
                             sequence=ss_obj,
-                            seq=SS,
                             Transcript=Transcript,
-                   #         Target=Target,
                             Pos=Pos,
-                   #         parents=Parents,
                             Remark=Remarks,
                             created_at=created_at
                         )
 
                     # 更新或创建 AS 对应的 SeqInfo
-                    seqinfo_AS = SeqInfo.objects.filter(seq=AS).first()
+                    seqinfo_AS = SeqInfo.objects.filter(sequence=as_obj).first()
                     if seqinfo_AS:
                         existing_fields = {
                             "Transcript": set(seqinfo_AS.Transcript.split(', ')) if seqinfo_AS.Transcript else set(),
@@ -982,11 +989,8 @@ def register_seq(request):
                     else:
                         SeqInfo.objects.create(
                             sequence=as_obj,
-                            seq=AS,
                             Transcript=Transcript,
-                       #     Target=Target,
                             Pos=Pos,
-                            # parents=Parents,
                             Remark=Remarks,
                             created_at=created_at
                         )
@@ -1042,153 +1046,96 @@ def register_seq(request):
     return render(request, 'register_seq.html')
 
 
+def build_seq_search_regex(val: str) -> str:
+    """
+    将修饰序列搜索词转为 MySQL REGEXP 正则表达式。
+    token 之间插入 [os-]* 以匹配任意骨架连接符（o/s/-）。
+    例如：'CmAmUm' → 'Cm[os-]*Am[os-]*Um'
+         可匹配 modify_seq 中的 'CmsAmUm' 和 linker_seq 中的 'CmsAmoUm'
+    """
+    val = (val or "").strip()
+    if not val:
+        return ""
+    seq_modules = sorted(SeqModule.objects.all(), key=lambda m: len(m.keyword), reverse=True)
+    sm_pattern = "|".join(re.escape(m.keyword) for m in seq_modules if m.keyword)
+    left_extras = r'INVAB|I|ss|s|o|[ACGUT]'
+    token_re = re.compile(rf"(?:{sm_pattern}|{left_extras})", re.IGNORECASE)
+    tokens = []
+    i = 0
+    while i < len(val):
+        m = token_re.match(val, i)
+        if m:
+            tokens.append(re.escape(m.group(0)))
+            i += len(m.group(0))
+        else:
+            tokens.append(re.escape(val[i]))
+            i += 1
+    return r'[os-]*'.join(tokens)
+
+
 # 遍历modify_seq, 遇见 "m" 或 "f" 在后面添加 "o"，并处理 "(EVP)A", "(EVP)U", "(EVP)C", "(EVP)G", "(EVP)T"
 
 def add_o_to_all_rules(modify_seq):
-    linker_seq = ""
-    i = 0
+    """
+    将 modify_seq 转换为 linker_seq：在每个修饰 token 后追加连接符（通常为 'o'）。
+
+    追加规则：
+      - 如果 token 是序列末尾（无后续字符）：不追加
+      - 如果 token 后一位是 's'：不追加
+      - 否则：追加 SeqModule.linker_connector（通常 'o'，P91/LK1 等为 '-'）
+    """
     modify_seq = modify_seq or ""
 
-    # ===== 1) combo 优先：构造更精确的 combo_pattern（不含 '.' 兜底）=====
-    modules = DeliveryModule.objects.all()
-    keywords = [m.keyword.strip() for m in modules if m.keyword and m.keyword.strip()]
-    keywords = sorted(set(keywords), key=len, reverse=True)
-    keyword_pattern = "|".join(re.escape(k) for k in keywords) if keywords else r"(?!x)x"
+    # 从 SeqModule 动态构建 token 正则及连接符映射（按关键字长度降序，最长优先匹配）
+    seq_modules = sorted(SeqModule.objects.all(), key=lambda m: len(m.keyword), reverse=True)
+    connector_map = {m.keyword.upper(): m.linker_connector for m in seq_modules}
+    sm_keywords = [m.keyword for m in seq_modules]
+    sm_pattern = "|".join(re.escape(k) for k in sm_keywords) if sm_keywords else r"(?!x)x"
+    sm_re = re.compile(sm_pattern, re.IGNORECASE)
 
-    # combo 专用 base：只列出你可能出现在 combo 左侧的 token（你原 list 里那些）
-    base_pattern_for_combo = (
-        r'P91|LK1|P93|P96|U92|C92|G92|A92|'
-        r'VP25A|VPAm|VP25|VP34|VP36|VP37|VP41|VP43|VP44|VP45|VPUm|'
-        r'B04|C16|G16|A16|U22|Uy1|'
-        r'An1|Cn1|An2|Gn2|Cn2|Un2|Un16|'
-        r'GA02|GA25|GU25|GC25|GG25|GA30|GU30|GU02|GC02|GU19|GU18|GU16|GU20|GU05|GU14|GU13|BU01|GU10|GU27|'
-        r'TA12|TC12|TG12|TU0|TU|'
-        r'dA|dT|dG|dC|dU|'
-        r'I|invab|'
-        r'G\(moe\)|U\(moe\)|C\(moe\)|A\(moe\)|T\(moe\)|'
-        r'G\(LNA\)|U\(LNA\)|C\(LNA\)|A\(LNA\)|T\(LNA\)|'
-        r'G\(OCF3\)|U\(OCF3\)|C\(OCF3\)|A\(OCF3\)|'
-        r'Af|Cf|Uf|Gf|Am|Cm|Um|Gm|'
-        r'ss|s|o|[ACGUT]'
+    # Combo 正则：LEFT=(SeqModule token + 简单碱基) - RIGHT=(DeliveryModule keyword)
+    dm_keywords = sorted(
+        [m.keyword.strip() for m in DeliveryModule.objects.all() if m.keyword and m.keyword.strip()],
+        key=len, reverse=True,
     )
+    dm_pattern = "|".join(re.escape(k) for k in dm_keywords) if dm_keywords else r"(?!x)x"
+    left_extras = r'INVAB|I|ss|s|o|[ACGUT]'
+    combo_re = re.compile(rf"(?:{sm_pattern}|{left_extras})-(?:{dm_pattern})", re.IGNORECASE)
 
-    combo_re = re.compile(rf"(?:{base_pattern_for_combo})-(?:{keyword_pattern})")
+    linker_seq = ""
+    i = 0
 
-    # ===== 2) 原逻辑：逐字符扫描，但 combo 先吃掉 =====
     while i < len(modify_seq):
-        # --- ⭐ combo 检测：如果从当前位置开始能匹配 combo，先处理 ---
-        m = combo_re.match(modify_seq, i)
-        if m:
-            combo = m.group(0)
+        # 1. Combo 优先：匹配 <token>-<DeliveryModule keyword>
+        cm = combo_re.match(modify_seq, i)
+        if cm:
+            combo = cm.group(0)
             end = i + len(combo)
-
-            # combo 后面加 o（除非紧跟 s）
-            if end >= len(modify_seq) or modify_seq[end] != 's':
+            if end < len(modify_seq) and modify_seq[end] != 's':
                 linker_seq += combo + 'o'
             else:
                 linker_seq += combo
-
             i = end
-            continue  # 关键：跳过下面所有 elif
+            continue
 
-        # --- 下面保持你原来的逻辑不变 ---
-        char = modify_seq[i]
-
-        # 1. "I" 后面加 "o"
-        if char == 'I' and not (i + 1 < len(modify_seq) and modify_seq[i + 1] == 's'):
-            linker_seq += char + 'o'
-
-        elif char in ['m', 'f'] and not (i + 1 < len(modify_seq) and modify_seq[i + 1] == 's'):
-            linker_seq += char + 'o'
-
-        # 2. "(EVP)A/U/C/G/T/A(moe)/U(moe)/C(moe)/G(moe)后面加 "o"
-        elif i + 5 < len(modify_seq) and modify_seq[i:i+6].upper() in [
-            '(EVP)A', '(EVP)U', '(EVP)C', '(EVP)G', '(EVP)T','A(MOE)', 'U(MOE)', 'C(MOE)', 'G(MOE)', 'T(MOE)','VP25A','T(LNA)','G(LNA)','U(LNA)','C(LNA)','A(LNA)'
-        ]:
-            if i + 6 >= len(modify_seq) or modify_seq[i + 6] != 's':
-                linker_seq += modify_seq[i:i+6] + 'o'
+        # 2. SeqModule token 匹配
+        sm = sm_re.match(modify_seq, i)
+        if sm:
+            token = sm.group(0)
+            end = i + len(token)
+            connector = connector_map.get(token.upper(), '')
+            if connector and end < len(modify_seq) and modify_seq[end] != 's':
+                linker_seq += token + connector
             else:
-                linker_seq += modify_seq[i:i+6]
-            i += 5
+                linker_seq += token
+            i = end
+            continue
 
-        # 3. GA02/GC02/GU02/TA12/TG12/TC12 后面加 "o"
-        elif i + 3 < len(modify_seq) and modify_seq[i:i+4].upper() in [
-            'GA02', 'GC02', 'GU02','TA12','TC12','TG12','GA25','GU25','GC25','GG25','GA30','GU30','GU19','GU18','GU16','GU20','GU05','GU14','GU13','BU01','GU10','GU27','VP25','VP34','VP36','VP37','VP41','VP43','VP44','VP45'
-        ]:
-            if i + 4 >= len(modify_seq) or modify_seq[i + 4] != 's':
-                linker_seq += modify_seq[i:i+4] + 'o'
-            else:
-                linker_seq += modify_seq[i:i+4]
-            i += 3
-
-        # 3.2. Un16 后面加 "o"
-        elif i + 3 < len(modify_seq) and modify_seq[i:i+4] in ['Un16','VPAm','VPUm']:
-            if i + 4 >= len(modify_seq) or modify_seq[i + 4] != 's':
-                linker_seq += modify_seq[i:i+4] + 'o'
-            else:
-                linker_seq += modify_seq[i:i+4]
-            i += 3
-
-        # 4. TU0 / C16 / ... 后面加 "o"
-        elif i + 2 < len(modify_seq) and modify_seq[i:i+3].upper() in [
-            'TU0','C16','U22','B04','G16','A16','U92','C92','G92','A92'
-        ]:
-            if i + 3 >= len(modify_seq) or modify_seq[i + 3] != 's':
-                linker_seq += modify_seq[i:i+3] + 'o'
-            else:
-                linker_seq += modify_seq[i:i+3]
-            i += 2
-
-        # 5. 'An1','An2','Gn2','Cn2','Cn1','Un2' 后面加 "o"
-        elif i + 2 < len(modify_seq) and modify_seq[i:i+3] in [
-            'An1','An2','Gn2','Cn2','Cn1','Un2'
-        ]:
-            if i + 3 >= len(modify_seq) or modify_seq[i + 3] != 's':
-                linker_seq += modify_seq[i:i+3] + 'o'
-            else:
-                linker_seq += modify_seq[i:i+3]
-            i += 2
-
-        # 5. 'P91','LK1','P93','P96' 后面加 '-'
-        elif i + 2 < len(modify_seq) and modify_seq[i:i+3] in ['P91','LK1','P93','P96']:
-            if i + 3 >= len(modify_seq) or modify_seq[i + 3] != 's':
-                linker_seq += modify_seq[i:i+3] + '-'
-            else:
-                linker_seq += modify_seq[i:i+3]
-            i += 2
-
-        # 6. dA/dT/dU/dG/dC 后面加 "o"
-        elif i + 1 < len(modify_seq) and modify_seq[i:i+2] in ['dA', 'dT', 'dU', 'dG', 'dC','TU']:
-            if i + 2 >= len(modify_seq) or modify_seq[i + 2] != 's':
-                linker_seq += modify_seq[i:i+2] + 'o'
-            else:
-                linker_seq += modify_seq[i:i+2]
-            i += 1
-
-        # 7. A(OCF3)/... 后面加 "o"
-        elif i + 6 < len(modify_seq) and modify_seq[i:i+7].upper() in [
-            'A(OCF3)', 'U(OCF3)', 'C(OCF3)', 'G(OCF3)', 'T(OCF3)',
-        ]:
-            if i + 7 >= len(modify_seq) or modify_seq[i + 7] != 's':
-                linker_seq += modify_seq[i:i+7] + 'o'
-            else:
-                linker_seq += modify_seq[i:i+7]
-            i += 6
-
-        # 8. invab 后面加 "o"
-        elif i + 4 < len(modify_seq) and modify_seq[i:i+5].upper() in ['INVAB']:
-            if i + 5 >= len(modify_seq) or modify_seq[i + 5] != 's':
-                linker_seq += modify_seq[i:i+5] + 'o'
-            else:
-                linker_seq += modify_seq[i:i+5]
-            i += 4
-
-        else:
-            linker_seq += char
-
+        # 3. 其余字符原样复制
+        linker_seq += modify_seq[i]
         i += 1
 
-    return linker_seq[:-1]
+    return linker_seq
 
 
 # 上传递送信息 （分块函数)
@@ -1350,34 +1297,25 @@ def build_combo_re():
     """
     构造 combo_re，用于匹配形如:
       <LEFT>-<module.keyword>
-    并捕获 LEFT 和 keyword 两部分。
+    LEFT 侧从 SeqModule 动态读取，RIGHT 侧从 DeliveryModule 动态读取。
     """
-    modules = DeliveryModule.objects.all()
-    keywords = [m.keyword.strip() for m in modules if m.keyword and m.keyword.strip()]
-    keywords = sorted(set(keywords), key=len, reverse=True)
-
-    keyword_pattern = "|".join(re.escape(k) for k in keywords) if keywords else r"(?!x)x"
-
-    # LEFT token 列表：按你现在体系里可能出现在 combo 左侧的 token 来写
-    # 你如果 LEFT 还可能有别的，就继续加到这里即可
-    left_token_pat = (
-        r'VP25A|VPAM|VP25|VP34|VP36|VP37|VP41|VP43|VP44|VP45|VPUm|'
-        r'AN1|AN2|CN1|CN2|GN2|UN2|UN16|'
-        r'GA02|GC02|GU02|TA12|TC12|TG12|TU02|TU0|'
-        r'GA25|GU25|GC25|GG25|GA30|GU30|'
-        r'B04|U22|UY1|C16|G16|A16|U92|C92|G92|A92|'
-        r'P91|LK1|P93|P96|'
-        r'DA|DC|DG|DT|DU|'
-        r'INVAB|I|'
-        r'G\(MOE\)|U\(MOE\)|C\(MOE\)|A\(MOE\)|T\(MOE\)|'
-        r'G\(OCF3\)|U\(OCF3\)|C\(OCF3\)|A\(OCF3\)|'
-        r'G\(LNA\)|U\(LNA\)|C\(LNA\)|A\(LNA\)|T\(LNA\)|'
-        r'AF|CF|UF|GF|AM|CM|UM|GM|'
-        r'SS|S|O|'
-        r'[ACGUT]'
+    dm_keywords = sorted(
+        [m.keyword.strip() for m in DeliveryModule.objects.all() if m.keyword and m.keyword.strip()],
+        key=len, reverse=True,
     )
+    dm_pattern = "|".join(re.escape(k) for k in dm_keywords) if dm_keywords else r"(?!x)x"
 
-    combo_re = re.compile(rf'({left_token_pat})-({keyword_pattern})', re.IGNORECASE)
+    sm_keywords = sorted(
+        [m.keyword.strip() for m in SeqModule.objects.all() if m.keyword and m.keyword.strip()],
+        key=len, reverse=True,
+    )
+    sm_pattern = "|".join(re.escape(k) for k in sm_keywords) if sm_keywords else r"(?!x)x"
+
+    # 额外的简单 token（不在 SeqModule 中，但可出现在 combo 左侧）
+    left_extras = r'INVAB|I|ss|s|o|[ACGUT]'
+    left_token_pat = rf"(?:{sm_pattern}|{left_extras})"
+
+    combo_re = re.compile(rf'({left_token_pat})-({dm_pattern})', re.IGNORECASE)
     return combo_re
 
 
@@ -1408,6 +1346,18 @@ def save_deliveries(df, duplex_id_map, username):
     for row_id, duplex_id in duplex_id_map.items():
         duplex_groups[duplex_id].append(df.loc[df['__row_id'] == row_id].iloc[0])
 
+    # 预加载 SeqModule 规范化规则（只查一次 DB，避免循环内重复查询）
+    _sm_list = sorted(SeqModule.objects.filter(base_char__isnull=False).exclude(base_char=''),
+                      key=lambda m: len(m.keyword), reverse=True)
+    _sm_map = {m.keyword.upper(): m.base_char for m in _sm_list}
+    if _sm_list:
+        _sm_norm_re = re.compile(
+            '|'.join(re.escape(m.keyword) for m in _sm_list),
+            re.IGNORECASE,
+        )
+    else:
+        _sm_norm_re = None
+
     for duplex_id, rows in duplex_groups.items():
         all_registered = True
        # naked_seqs = []
@@ -1434,51 +1384,11 @@ def save_deliveries(df, duplex_id_map, username):
          #   print(f"Processing row: {row['__original_line']}, full_seq: {full_seq}, modify_seq: {modify_seq[::-1]}")
             
 
-            tmp_seq = modify_seq.upper()
-
-            # ---- 先处理 combo：<LEFT>-<module.keyword> -> 只保留 LEFT 的第一个字母 ----
-           
-            tmp_seq = normalize_tmp_seq_with_combo(modify_seq)
-            tmp_seq = re.sub(r'DT', 'U', tmp_seq)
-            tmp_seq = re.sub(r'T\(MOE\)', 'U', tmp_seq)
-            tmp_seq = re.sub(r'T\(LNA\)', 'U', tmp_seq)
-            tmp_seq = re.sub(r'TU', 'U', tmp_seq)
-            tmp_seq = re.sub(r'VP25A', 'A', tmp_seq)
-            tmp_seq = re.sub(r'VPUM', 'U', tmp_seq)
-            tmp_seq = re.sub(r'VPAM', 'A', tmp_seq)
-            tmp_seq = re.sub(r'VP25', 'U', tmp_seq)
-            tmp_seq = re.sub(r'VP34', 'U', tmp_seq)
-            tmp_seq = re.sub(r'VP36', 'U', tmp_seq)
-            tmp_seq = re.sub(r'VP37', 'U', tmp_seq)
-            tmp_seq = re.sub(r'VP41', 'A', tmp_seq)
-            tmp_seq = re.sub(r'VP43', 'A', tmp_seq)
-            tmp_seq = re.sub(r'VP44', 'A', tmp_seq)
-            tmp_seq = re.sub(r'VP45', 'A', tmp_seq)
-            tmp_seq = re.sub(r'GA02', 'A', tmp_seq)
-            tmp_seq = re.sub(r'GC02', 'C', tmp_seq)
-            tmp_seq = re.sub(r'GU02', 'U', tmp_seq)
-            tmp_seq = re.sub(r'TA12', 'A', tmp_seq)
-            tmp_seq = re.sub(r'TC12', 'C', tmp_seq)
-            tmp_seq = re.sub(r'TG12', 'G', tmp_seq)
-            tmp_seq = re.sub(r'TU02', 'U', tmp_seq)
-            tmp_seq = re.sub(r'GA25', 'A', tmp_seq)
-            tmp_seq = re.sub(r'GU25', 'U', tmp_seq)
-            tmp_seq = re.sub(r'GC25', 'C', tmp_seq)
-            tmp_seq = re.sub(r'GG25', 'G', tmp_seq)
-            tmp_seq = re.sub(r'GA30', 'A', tmp_seq)
-            tmp_seq = re.sub(r'GU30', 'U', tmp_seq)
-            tmp_seq = re.sub(r'GU19', 'U', tmp_seq)
-            tmp_seq = re.sub(r'GU18', 'U', tmp_seq)
-            tmp_seq = re.sub(r'GU16', 'U', tmp_seq)
-            tmp_seq = re.sub(r'GU20', 'U', tmp_seq)
-            tmp_seq = re.sub(r'GU05', 'U', tmp_seq)
-            tmp_seq = re.sub(r'GU14', 'U', tmp_seq)
-            tmp_seq = re.sub(r'GU13', 'U', tmp_seq)
-            tmp_seq = re.sub(r'BU01', 'U', tmp_seq)
-            tmp_seq = re.sub(r'GU10', 'U', tmp_seq)
-            tmp_seq = re.sub(r'GU27', 'U', tmp_seq)
-            tmp_seq = re.sub(r'B04', 'A', tmp_seq)
-            tmp_seq = re.sub(r'\(.*?\)', '', tmp_seq)
+            # 规范化：strip combo，替换修饰码为裸碱基，提取 naked_seq
+            tmp_seq = normalize_tmp_seq_with_combo(modify_seq)  # 去 combo 并大写
+            if _sm_norm_re:
+                tmp_seq = _sm_norm_re.sub(lambda m: _sm_map[m.group(0).upper()], tmp_seq)
+            tmp_seq = re.sub(r'\(.*?\)', '', tmp_seq)           # 移除残余括号内容
             matches = re.findall(r'(INVAB|[AUGCI])', tmp_seq)
             naked_seq = ''.join(matches)
             naked_length = len(matches)
@@ -1901,7 +1811,9 @@ def get_attr(d, key):
         return getattr(d, key, '')
     return ''
 
-def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq, selected_seq_type):
+def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq, selected_seq_type,
+                        dm_modules=None, color_map=None):
+    """dm_modules / color_map 可由调用方预加载传入，避免循环内重复查询 DB。"""
     if not deliveries:
         deliveries = [{'delivery5': None, 'delivery3': None, 'date': None}]
 
@@ -1915,9 +1827,13 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq, sele
         get_attr(deliveries[0], 'Remark') if deliveries else None
     )
 
+    # sequence.seq_type 是权威来源（来自 Sequence 注册），
+    # Delivery.seq_type 可能因历史 CSV 上传标签错误而不可靠，不应用于排序/着色。
+    seq_type_authoritative = sequence.seq_type if sequence else None
+
     return {
         'rm_code': rm_code,
-      #  'seq_type': sequence.seq_type if sequence else None,
+        'seq_type': seq_type_authoritative,
         'seq_prefix': (
             "RA_" if sequence and sequence.seq_type == "AS"
             else "RS_" if sequence and sequence.seq_type == "SS"
@@ -1927,25 +1843,28 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq, sele
         'seq': sequence.seq if sequence else None,
         'Project': get_attr(deliveries[0], 'project') if deliveries else None,
         'Transcript': seqinfo.Transcript if seqinfo else None,
-        #'Target': seqinfo.Pos if seqinfo else None,
         'Pos': seqinfo.Pos if seqinfo else None,
         'Remark': remark,
         'formatted_update_time': formatted_update_time,
         'linker_seq': linker_seq,
-        'modify_seq_colored': get_modify_seq_colored(linker_seq, selected_seq_type, sequence.seq_type) if linker_seq and selected_seq_type else None,
+        'modify_seq_colored': get_modify_seq_colored(linker_seq, selected_seq_type, seq_type_authoritative, dm_modules=dm_modules, color_map=color_map) if linker_seq and selected_seq_type else None,
         'selected_seq_type': selected_seq_type,
         'deliveries': [
             {
                 'duplex_id': getattr(d, 'duplex_id', None),
                 'Parents': getattr(d, 'parents', None),
                 'Target': getattr(d, 'Target', None),
-                'Seq_type': getattr(d, 'seq_type', None),
+                'Seq_type': seq_type_authoritative,
                 'delivery_id': getattr(d, 'delivery_id', None),
                 'delivery5': getattr(d, 'delivery5', None),
                 'delivery3': getattr(d, 'delivery3', None),
                 'Strand_MWs': getattr(d, 'Strand_MWs', None),
-                'delivery3_colored': get_delivery_colored(get_attr(d, 'delivery3'), selected_seq_type, getattr(d, 'seq_type', None)),
-                'delivery5_colored': get_delivery_colored(get_attr(d, 'delivery5'), selected_seq_type, getattr(d, 'seq_type', None)),
+                'delivery3_colored': get_delivery_colored(
+                    get_attr(d, 'delivery3'), selected_seq_type, seq_type_authoritative,
+                    modules=dm_modules, color_map=color_map),
+                'delivery5_colored': get_delivery_colored(
+                    get_attr(d, 'delivery5'), selected_seq_type, seq_type_authoritative,
+                    modules=dm_modules, color_map=color_map),
             }
             for d in deliveries
         ]
@@ -1970,6 +1889,10 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
         value 是 Sequence.rm_code（6 位字符串）。
         此处命名保留原逻辑，避免影响 build_sequence_data 及模板。
     """
+    # 预加载 DeliveryModule（一次查询，供所有 build_sequence_data 调用复用）
+    _dm_modules = list(DeliveryModule.objects.all())
+    _color_map = get_color_map(modules=_dm_modules)
+
     delivery_id_to_seq_id = {}
     delivery_map = defaultdict(list)
 
@@ -2012,6 +1935,8 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
                         deliveries=group_deliveries,
                         linker_seq=linker_seq,
                         selected_seq_type=selected_seq_type,
+                        dm_modules=_dm_modules,
+                        color_map=_color_map,
                     )
                     duplex_group_map[(project, duplex_id)].append(item)
             else:
@@ -2022,6 +1947,8 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
                     deliveries=group_deliveries,
                     linker_seq=None,
                     selected_seq_type=selected_seq_type,
+                    dm_modules=_dm_modules,
+                    color_map=_color_map,
                 )
                 duplex_group_map[(project, duplex_id)].append(item)
 
@@ -2029,10 +1956,7 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
     for (project, duplex_id), items in duplex_group_map.items():
         sorted_items = sorted(
             items,
-            key=lambda x: (
-                x['deliveries'][0]['Seq_type'] != 'SS'
-                if x['deliveries'] else True
-            ),
+            key=lambda x: x.get('seq_type') != 'SS',
         )
         sequence_groups.append({
             'project': project,
@@ -2084,18 +2008,20 @@ def get_sequence_info(request):
     SEARCH_FIELD_MAP = {
         'filterSequence':    'duplex_id__icontains',
         'filterNakedSeq':    'sequence__seq__icontains',
-        'filterSeq':         'modify_seq__icontains',
         'filter5Delivery':   'delivery5__icontains',
         'filter3Delivery':   'delivery3__icontains',
         'filterTarget':      'Target__icontains',
         'filterProject':     'project__icontains',
-        'filterSeqType':     'seq_type__icontains',
+        'filterSeqType':     'seq_type__iexact',
         'filterTranscript':  'linker_seq__icontains',
         'filterParents':     'parents__icontains',
         'filterRemarks':     'Remark__icontains',
     }
     field_filters = {k: request.GET.get(k, '').strip() for k in SEARCH_FIELD_MAP}
-    has_search = bool(q) or any(field_filters.values())
+    # filterSeq 支持多值（列表），每个值之间为 AND 关系（同时包含所有片段）
+    filter_seq_list = [v.strip() for v in request.GET.getlist('filterSeq') if v.strip()]
+    field_filters['filterSeq'] = filter_seq_list
+    has_search = bool(q) or any(field_filters.get(k) for k in SEARCH_FIELD_MAP) or bool(filter_seq_list)
 
     if has_search:
         search_qs = delivery_qs
@@ -2119,6 +2045,16 @@ def get_sequence_info(request):
         for form_key, lookup in SEARCH_FIELD_MAP.items():
             search_qs = apply_or_terms(search_qs, lookup, field_filters.get(form_key))
 
+        # Modify Sequence 多值 AND 过滤：每个值单独 .filter()，要求同时包含所有片段
+        # 构建正则 token[os-]*token[os-]*... 以匹配任意骨架连接符（o/s/-）
+        # 同时搜索 modify_seq 和 linker_seq
+        for val in filter_seq_list:
+            pattern = build_seq_search_regex(val)
+            if pattern:
+                search_qs = search_qs.filter(
+                    Q(modify_seq__iregex=pattern) | Q(linker_seq__iregex=pattern)
+                )
+
         if not search_qs.exists():
             messages.warning(request, '没有搜索到指定内容')
             delivery_qs = Delivery.objects.none()
@@ -2129,6 +2065,9 @@ def get_sequence_info(request):
             for proj, dup_id in matched_pairs:
                 q_objects |= Q(project=proj, duplex_id=dup_id)
             delivery_qs = delivery_qs.filter(q_objects)
+            # 若用户指定了 Seq Type，展开后重新收窄，只显示匹配的链型
+            if field_filters.get('filterSeqType'):
+                delivery_qs = delivery_qs.filter(seq_type__iexact=field_filters['filterSeqType'])
 
     sequence_groups = build_duplex_groups(delivery_qs, selected_seq_type)
 
@@ -2501,18 +2440,18 @@ def edit_module(request):
             new_module.save()
             return redirect('/module_list/')
         else:
-            # === 更新模式 ===
-            try:
-                existing = DeliveryModule.objects.get(keyword=keyword)
-                # 自动更新 type_code
-                existing.type_code = type_code
-                existing.Strand_MWs = Strand_MWs
-                existing.save()
-                return redirect('/module_list/')
-            except DeliveryModule.DoesNotExist:
-                # 模块不存在
-                messages.warning(request, f"模块“{keyword}”不存在，请添加新模块。")
-                return redirect('/module_list/')
+            # === 更新模式（通过 GET id 已加载 module） ===
+            if keyword != module.keyword and DeliveryModule.objects.filter(keyword=keyword).exists():
+                messages.warning(request, f'模块”{keyword}”已存在，请换一个名称。')
+                return render(request, 'edit_module.html', {
+                    'module': module,
+                    'form_data': {'keyword': keyword, 'type_code': type_code, 'Strand_MWs': Strand_MWs},
+                })
+            module.keyword = keyword
+            module.type_code = type_code
+            module.Strand_MWs = Strand_MWs
+            module.save()
+            return redirect('/module_list/')
 
     return render(request, 'edit_module.html', {'module': module})
 
@@ -2597,11 +2536,140 @@ def delete_module(request):
     except DeliveryModule.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': '模块不存在'})
     
+# ── 序列修饰列表（SeqModule）──────────────────────────────────────────────────
+
+def seqmodule_list(request):
+    seqmodule_list = SeqModule.objects.all().values('id', 'keyword', 'base_char')
+    return render(request, 'seqmodule_list.html', {'seqmodule_list': seqmodule_list})
+
+
+def edit_seqmodule(request):
+    if not request.user.is_authenticated or not request.user.can_manage_modules():
+        return HttpResponse("""
+            <script>
+                alert('您没有操作权限！');
+                window.location.href = '/seqmodule_list/';
+            </script>
+        """, content_type="text/html; charset=utf-8")
+
+    module_id = request.GET.get('id')
+    module = None
+
+    if module_id:
+        module = get_object_or_404(SeqModule, id=module_id)
+
+    if request.method == 'POST':
+        keyword = request.POST.get('keyword', '').strip()
+        base_char = request.POST.get('base_char', '').strip()
+        linker_connector = request.POST.get('linker_connector', 'o').strip() or 'o'
+
+        if module is None:
+            if SeqModule.objects.filter(keyword=keyword).exists():
+                messages.warning(request, f'修饰模块"{keyword}"已存在，请勿重复添加。')
+                return render(request, 'edit_seqmodule.html', {
+                    'module': None,
+                    'form_data': {'keyword': keyword, 'base_char': base_char, 'linker_connector': linker_connector},
+                })
+            SeqModule.objects.create(keyword=keyword, base_char=base_char or None, linker_connector=linker_connector)
+            return redirect('/seqmodule_list/')
+        else:
+            if keyword != module.keyword and SeqModule.objects.filter(keyword=keyword).exists():
+                messages.warning(request, f'修饰模块"{keyword}"已存在，请换一个名称。')
+                return render(request, 'edit_seqmodule.html', {
+                    'module': module,
+                    'form_data': {'keyword': keyword, 'base_char': base_char, 'linker_connector': linker_connector},
+                })
+            module.keyword = keyword
+            module.base_char = base_char or None
+            module.linker_connector = linker_connector
+            module.save()
+            return redirect('/seqmodule_list/')
+
+    return render(request, 'edit_seqmodule.html', {'module': module})
+
+
+@require_POST
+def delete_seqmodule(request):
+    if not request.user.is_authenticated or not request.user.can_manage_modules():
+        return HttpResponse("""
+            <script>
+                alert('您没有权限删除修饰模块！');
+                window.location.href = '/seqmodule_list/';
+            </script>
+        """, content_type="text/html; charset=utf-8")
+
+    module_id = request.POST.get('id')
+    try:
+        module = SeqModule.objects.get(id=module_id)
+        module.delete()
+        return redirect('/seqmodule_list/')
+    except SeqModule.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': '修饰模块不存在'})
+
+
+def upload_seqmodules(request):
+    if not request.user.is_authenticated or not request.user.can_manage_modules():
+        return HttpResponse("""
+            <script>
+                alert('您没有操作权限！');
+                window.location.href = '/seqmodule_list/';
+            </script>
+        """, content_type="text/html; charset=utf-8")
+
+    if request.method == 'POST' and request.FILES.get('file'):
+        csv_file = request.FILES['file']
+        try:
+            df = pd.read_csv(csv_file)
+            if 'Keyword' not in df.columns or 'Base_Char' not in df.columns:
+                messages.error(request, "CSV 文件必须包含 'Keyword' 和 'Base_Char' 列！")
+                return render(request, 'upload_seqmodules.html')
+
+            existing = []
+            success_count = 0
+            for _, row in df.iterrows():
+                keyword = str(row['Keyword']).strip()
+                base_char = str(row['Base_Char']).strip()
+                base_char = None if base_char in ('', 'nan', 'None') else base_char
+
+                if SeqModule.objects.filter(keyword=keyword).exists():
+                    existing.append(keyword)
+                    continue
+                SeqModule.objects.create(keyword=keyword, base_char=base_char)
+                success_count += 1
+
+            if existing:
+                messages.warning(request, f"以下修饰模块已存在，未重复导入：{', '.join(existing)}")
+            if success_count > 0:
+                messages.success(request, f"共成功上传 {success_count} 条新修饰模块")
+            return redirect('seqmodule_list')
+
+        except Exception as e:
+            messages.error(request, f"处理文件时出错：{str(e)}")
+            return render(request, 'upload_seqmodules.html')
+
+    return render(request, 'upload_seqmodules.html')
+
+
 def split_terms(raw: str):
     if not raw:
         return []
     # 支持：逗号、中文逗号、空格、分号
     return [p for p in re.split(r"[,\s;，；]+", raw.strip()) if p]
+
+def make_fuzzy_seq_regex(term: str) -> str:
+    """
+    将搜索词转换为允许 s/o 连接符的正则表达式。
+    例：'UmUfUm'  → 'Um[so]*Uf[so]*Um'
+        'UmsUfsUm' → 'Um[so]*Uf[so]*Um'（自动忽略 s/o）
+    支持括号修饰如 (MOE)、(LNA)。
+    """
+    # 按 token 拆分：括号内容 | 大写字母开头的词 | 其余单字符
+    tokens = re.findall(r'\([^)]*\)|[A-Za-z][a-z]*|[^A-Za-z\s]', term)
+    # 过滤掉单独的 s/o 连接符 token
+    base_tokens = [t for t in tokens if t not in ('s', 'o')]
+    if not base_tokens:
+        return re.escape(term)
+    return '[so]*'.join(re.escape(t) for t in base_tokens)
 
 def apply_or_terms(qs, lookup: str, raw: str):
     terms = split_terms(raw)
@@ -2617,90 +2685,84 @@ def search(request):
     selected_seq_type = request.GET.get('seq_type', get_user_default_seq_type(request.user))
     delivery_qs = get_permitted_delivery_qs(request.user)
 
-    # # 获取表单筛选条件
+    q = request.GET.get('q', '').strip()
+
+    # 高级字段过滤条件
     filters = {
-        'filterSequence': request.GET.get('filterSequence'),
-        'filter5Delivery': request.GET.get('filter5Delivery'),
-        'filterSeq': request.GET.get('filterSeq'),
-        'filterTarget': request.GET.get('filterTarget'),
-        'filterStrandMWs': request.GET.get('filterStrandMWs'),
-        'filterRemarks': request.GET.get('filterRemarks'),
-        'filterAsSeqtype': request.GET.get('filterAsSeqtype'),
-        'filterProject': request.GET.get('filterProject'),
-        'filter3Delivery': request.GET.get('filter3Delivery'),
-        'filterModifySeq': request.GET.get('filterModifySeq'),
-        'filterTranscript': request.GET.get('filterTranscript'),
-        'filterPos': request.GET.get('filterPos'),
-        'filterParents': request.GET.get('filterParents'),
+        'filterSequence':   request.GET.get('filterSequence', '').strip(),
+        'filter5Delivery':  request.GET.get('filter5Delivery', '').strip(),
+        'filter3Delivery':  request.GET.get('filter3Delivery', '').strip(),
+        'filterTarget':     request.GET.get('filterTarget', '').strip(),
+        'filterStrandMWs':  request.GET.get('filterStrandMWs', '').strip(),
+        'filterRemarks':    request.GET.get('filterRemarks', '').strip(),
+        'filterSeqType':    request.GET.get('filterSeqType', '').strip(),
+        'filterProject':    request.GET.get('filterProject', '').strip(),
+        'filterModifySeq':  request.GET.get('filterModifySeq', '').strip(),
+        'filterTranscript': request.GET.get('filterTranscript', '').strip(),
+        'filterParents':    request.GET.get('filterParents', '').strip(),
     }
 
-    # Step 1: 用筛选条件找出命中记录
-    # filtered_qs = delivery_qs
-
-    # if filters.get('filterSequence'):
-    #     filtered_qs = filtered_qs.filter(duplex_id__icontains=filters['filterSequence'])
-    # if filters.get('filter5Delivery'):
-    #     filtered_qs = filtered_qs.filter(delivery5__icontains=filters['filter5Delivery'])
-    # if filters.get('filterSeq'):
-    #     filtered_qs = filtered_qs.filter(modify_seq__icontains=filters['filterSeq'])
-    # if filters.get('filterTarget'):
-    #     filtered_qs = filtered_qs.filter(Target__icontains=filters['filterTarget'])
-    # if filters.get('filterStrandMWs'):
-    #     filtered_qs = filtered_qs.filter(Strand_MWs__icontains=filters['filterStrandMWs'])
-    # if filters.get('filterRemarks'):
-    #     filtered_qs = filtered_qs.filter(Remark__icontains=filters['filterRemarks'])
-    # if filters.get('filterAsSeqtype'):
-    #     filtered_qs = filtered_qs.filter(seq_type__icontains=filters['filterAsSeqtype'])
-    # if filters.get('filterProject'):
-    #     filtered_qs = filtered_qs.filter(project__icontains=filters['filterProject'])
-    # if filters.get('filter3Delivery'):
-    #     filtered_qs = filtered_qs.filter(delivery3__icontains=filters['filter3Delivery'])
-    # if filters.get('filterModifySeq'):
-    #     filtered_qs = filtered_qs.filter(modify_seq__icontains=filters['filterModifySeq'])
-    # if filters.get('filterTranscript'):
-    #     filtered_qs = filtered_qs.filter(linker_seq__icontains=filters['filterTranscript'])
-    # if filters.get('filterPos'):
-    #     filtered_qs = filtered_qs.filter(position__icontains=filters['filterPos'])
-    # if filters.get('filterParents'):
-    #     filtered_qs = filtered_qs.filter(parents__icontains=filters['filterParents'])
-
-    # Step 1: 用筛选条件找出命中记录（同字段多词 OR）
+    # 字段名到 ORM lookup 的映射（同字段多词 OR，字段间 AND）
     FIELD_MAP = {
         'filterSequence':   'duplex_id__icontains',
         'filter5Delivery':  'delivery5__icontains',
-        'filterSeq':        'modify_seq__icontains',
+        'filter3Delivery':  'delivery3__icontains',
         'filterTarget':     'Target__icontains',
         'filterStrandMWs':  'Strand_MWs__icontains',
         'filterRemarks':    'Remark__icontains',
-        'filterAsSeqtype':  'seq_type__icontains',
+        'filterSeqType':    'seq_type__iexact',
         'filterProject':    'project__icontains',
-        'filter3Delivery':  'delivery3__icontains',
-        'filterModifySeq':  'modify_seq__icontains',
         'filterTranscript': 'linker_seq__icontains',
-        'filterPos':        'position__icontains',
         'filterParents':    'parents__icontains',
     }
 
     filtered_qs = delivery_qs
+
+    # 快速搜索（q 参数）：OR 跨多字段
+    if q:
+        terms = split_terms(q)
+        if terms:
+            q_obj = Q()
+            for term in terms:
+                q_obj |= (
+                    Q(duplex_id__icontains=term) |
+                    Q(Target__icontains=term) |
+                    Q(project__icontains=term) |
+                    Q(modify_seq__icontains=term) |
+                    Q(parents__icontains=term) |
+                    Q(delivery_id__icontains=term) |
+                    Q(linker_seq__icontains=term)
+                )
+            filtered_qs = filtered_qs.filter(q_obj)
+
     for form_key, lookup in FIELD_MAP.items():
         filtered_qs = apply_or_terms(filtered_qs, lookup, filters.get(form_key))
 
+    # filterModifySeq：模糊正则同时搜 modify_seq 和 linker_seq，忽略 s/o 连接符
+    modify_seq_raw = filters.get('filterModifySeq')
+    if modify_seq_raw:
+        terms = split_terms(modify_seq_raw)
+        if terms:
+            q_obj = Q()
+            for t in terms:
+                pattern = make_fuzzy_seq_regex(t)
+                q_obj |= Q(modify_seq__iregex=pattern) | Q(linker_seq__iregex=pattern)
+            filtered_qs = filtered_qs.filter(q_obj)
 
-    # Step 2: 提取命中记录的 (project, duplex_id)
-    # print(f"Filtered queryset count: {filtered_qs}")  # 调试输出
-    # ✅ 如果用户有输入筛选条件，但完全没有命中，则提示
-    # ✅ 如果用户有输入筛选条件，但完全没有命中，则提示
-    has_filters = any(v for v in filters.values() if v)
-    if has_filters and not filtered_qs.exists():
+    has_search = bool(q) or any(filters.values())
+    if has_search and not filtered_qs.exists():
         messages.warning(request, '没有搜索到指定内容')
         return redirect('seq_list')
 
-    if any(filters.values()):
+    if has_search:
         matched_pairs = filtered_qs.values_list('project', 'duplex_id').distinct()
         q_objects = Q()
         for proj, dup_id in matched_pairs:
             q_objects |= Q(project=proj, duplex_id=dup_id)
         delivery_qs = delivery_qs.filter(q_objects)
+        # 若用户指定了 Seq Type，展开后重新收窄，只显示匹配的链型
+        if filters.get('filterSeqType'):
+            delivery_qs = delivery_qs.filter(seq_type__iexact=filters['filterSeqType'])
 
     sequence_groups = build_duplex_groups(delivery_qs, selected_seq_type)
 
@@ -2708,7 +2770,9 @@ def search(request):
         'user_type': user_type,
         'sequence_groups': sequence_groups,
         'selected_seq_type': selected_seq_type,
-        'search_message': '',
+        'search_q': q,
+        'filters': filters,
+        'has_search': has_search,
     }
 
     return render(request, 'search_results.html', context)

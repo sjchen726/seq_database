@@ -50,6 +50,11 @@ urlpatterns = [
     path('upload_modules/', views.upload_modules, name='upload_modules'),
     path('delete_module/', views.delete_module, name='delete_module'),
 
+    path('seqmodule_list/', views.seqmodule_list, name='seqmodule_list'),
+    re_path(r'^edit_seqmodule/', views.edit_seqmodule),
+    path('upload_seqmodules/', views.upload_seqmodules, name='upload_seqmodules'),
+    path('delete_seqmodule/', views.delete_seqmodule, name='delete_seqmodule'),
+
     path('search/', views.search, name='search'),  # 搜索功能
     re_path(r'^clone_delivery/', views.clone_delivery, name='clone_delivery'),
 

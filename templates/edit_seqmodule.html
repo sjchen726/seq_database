@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>序列管理系统</title>
@@ -12,8 +12,6 @@
     <!-- styles -->
     <link href="/static/css/styles.css" rel="stylesheet">
 
-    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
-    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
     <!--[if lt IE 9]>
     <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
     <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
@@ -24,7 +22,6 @@
     <div class="container">
         <div class="row">
             <div class="col-md-5">
-                <!-- Logo -->
                 <div class="logo">
                     <h1><a href="/seq_list">序列管理系统</a></h1>
                 </div>
@@ -35,8 +32,8 @@
                         <div class="input-group form">
                             <input type="text" class="form-control" placeholder="Search...">
                             <span class="input-group-btn">
-	                         <button class="btn btn-primary" type="button">Search</button>
-	                       </span>
+                                <button class="btn btn-primary" type="button">Search</button>
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -66,37 +63,47 @@
     </div>
 </div>
 
+<!-- JavaScript 提示 -->
+<script type="text/javascript">
+    {% if messages %}
+        const messages = [
+            {% for message in messages %}
+                "{{ message|escapejs }}",
+            {% endfor %}
+        ];
+        function displayMessages(messages) {
+            messages.forEach(function(msg) { alert(msg); });
+        }
+        displayMessages(messages);
+    {% endif %}
+</script>
+
 <div class="page-content">
     <div class="row">
         <div class="col-md-2">
             <div class="sidebar content-box" style="display: block;">
                 <ul class="nav">
-                    <!-- Main menu -->
-<!--                    <li><a href="index.html"><i class="glyphicon glyphicon-home"></i>首页</a></li>-->
-                   <!-- <li class="current"><a href="/publisher_list"><i class="glyphicon glyphicon-list"></i> 出版社管理</a></li> --> 
-                   <li><a href="/author_list"><i class="glyphicon glyphicon-record"></i> 项目人员管理</a></li>
-                   <li class="submenu">
-                    <a href="/seq_list">
-                        <i class="glyphicon glyphicon-pencil"></i> 序列信息管理
-                        <span class="caret pull-right"></span>
-                    </a>
-                    <ul style="display: block;">
-                        <li><a href="/module_list/">配体模块列表</a></li>
-                        <li><a href="/seqmodule_list/">序列修饰列表</a></li>
-                        <li><a href="/register_seq/">序列注册</a></li>
-                        <li><a href="/reg_seq_list/">注册序列列表</a></li>
-                        <li><a href="/seq_delivery/">序列信息上传</a></li>
-                        <li><a href="/seq_list/">序列信息列表</a></li>
-                    </ul>
-                </li>
+                    <li><a href="/author_list"><i class="glyphicon glyphicon-record"></i> 项目人员管理</a></li>
+                    <li class="submenu">
+                        <a href="/seq_list">
+                            <i class="glyphicon glyphicon-pencil"></i> 序列信息管理
+                            <span class="caret pull-right"></span>
+                        </a>
+                        <ul style="display: block;">
+                            <li><a href="/module_list/">配体模块列表</a></li>
+                            <li><a href="/seqmodule_list/">序列修饰列表</a></li>
+                            <li><a href="/register_seq/">序列注册</a></li>
+                            <li><a href="/reg_seq_list/">注册序列列表</a></li>
+                            <li><a href="/seq_delivery/">序列信息上传</a></li>
+                            <li><a href="/seq_list/">序列信息列表</a></li>
+                        </ul>
+                    </li>
                     <li class="submenu">
                         <a href="#">
                             <i class="glyphicon glyphicon-list"></i> 系统设置
                             <span class="caret pull-right"></span>
                         </a>
-                        <!-- Sub menu -->
                         <ul>
-                  <!--          <li><a href="/login">Login</a></li> -->
                             <li><a href="/signup">注册</a></li>
                             <li><a href="/change_password">修改密码</a></li>
                         </ul>
@@ -104,59 +111,55 @@
                 </ul>
             </div>
         </div>
+
         <div class="col-md-10">
             <div class="content-box-large">
                 <div class="panel-heading">
-                    <div class="panel-title">新增人员</div>
+                    <div class="panel-title">编辑修饰模块</div>
                 </div>
-<!--                <div class="panel-body">-->
-<!--                    <form class="form-horizontal" role="form" action="/add_author/" method="post">-->
                 <div class="panel-body">
-                    <form class="form-horizontal" role="form" action="/add_author/" method="post">
+                    <form class="form-horizontal" method="POST" action="{% if module %}/edit_seqmodule/?id={{ module.id }}{% else %}/edit_seqmodule/{% endif %}">
                         {% csrf_token %}
+
                         <div class="form-group">
-                            <label for="input1" class="col-sm-2 control-label">姓名</label>
-                            <div class="col-sm-10">
-                                <input class="form-control" id="input1" placeholder="姓名" name="username">
+                            <label for="keyword" class="col-sm-2 control-label">Keyword</label>
+                            <div class="col-sm-4">
+                                <input type="text" id="keyword" name="keyword" class="form-control"
+                                    placeholder="修饰码，如 Am、GU02、T(MOE)"
+                                    value="{% if form_data %}{{ form_data.keyword }}{% elif module %}{{ module.keyword }}{% endif %}"
+                                    required>
                             </div>
                         </div>
+
                         <div class="form-group">
-                            <label for="input2" class="col-sm-2 control-label">邮箱</label>
-                            <div class="col-sm-10">
-                                <input class="form-control" id="input2" placeholder="邮箱" name="email">
+                            <label for="base_char" class="col-sm-2 control-label">对应碱基</label>
+                            <div class="col-sm-4">
+                                <input type="text" id="base_char" name="base_char" class="form-control"
+                                    placeholder="A / U / G / C / INVAB（纯连接符可留空）"
+                                    value="{% if form_data %}{{ form_data.base_char }}{% elif module %}{{ module.base_char }}{% endif %}">
                             </div>
                         </div>
+
                         <div class="form-group">
-                            <label for="input3" class="col-sm-2 control-label">分类</label>
-                            <div class="col-sm-10">
-                                <select class="form-control" id="input6" name="user" >
-                                    <option value="" disabled selected>请选择</option>
-                                    <option value="project">项目管理</option>
-                                    <option value="delivery">递送</option>
-                                    <option value="modify">修饰</option>
-                                </select>
+                            <label for="linker_connector" class="col-sm-2 control-label">连接符</label>
+                            <div class="col-sm-4">
+                                <input type="text" id="linker_connector" name="linker_connector" class="form-control"
+                                    placeholder="o（默认）或 - 等"
+                                    value="{% if form_data %}{{ form_data.linker_connector }}{% elif module %}{{ module.linker_connector }}{% else %}o{% endif %}">
+                                <p class="help-block" style="font-size:12px; color:#888;">linker_seq 中该 token 后追加的连接符，默认为 o</p>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label class="col-sm-2 control-label">项目权限</label>
-                            <div class="col-sm-10">
-                                <input class="form-control" id="input4", name="edit_permissions_project" type="text" placeholder="负责项目 (格式: BPR-3M01,BPR-3M02)" value="{{ user.permissions_project }}">
-                            </div>
-                        </div>
-<!--                        <div class="form-group">-->
-<!--                            <div class="col-sm-offset-2 col-sm-10">-->
-<!--                                <button type="submit" class="btn btn-primary">保存</button>-->
-<!--                                <button  class="btn btn-default"><a href="/author_list">返回</a></button>-->
-<!--                            </div>-->
-<!--                        </div>-->
+
                         <div class="form-group">
                             <div class="col-sm-offset-2 col-sm-10">
-                                <button type="submit" class="btn btn-primary">保存</button>
-                                <button type="submit" formmethod="get" formaction="/author_list" class="btn btn-default">返回</button>
+                                <button type="submit" class="btn btn-primary"
+                                        onclick="return confirm('{% if module %}此操作将修改当前数据，您确定要更新吗？{% else %}此操作将创建新修饰模块，您确定吗？{% endif %}');">
+                                    {% if module %}更新{% else %}创建{% endif %}
+                                </button>
+                                <a href="/seqmodule_list/" class="btn btn-default" style="margin-left: 10px;">返回</a>
                             </div>
                         </div>
                     </form>
-
                 </div>
             </div>
         </div>
@@ -165,28 +168,17 @@
 
 <footer>
     <div class="container">
-
         <div class="copy text-center">
             Copyright BTYY-OPRA 2025 <a href='#'>Website</a>
         </div>
-
     </div>
 </footer>
 
-<link href="/static/vendors/datatables/dataTables.bootstrap.css" rel="stylesheet" media="screen">
-
-<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
 <script src="https://code.jquery.com/jquery.js"></script>
-<!-- jQuery UI -->
 <script src="https://code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
-<!-- Include all compiled plugins (below), or include individual files as needed -->
 <script src="/static/bootstrap/js/bootstrap.min.js"></script>
-
-<script src="/static/vendors/datatables/js/jquery.dataTables.min.js"></script>
-
-<script src="/static/vendors/datatables/dataTables.bootstrap.js"></script>
-
 <script src="/static/js/custom.js"></script>
 <script src="/static/js/tables.js"></script>
+
 </body>
 </html>

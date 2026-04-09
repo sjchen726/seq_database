@@ -1,4 +1,7 @@
 $(document).ready(function() {
+    // seq_list 使用 table-container 类标记，需要开启横纵向滚动
+    var isScrollable = $('#example').hasClass('table-container');
+
     // 初始化 DataTable
     window.table = $('#example').DataTable({
         paging: true,
@@ -10,6 +13,9 @@ $(document).ready(function() {
             [1, 'asc']
         ],
         lengthMenu: [5, 10, 20, 50],
+        scrollX: isScrollable,
+        scrollY: isScrollable ? '62vh' : undefined,
+        scrollCollapse: isScrollable,
         columnDefs: [{
             targets: 0,
             orderable: false,

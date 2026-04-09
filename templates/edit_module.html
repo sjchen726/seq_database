@@ -121,7 +121,7 @@
                                 <input type="text" id="keyword" name="keyword" class="form-control"
                                     placeholder="模块名"
                                     value="{% if form_data %}{{ form_data.keyword }}{% elif module %}{{ module.keyword }}{% endif %}"
-                                    {% if module %}readonly{% endif %} required>
+                                    required>
                             </div>
                         </div>
 
@@ -138,8 +138,8 @@
                             <label for="type_code" class="col-sm-2 control-label">Molecular weight</label>
                             <div class="col-sm-4">
                                 <input type="text" id="Strand_MWs" name="Strand_MWs" class="form-control"
-                                    placeholder="分子量"
-                                    value="{% if form_data %}{{ form_data.Strand_MWs}}{% elif module %}{{ module.Strand_MWs }}{% endif %}" required>
+                                    placeholder="分子量（可留空）"
+                                    value="{% if form_data %}{{ form_data.Strand_MWs}}{% elif module %}{{ module.Strand_MWs }}{% endif %}">
                             </div>
                         </div>
                         

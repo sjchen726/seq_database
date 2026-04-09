@@ -1,7 +1,3 @@
-Batch,Project,Target,Seq_type,Modify_seq,Strand_MWs,Parents,Remarks
-1,BPR-307,TTR,SS,[invAboC6-S-LP415]UmsCmsCmUmCmUmGfAmUfGfGfUmCmAmAmAmGmUmCmCmUm,123,P1-SS,SS1
-1,BPR-307,TTR,AS,AmsGfsGmAmCmUfUmUmGmAmCmCmAmUfCmAfGmAmGmGmAmsCmsAm,123,P1-AS,AS1
-1,BPR-307,TTR,SS,UmsCmsCmUmCmUmGfAmUfGfGfUmCmAmAmAmGmUmCmCmUm[invAbo],123,P2-SS,SS2
-1,BPR-307,TTR,AS,AmsGfsGmAmCmUfUmUmGmAmCmCmAmUfCmAfGmAmGmGmAmsCmsAm,123,P2-AS,AS2
-1,BPR-307,TTR,SS,[invAb]UmsCmsCmUmCmUmGfAmUfGfGfUmCmAmAmAmGmUmCmCmUm,123,P3-SS,SS3
-1,BPR-307,TTR,AS,AmsGfsGmAmCmUfUmUmGmAmCmCmAmUfCmAfGmAmGmGmAmsCmsAms,123,P3-AS,AS3
+Project,Target,Seq_type,Modify_seq,Strand_MWs,Parents,Remarks
+BPR-3T03,SOD1,SS,[invAbs]CmsAmUmUmUmUmAmAmUfCfCfUmCn2-LP163AmCmUmCmUmAmAmAm[sinvAboC6-SLP61],
+BPR-3T03,SOD1,AS,[Vp]UmsUfsUmsAfGmAmGmUmGmAmGmGfAmUfUmAfAmAfAmUfsGf,
