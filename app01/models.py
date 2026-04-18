@@ -6,9 +6,12 @@ import hashlib
 # Create your models here.
 
 
-# 生成6位随机编号
+# 生成6位随机编号（含碰撞检测）
 def generate_random_code():
-    return str(random.randint(100000, 999999))  # 返回一个6位数字的随机编码
+    while True:
+        code = str(random.randint(100000, 999999))
+        if not Sequence.objects.filter(rm_code=code).exists():
+            return code
 
 # 存储序列信息
 class Sequence(models.Model):
@@ -27,6 +30,7 @@ class Sequence(models.Model):
         indexes = [
             models.Index(fields=['seq']),  # 加快查询速度
             models.Index(fields=['seq_type']),
+            models.Index(fields=['seq', 'seq_type'], name='idx_sequence_seq_seqtype'),
         ]
 
     def __str__(self):
@@ -50,12 +54,12 @@ class DuplexRelationship(models.Model):
 class SeqInfo(models.Model):
     sequence = models.ForeignKey(Sequence, on_delete=models.CASCADE, related_name='target_info')  # 外键关联到Sequence
   #  Target = models.CharField('Target', max_length=64, null=True)
-    Pos = models.CharField('Pos', max_length=64, null=True)
-    project = models.CharField('项目', max_length=64, null=True)  # 项目号
+    Pos = models.CharField('Pos', max_length=512, null=True)
+    project = models.CharField('项目', max_length=128, null=True)  # 项目号
    # Strand_MWs = models.CharField('Strand_MWs', max_length=64, null=True)
-    Transcript = models.CharField('Transcription', max_length=64, null=True)
-   # parents = models.CharField('parents', max_length=200, null=True)  
-    Remark = models.CharField('Remark', max_length=64, null=True, blank=True, default='') #备注
+    Transcript = models.CharField('Transcription', max_length=512, null=True)
+   # parents = models.CharField('parents', max_length=200, null=True)
+    Remark = models.CharField('Remark', max_length=512, null=True, blank=True, default='') #备注
 
     created_at = models.DateTimeField('Created At',  blank=True, null=True)  # 创建时间
 
@@ -82,8 +86,21 @@ class Delivery(models.Model):
     seq_type = models.CharField('seq_type', max_length=6, null=True)  # seq_type
     Target = models.CharField('Target', max_length=64, null=True)
 
-    Remark = models.CharField('Remark', max_length=64, null=True, blank=True, default='') #备注
-    
+    Remark = models.CharField('Remark', max_length=512, null=True, blank=True, default='') #备注
+
+    class Meta:
+        indexes = [
+            # 主列表视图：按项目+双链ID分组（build_duplex_groups 核心查询）
+            models.Index(fields=['project', 'duplex_id'], name='idx_delivery_project_duplex'),
+            # 权限过滤（get_permitted_delivery_qs）
+            models.Index(fields=['project'], name='idx_delivery_project'),
+            # 序列+链型联合查询（blast_seq、cor_seq）
+            models.Index(fields=['sequence', 'seq_type'], name='idx_delivery_seq_seqtype'),
+            # 重复检测（save_deliveries 中的 duplicate 查询）
+            models.Index(fields=['delivery5', 'delivery3', 'linker_seq'], name='idx_delivery_dedup'),
+            # Blast 查询
+            models.Index(fields=['duplex_id'], name='idx_delivery_duplex_id'),
+        ]
 
     def __str__(self):
         return f"Delivery for {self.sequence.rm_code}"

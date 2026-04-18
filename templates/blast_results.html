@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <title>Blast — {{ seq_type }} 裸序列修饰列表</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link href="/static/css/styles.css" rel="stylesheet">
     <style>
         body { padding: 20px; background: #f8f9fa; }
@@ -120,6 +121,12 @@
 {% endif %}
 
 <script src="https://code.jquery.com/jquery.js"></script>
-<script src="/static/bootstrap/js/bootstrap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<div id="msg-toast-container" style="position:fixed;top:20px;right:20px;z-index:9999;"></div>
+<script>
+{% if messages %}{% for message in messages %}
+(function(){var l='{{ message.tags }}';if(l==='error')l='error';else if(l==='warning')l='warning';else if(l==='success')l='success';else l='info';if(typeof showToast==='function')showToast('{{ message|escapejs }}',l);})();
+{% endfor %}{% endif %}
+</script>
 </body>
 </html>

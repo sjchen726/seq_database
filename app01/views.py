@@ -314,12 +314,8 @@ def login_view(request):
             return redirect('/seq_list/')  # 登录成功后跳转到书籍列表页面
         else:
             # 登录失败，返回错误提示
-            return HttpResponse("""
-                <script>
-                    alert('用户名或密码错误！');
-                    window.location.href = '/login/';
-                </script>
-            """)
+            messages.error(request, '用户名或密码错误！')
+            return redirect('/login/')
 
     # 默认返回登录页面
     return render(request, "login.html")
@@ -343,20 +339,12 @@ def register_view(request):
 
         # 检查用户名和邮箱是否已存在
         if LmsUser.objects.filter(username=username).exists():
-            return HttpResponse("""
-                <script>
-                    alert('用户名已存在！');
-                    window.location.href = '/register/';
-                </script>
-            """)
+            messages.error(request, '用户名已存在！')
+            return redirect('/register/')
 
         if LmsUser.objects.filter(email=email).exists():
-            return HttpResponse("""
-                <script>
-                    alert('邮箱已注册！');
-                    window.location.href = '/register/';
-                </script>
-            """)
+            messages.error(request, '邮箱已注册！')
+            return redirect('/register/')
 
         # 创建用户并保存用户类型
         LmsUser.objects.create(
@@ -373,11 +361,13 @@ def register_view(request):
     return render(request, "register.html")
 
 # 项目人员视图
+@login_required
 def author_list(request):
     user = LmsUser.objects.all()
     return render(request, 'auth_list.html', {'user_list': user})
 
 # 添加用户
+@login_required
 def add_author(request):
     if request.method == 'POST':
         new_author_name = request.POST.get('username')
@@ -406,55 +396,36 @@ def add_author(request):
 
         return redirect('/author_list/')
 
-    # 获取项目列表
-    project_choices = SeqInfo.project_choices
+    # 获取项目列表（从 Delivery 表动态获取）
+    project_list = list(
+        Delivery.objects
+        .exclude(project__isnull=True).exclude(project='')
+        .values_list('project', flat=True)
+        .distinct().order_by('project')
+    )
 
-    return render(request, 'author_add.html', {'project_choices': project_choices})
+    return render(request, 'author_add.html', {'project_choices': project_list})
 
 # 删除用户
+@login_required
 def drop_author(request):
     if not request.user.is_authenticated or (not request.user.is_superuser and not request.user.is_admin):
-        return HttpResponse("""
-            <script>
-                alert('您没有权限删除用户信息！');
-                window.location.href = '/author_list/';
-            </script>
-        """, content_type="text/html; charset=utf-8")
+        messages.error(request, '您没有权限删除用户信息！')
+        return redirect('/author_list/')
 
     drop_id = request.GET.get('id')
-    confirm = request.GET.get('confirm')  # 是否已经确认删除
 
-    if not confirm:
-        # 第一次访问，弹出确认框，要求用户确认
-        return HttpResponse(f"""
-            <script>
-                if (confirm('确定要删除该用户吗？此操作不可恢复！')) {{
-                    window.location.href = '/drop_author/?id={drop_id}&confirm=1';
-                }} else {{
-                    window.location.href = '/author_list/';
-                }}
-            </script>
-        """, content_type="text/html; charset=utf-8")
-
-    # 已确认删除
+    # 已确认删除（前端通过 Modal 确认后发起请求）
     try:
         drop_obj = LmsUser.objects.get(id=drop_id)
         if str(request.user.id) == drop_id:
-            return HttpResponse("""
-                <script>
-                    alert('不能删除当前登录的管理员账户！');
-                    window.location.href = '/author_list/';
-                </script>
-            """, content_type="text/html; charset=utf-8")
+            messages.error(request, '不能删除当前登录的管理员账户！')
+            return redirect('/author_list/')
         # 不能删除任何管理员账号（is_superuser 或 is_admin）
         if drop_obj.is_superuser or getattr(drop_obj, 'is_admin', False):
-            return HttpResponse("""
-                <script>
-                    alert('不能删除管理员账号！');
-                    window.location.href = '/author_list/';
-                </script>
-            """, content_type="text/html; charset=utf-8")
-         # 删除用户之前记录日志
+            messages.error(request, '不能删除管理员账号！')
+            return redirect('/author_list/')
+        # 删除用户之前记录日志
         # 获取当前时间
         delete_datetime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
@@ -484,20 +455,13 @@ def drop_author(request):
         # 删除用户
         drop_obj.delete()
 
-        return HttpResponse("""
-            <script>
-                alert('人员已被成功删除！');
-                window.location.href = '/author_list/';
-            </script>
-        """, content_type="text/html; charset=utf-8")
+        messages.success(request, '人员已被成功删除！')
+        return redirect('/author_list/')
     except LmsUser.DoesNotExist:
-        return HttpResponse("""
-            <script>
-                alert('用户不存在或已被删除');
-                window.location.href = '/author_list/';
-            </script>
-        """, content_type="text/html; charset=utf-8")
+        messages.error(request, '用户不存在或已被删除')
+        return redirect('/author_list/')
 
+@login_required
 def change_password(request):
     if request.method == "POST":
         old_password = request.POST.get("old_password")
@@ -522,26 +486,18 @@ def change_password(request):
         # 更新 session，避免修改密码后被登出
         update_session_auth_hash(request, user)
 
-        # ✅ 修改成功后使用 JavaScript 弹窗 + 跳转
-        return HttpResponse("""
-            <script>
-                alert('密码修改成功，请重新登录！');
-                window.location.href = '/login/';
-            </script>
-        """)
+        messages.success(request, '密码修改成功，请重新登录！')
+        return redirect('/login/')
     
     return render(request, 'change_password.html')
 
 # 编辑用户
+@login_required
 def edit_author(request):
     # 非管理员禁止访问
     if not request.user.is_authenticated or (not request.user.is_superuser and not request.user.is_admin):
-        return HttpResponse("""
-            <script>
-                alert('您没有权限编辑用户信息！');
-                window.location.href = '/author_list/';
-            </script>
-        """, content_type="text/html; charset=utf-8")
+        messages.error(request, '您没有权限编辑用户信息！')
+        return redirect('/author_list/')
 
     # 获取用户对象
     edit_id = request.GET.get('id')
@@ -629,28 +585,16 @@ def edit_author(request):
         'user': edit_obj,
     })
 
+@login_required
 def drop_book(request):
-    
     # 始终显示需要OA审批的提示信息
-    return HttpResponse("""
-        <script>
-            alert('您没有权限删除序列信息，如需删除，请走OA审批！');
-            window.location.href = '/book_list/';
-        </script>
-    """)
+    messages.error(request, '您没有权限删除序列信息，如需删除，请走OA审批！')
+    return redirect('/seq_list/')
 
 # 编辑序列
+@login_required
 def edit_seq(request):
-    '''
-    if not request.user.is_authenticated or (not request.user.is_superuser and not request.user.is_admin):
-        return HttpResponse("""
-            <script>               
-                alert('您没有权限编辑序列信息！');
-                window.location.href = '/seq_list';
-            </script>
-        """)
-    '''
-    
+
     seq_id = request.GET.get('id')
 #    print(seq_id)
     seq_Strand_MWs = request.GET.get('strand_MWs')
@@ -838,6 +782,7 @@ def clean_value(value):
         return value.strip()
     return str(value).strip()
 
+@login_required
 def register_seq(request):
     if request.method == 'POST':
         uploaded_file = request.FILES.get('file')
@@ -1561,6 +1506,7 @@ def save_repeated_to_session(request, df, repeated_ids, unregistered_log, userna
     unregistered_path = write_unregistered_log(unregistered_log, username)
     request.session['unregistered_path'] = unregistered_path
 
+@login_required
 def upload_delivery_info(request):
     if request.method == 'GET':
         if request.GET.get('download') == 'repeats':
@@ -1642,6 +1588,7 @@ def _generate_next_bp():
     return f"BP{next_number:06d}"
 
 
+@login_required
 def clone_delivery(request):
     """GET: return JSON of deliveries for given strand_id (duplex_id)
        POST: accept JSON list of edited delivery rows and create cloned Delivery records
@@ -1967,6 +1914,7 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
     return sequence_groups
 
 
+@login_required
 def get_sequence_info(request):
     user_type = getattr(request.user, 'user_type', 'guest')
     selected_seq_type = request.GET.get('seq_type', get_user_default_seq_type(request.user))
@@ -2084,6 +2032,7 @@ def get_sequence_info(request):
 
     return render(request, 'seq_list.html', context)
 
+@login_required
 def cor_seq(request):
     query_id_tmp = request.GET.get('id')
     seq_type = request.GET.get('seq_type')
@@ -2169,10 +2118,11 @@ def cor_seq(request):
         'selected_seq_type': selected_seq_type,
     })
 
+@login_required
 def reg_seq_list(request):
 
-     # 获取所有不包含 seq_type 为 'duplex' 的 Sequence 数据
-    sequences = Sequence.objects.exclude(seq_type='duplex')
+     # 获取所有不包含 seq_type 为 'duplex' 的 Sequence 数据（prefetch_related 避免 N+1 查询）
+    sequences = Sequence.objects.exclude(seq_type='duplex').prefetch_related('target_info')
 
     sequence_list = []
 
@@ -2185,12 +2135,11 @@ def reg_seq_list(request):
         else:
             seq_prefix = ''  # 如果没有匹配的 seq_type，设为空
 
-        # 根据 rm_code 获取 SeqInfo 的 Remark
-        seq_info = SeqInfo.objects.filter(sequence_id=seq.rm_code).first()
+        # 使用 prefetch_related 缓存获取 SeqInfo，避免 N+1 查询
+        seq_info = seq.target_info.first()
         remark = seq_info.Remark if seq_info else ''  # 如果没有找到匹配的 SeqInfo，则 Remark 为空
         pos = seq_info.Pos if seq_info else ''  # 如果没有找到匹配的 SeqInfo，则 Position 为空
         Transcript = seq_info.Transcript if seq_info else ''  # 如果没有找到匹配的 SeqInfo，则 Transcript 为空
-   #     project = seq_info.project if seq_info else ''  # 如果没有找到匹配的 SeqInfo，则 Project 为空
         
 
         # 格式化日期
@@ -2214,17 +2163,8 @@ def reg_seq_list(request):
     # 渲染页面并传递数据
     return render(request, 'reg_seq_list.html', {'sequence_list': sequence_list})
 
+@login_required
 def edit_reg_seq(request):
-    '''
-    if not request.user.is_authenticated or (not request.user.is_superuser and not request.user.is_admin):
-        return HttpResponse("""
-            <script>               
-                alert('您没有权限编辑序列信息！');
-                window.location.href = '/seq_list';
-            </script>
-        """)
-    '''
-    
     rm_code = request.GET.get('id')
    #print(rm_code)
    # seq_Strand_MWs = request.GET.get('strand_MWs')
@@ -2394,6 +2334,7 @@ def download_selected(request):
     return response
 
 
+@login_required
 def module_list(request):
 
     # 获取所有 DeliveryModule 的 keyword 和 type_code
@@ -2403,15 +2344,12 @@ def module_list(request):
     return render(request, 'module_list.html', {'module_list': module_list})
 
 
+@login_required
 def edit_module(request):
 
     if not request.user.is_authenticated or not request.user.can_manage_modules():
-        return HttpResponse("""
-            <script>
-                alert('您没有操作权限！');
-                window.location.href = '/module_list/';
-            </script>
-        """, content_type="text/html; charset=utf-8")
+        messages.error(request, '您没有操作权限！')
+        return redirect('/module_list/')
 
     module_id = request.GET.get('id')
     module = None
@@ -2457,16 +2395,13 @@ def edit_module(request):
 
 
 
+@login_required
 def upload_modules(request):
 
     # 权限控制
     if not request.user.is_authenticated or not request.user.can_manage_modules():
-        return HttpResponse("""
-            <script>
-                alert('您没有操作权限！');
-                window.location.href = '/module_list/';
-            </script>
-        """, content_type="text/html; charset=utf-8")
+        messages.error(request, '您没有操作权限！')
+        return redirect('/module_list/')
 
     if request.method == 'POST' and request.FILES.get('file'):
         csv_file = request.FILES['file']
@@ -2517,17 +2452,14 @@ def upload_modules(request):
         # GET 请求时显示上传表单
     return render(request, 'upload_modules.html')
 
+@login_required
 @require_POST
 def delete_module(request):
 
     if not request.user.is_authenticated or not request.user.can_manage_modules():
-        return HttpResponse("""
-            <script>
-                alert('您没有权限删除模块！');
-                window.location.href = '/module_list/';
-            </script>
-        """, content_type="text/html; charset=utf-8")
-     
+        messages.error(request, '您没有权限删除模块！')
+        return redirect('/module_list/')
+
     module_id = request.POST.get('id')
     try:
         module = DeliveryModule.objects.get(id=module_id)
@@ -2538,19 +2470,17 @@ def delete_module(request):
     
 # ── 序列修饰列表（SeqModule）──────────────────────────────────────────────────
 
+@login_required
 def seqmodule_list(request):
     seqmodule_list = SeqModule.objects.all().values('id', 'keyword', 'base_char')
     return render(request, 'seqmodule_list.html', {'seqmodule_list': seqmodule_list})
 
 
+@login_required
 def edit_seqmodule(request):
     if not request.user.is_authenticated or not request.user.can_manage_modules():
-        return HttpResponse("""
-            <script>
-                alert('您没有操作权限！');
-                window.location.href = '/seqmodule_list/';
-            </script>
-        """, content_type="text/html; charset=utf-8")
+        messages.error(request, '您没有操作权限！')
+        return redirect('/seqmodule_list/')
 
     module_id = request.GET.get('id')
     module = None
@@ -2588,15 +2518,12 @@ def edit_seqmodule(request):
     return render(request, 'edit_seqmodule.html', {'module': module})
 
 
+@login_required
 @require_POST
 def delete_seqmodule(request):
     if not request.user.is_authenticated or not request.user.can_manage_modules():
-        return HttpResponse("""
-            <script>
-                alert('您没有权限删除修饰模块！');
-                window.location.href = '/seqmodule_list/';
-            </script>
-        """, content_type="text/html; charset=utf-8")
+        messages.error(request, '您没有权限删除修饰模块！')
+        return redirect('/seqmodule_list/')
 
     module_id = request.POST.get('id')
     try:
@@ -2607,14 +2534,11 @@ def delete_seqmodule(request):
         return JsonResponse({'status': 'error', 'message': '修饰模块不存在'})
 
 
+@login_required
 def upload_seqmodules(request):
     if not request.user.is_authenticated or not request.user.can_manage_modules():
-        return HttpResponse("""
-            <script>
-                alert('您没有操作权限！');
-                window.location.href = '/seqmodule_list/';
-            </script>
-        """, content_type="text/html; charset=utf-8")
+        messages.error(request, '您没有操作权限！')
+        return redirect('/seqmodule_list/')
 
     if request.method == 'POST' and request.FILES.get('file'):
         csv_file = request.FILES['file']
@@ -2680,6 +2604,7 @@ def apply_or_terms(qs, lookup: str, raw: str):
         q |= Q(**{lookup: t})
     return qs.filter(q)
 
+@login_required
 def search(request):
     user_type = getattr(request.user, 'user_type', 'guest')
     selected_seq_type = request.GET.get('seq_type', get_user_default_seq_type(request.user))
@@ -2903,6 +2828,10 @@ def multi_blast(request):
     not_found = []
     seen_duplex = set()
 
+    # 第一轮：解析所有 duplex_id，收集所有 deliveries，避免 N+1 查询
+    all_duplex_deliveries = {}  # {duplex_id: (seq_id, deliveries)}
+    all_seq_ids_for_seqinfo = set()
+
     for seq_id in seq_ids:
         duplex_id = _resolve_duplex_id(seq_id, request.user)
         if not duplex_id:
@@ -2913,11 +2842,23 @@ def multi_blast(request):
         seen_duplex.add(duplex_id)
 
         deliveries = list(base_qs.filter(duplex_id=duplex_id))
+        all_duplex_deliveries[duplex_id] = (seq_id, deliveries)
+        for d in deliveries:
+            all_seq_ids_for_seqinfo.add(d.sequence_id)
+
+    # 批量查询 SeqInfo，避免循环内单条查询
+    seqinfo_cache = {
+        s.sequence_id: s
+        for s in SeqInfo.objects.filter(sequence_id__in=all_seq_ids_for_seqinfo)
+    }
+
+    # 第二轮：构建 entries
+    for duplex_id, (seq_id, deliveries) in all_duplex_deliveries.items():
         ss_list = [d for d in deliveries if d.seq_type == 'SS']
         as_list = [d for d in deliveries if d.seq_type == 'AS']
 
-        def make_entry(d, seq_id=seq_id, duplex_id=duplex_id):
-            seqinfo = SeqInfo.objects.filter(sequence_id=d.sequence_id).first()
+        def make_entry(d, seq_id=seq_id, duplex_id=duplex_id, _cache=seqinfo_cache):
+            seqinfo = _cache.get(d.sequence_id)
             item = build_sequence_data(
                 rm_code=d.id,
                 seqinfo=seqinfo,

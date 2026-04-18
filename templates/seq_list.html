@@ -8,7 +8,8 @@
     <link href="https://code.jquery.com/ui/1.10.3/themes/redmond/jquery-ui.css" rel="stylesheet" media="screen">
 
     <!-- Bootstrap -->
-    <link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <!-- styles -->
     <link href="/static/css/styles.css" rel="stylesheet">
 
@@ -123,11 +124,11 @@
 
 
             <div class="col-md-2">
-                <div class="navbar navbar-inverse" role="banner">
+                <div class="navbar navbar-dark bg-dark" role="banner">
                     <nav class="collapse navbar-collapse bs-navbar-collapse navbar-right" role="navigation">
                         <ul class="nav navbar-nav">
                             <li class="dropdown">
-                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">个人信息<b class="caret"></b></a>
+                                <a href="#" class="dropdown-toggle" data-bs-toggle="dropdown">个人信息<b class="caret"></b></a>
                                 <ul class="dropdown-menu animated fadeInUp">
                                     {% if request.user.is_authenticated %}
                                         <li><a href="#">用户名: {{ request.user.username }}</a></li>
@@ -164,10 +165,10 @@
         <div class="col-md-2">
             <div class="sidebar content-box" style="display: block;">
                 <ul class="nav">
-                    <li><a href="/author_list"><i class="glyphicon glyphicon-record"></i> 项目人员管理</a></li>
+                    <li><a href="/author_list"><i class="bi bi-circle-fill"></i> 项目人员管理</a></li>
                     <li class="submenu">
                         <a href="/seq_list">
-                            <i class="glyphicon glyphicon-pencil"></i> 序列信息管理
+                            <i class="bi bi-pencil"></i> 序列信息管理
                             <span class="caret pull-right"></span>
                         </a>
                         <ul style="display: block;">
@@ -181,7 +182,7 @@
                     </li>
                     <li class="submenu">
                         <a href="#">
-                            <i class="glyphicon glyphicon-list"></i> 系统设置
+                            <i class="bi bi-list-ul"></i> 系统设置
                             <span class="caret pull-right"></span>
                         </a>
                         <ul>
@@ -191,7 +192,7 @@
                     </li>
                     <li>
                         <a href="{% url 'multi_blast' %}">
-                            <i class="glyphicon glyphicon-search"></i> 多序列 Blast
+                            <i class="bi bi-search"></i> 多序列 Blast
                         </a>
                     </li>
                 </ul>
@@ -207,19 +208,19 @@
                     </div>
                     <div class="seq-toolbar-right">
                         <button id="toggleCollapseBtn" class="btn btn-default btn-sm">
-                            <i class="glyphicon glyphicon-folder-open"></i> 组合/展开
+                            <i class="bi bi-folder"></i> 组合/展开
                         </button>
                         <button id="show-selected" type="button" class="btn btn-success btn-sm">
-                            <i class="glyphicon glyphicon-eye-open"></i> 显示选中
+                            <i class="bi bi-eye"></i> 显示选中
                         </button>
                         <button id="download-selected" class="btn btn-info btn-sm">
-                            <i class="glyphicon glyphicon-download-alt"></i> 下载选中
+                            <i class="bi bi-download-alt"></i> 下载选中
                         </button>
                         <button id="toggleProjectPanel" type="button" class="btn btn-default btn-sm">
-                            <i class="glyphicon glyphicon-filter"></i> 项目筛选{% if selected_projects %} <span class="badge" style="background:#e67e22;color:#fff;">{{ selected_projects|length }}</span>{% endif %}
+                            <i class="bi bi-funnel"></i> 项目筛选{% if selected_projects %} <span class="badge" style="background:#e67e22;color:#fff;">{{ selected_projects|length }}</span>{% endif %}
                         </button>
                         <button id="toggleColumnPanel" type="button" class="btn btn-default btn-sm">
-                            <i class="glyphicon glyphicon-th-list"></i> 列显示
+                            <i class="bi bi-table"></i> 列显示
                         </button>
                     </div>
                 </div>
@@ -229,9 +230,9 @@
                     <div class="seq-panel-header">
                         <strong>项目筛选</strong>
                         <div class="seq-panel-actions">
-                            <button id="projects-select-toggle" type="button" class="btn btn-xs btn-default">全选/取消</button>
-                            <button id="projects-apply" type="button" class="btn btn-xs btn-primary">应用筛选</button>
-                            <button id="projects-clear" type="button" class="btn btn-xs btn-link">清除</button>
+                            <button id="projects-select-toggle" type="button" class="btn btn-sm btn-default">全选/取消</button>
+                            <button id="projects-apply" type="button" class="btn btn-sm btn-primary">应用筛选</button>
+                            <button id="projects-clear" type="button" class="btn btn-sm btn-link">清除</button>
                         </div>
                     </div>
                     <form id="projectsFilterForm" method="GET" action="">
@@ -564,7 +565,7 @@
 <script src="https://code.jquery.com/jquery.js"></script>
 <script src="https://code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
 <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
-<script src="/static/bootstrap/js/bootstrap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/static/vendors/datatables/dataTables.bootstrap.js"></script>
 <script src="/static/js/custom.js"></script>
 <script src="/static/js/tables.js"></script>

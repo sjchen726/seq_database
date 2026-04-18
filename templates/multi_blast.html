@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <title>多序列 Blast 比对 - 序列管理系统</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link href="/static/css/styles.css" rel="stylesheet">
     <style>
         /* ── 多序列 Blast 页面专属样式 ── */
@@ -198,11 +199,11 @@
                 </div>
             </div>
             <div class="col-md-2">
-                <div class="navbar navbar-inverse" role="banner">
+                <div class="navbar navbar-dark bg-dark" role="banner">
                     <nav class="collapse navbar-collapse bs-navbar-collapse navbar-right" role="navigation">
                         <ul class="nav navbar-nav">
                             <li class="dropdown">
-                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">个人信息<b class="caret"></b></a>
+                                <a href="#" class="dropdown-toggle" data-bs-toggle="dropdown">个人信息<b class="caret"></b></a>
                                 <ul class="dropdown-menu animated fadeInUp">
                                     {% if request.user.is_authenticated %}
                                         <li><a href="#">用户名: {{ request.user.username }}</a></li>
@@ -300,7 +301,7 @@
 </div><!-- /.blast-wrapper -->
 
 <script src="https://code.jquery.com/jquery.js"></script>
-<script src="/static/bootstrap/js/bootstrap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 (function () {
     var list = document.getElementById('seq-list');

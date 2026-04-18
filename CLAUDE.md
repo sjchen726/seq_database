@@ -2,96 +2,62 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Development Commands
+## Project Overview
+
+A Django 5.1 web application for managing RNA/DNA sequence data ("seq_database"). It handles sequence registration, modification tracking, delivery records, BLAST searches, and user access control. The project name in Django is `bms`; the single app is `app01`.
+
+## Commands
 
 ```bash
+# Activate virtualenv (Python 3.10)
+source venv/bin/activate
+
 # Run development server
-cd /Users/gutou/Projects/seq_web/seq_database
 python manage.py runserver
 
-# Database migrations
+# Run migrations
 python manage.py makemigrations
 python manage.py migrate
 
-# Lint with ruff (included in requirements.txt)
-ruff check .
-ruff format .
-
-# Django shell
+# Open Django shell
 python manage.py shell
 
-# Run tests
-python manage.py test
+# Lint (ruff is in requirements)
+ruff check .
+ruff check --fix .
 ```
 
-The virtual environment is at `venv/`. Settings module: `bms.settings`.
+Database: MySQL (`bms` database, host `127.0.0.1:3306`, user `root`). Requires a running MySQL instance. See `bms/settings.py` for credentials.
 
-## Architecture Overview
+## Architecture
 
-Single-app Django project: `app01` handles all models, views, and logic. URLs in `bms/urls.py` map directly to views in `app01/views.py` (~2,900 lines, no class-based views — all function-based).
+All routing is in `bms/urls.py` — no per-app `urls.py`. All views are function-based views in `app01/views.py` (single large file). Templates live in the top-level `templates/` directory.
 
-```
-seq_database/
-├── bms/            # Project config (settings.py, urls.py)
-├── app01/          # Main app: models.py, views.py, migrations/
-├── templates/      # 31 HTML templates (all at root level, no subdirectories)
-└── static/         # css/, js/, bootstrap/, vendors/
-```
+### Key Models (`app01/models.py`)
 
-## Core Data Model & ID Chain
+- **`Sequence`** — core entity; `rm_code` (6-digit, PK) identifies each bare RNA/DNA sequence; `seq_type` is `AS`, `SS`, or `duplex`.
+- **`DuplexRelationship`** — links an AS strand, SS strand, and duplex sequence together.
+- **`SeqInfo`** — target/project metadata attached to a `Sequence`.
+- **`Delivery`** — a synthesized/delivered form of a `Sequence` with modification codes, linker sequences, delivery attachments (5'/3'), and molecular weight.
+- **`DeliveryModule`** — lookup table of delivery modification keywords mapped to `type_code` for coloring/grouping.
+- **`SeqModule`** — lookup table of sequence modification tokens (e.g. `VP25A`, `GU02`, `T(MOE)`) used to parse `modify_seq` strings.
+- **`LmsUser`** — extends `AbstractUser`; `user_type` controls what each user can see/do; `permissions_project` (comma-separated) restricts which project numbers a user can access.
 
-Understanding the ID relationships is critical — naming is intentionally confusing in parts:
+### User roles (`user_type`)
+`guest` → `delivery` → `modify` → `project` → `data_admin` → `admin` → `superadmin`. Superusers bypass all role checks. Project-level filtering uses `permissions_project`.
 
-```
-Sequence.rm_code       → 6-digit zero-padded string PK (e.g. "001234")
-  └── Delivery.sequence (FK → Sequence.rm_code, related_name='deliveries')
-        ├── Delivery.delivery_id  = "RM_001234.1"   ← visible ID with suffix
-        └── Delivery.duplex_id    = "BP000001"       ← links AS+SS pair
+### Sequence coloring logic (in `views.py`)
+- `get_delivery_colored()` — tokenizes a `linker_seq` string by matching against `DeliveryModule` keywords (longest-match regex), assigns a color per `type_code`, and optionally reverses token order for AS strands.
+- `get_modify_seq_colored()` — same idea for `modify_seq`, but uses `SeqModule` tokens combined with `DeliveryModule` keywords in a two-level regex.
 
-DuplexRelationship: as_seq (FK) + ss_seq (FK) + duplex_seq (FK) → all point to Sequence
-```
+### Static files
+Bundled vendor libs live in `static/vendors/` (CKEditor, TinyMCE, Flot, Bootstrap form helpers). Project-specific JS/CSS is in `static/`.
 
-**Critical naming trap in `views.py`:** `build_duplex_groups()` stores `Delivery.id` (auto-increment integer) in a dict keyed as `delivery_id_to_seq_id`, then passes it as the `rm_code` parameter to `build_sequence_data()`. Templates access this as `group.items.0.rm_code` — which is actually `Delivery.id`, not `Sequence.rm_code`. This is intentional for backward compatibility. Edit/BLAST URL links like `/edit_seq/?id={{ rm_code }}` and `/blast_seq/?delivery_id={{ rm_code }}` use this `Delivery.id` value and their views query by `Delivery.id`. Do NOT rename these without tracing all template usages.
+### Logging
+File handler writes to `edit_book.log` in the project root. Logger name is `edit_book_log`.
 
-## Key Models
+## Important notes
 
-- **Sequence**: `rm_code` (PK), `seq`, `seq_type` (duplex/AS/SS)
-- **Delivery**: FK to Sequence, `delivery_id`, `duplex_id`, `modify_seq`, `delivery5`, `delivery3`, `Strand_MWs`, `project`, `Target`, `seq_type`
-- **SeqInfo**: FK to Sequence, stores target/position/project/remark metadata. Has a redundant `seq` field (duplicates `sequence.seq`)
-- **DeliveryModule**: `keyword` (unique), `type_code`, `Strand_MWs` — defines sequence modification components; used for colorizing sequences and in save_deliveries regex substitutions
-- **LmsUser** (AUTH_USER_MODEL): extends AbstractUser, `user_type` controls access (superadmin/admin/data_admin/project/delivery/modify/guest), `permissions_project` is comma-separated project codes
-- **Author**: legacy model largely superseded by LmsUser, retained for backward compatibility
-
-## Template & CSS Conventions
-
-Templates use **Bootstrap v3** (not v4). Do not use v4 utility classes like `d-flex`, `me-2`, `mb-3`, `justify-content-start` — use Bootstrap v3 patterns (`col-md-*`, `glyphicon`, `btn-xs/sm`) or custom CSS.
-
-**Design system CSS** is appended at the end of `static/css/styles.css` (around line 1367+) as override blocks. The color palette: `#1a6496` (primary blue), `#f0f4f8` (table header bg), `#1a2d3d` (dark text).
-
-**Standard page structure** for main views:
-- `.header` div with logo + personal info dropdown
-- `.page-content` with Bootstrap grid: `col-md-2` sidebar + `col-md-10` main content
-- `.seq-toolbar` above tables with action buttons
-- DataTable on `#example` with `#select-all` + `.row-checkbox` for bulk selection
-- Toast notifications via `#msg-toast-container` + `.msg-toast` (not `alert()`)
-
-**Recurring broken HTML pattern** (found in some older templates): `<div>` directly inside `<ul class="nav">`. Fix by moving controls to `.seq-toolbar` above the table.
-
-## Views Architecture
-
-`views.py` has three major layers:
-
-1. **Data helpers** (lines ~1–400): `get_color_map()`, `get_delivery_colored()`, `get_modify_seq_colored()`, `build_combo_re()`, `normalize_tmp_seq_with_combo()`
-
-2. **Sequence processing pipeline** (lines ~1400–2100): `parse_uploaded_csv()` → `check_duplicates()` → `assign_duplex_ids()` → `save_deliveries()` → `build_duplex_groups()` → `build_sequence_data()`
-   - `save_deliveries()` contains 60+ hardcoded `re.sub()` rules mapping module keywords to base characters (A/U/G/C). These should match entries in the `DeliveryModule` table but are hardcoded.
-
-3. **View functions** (~30 views): all function-based, most require `@login_required`
-
-Permission filtering: `get_permitted_delivery_qs(user)` — call this when filtering Delivery querysets for non-admin users.
-
-## Database
-
-MySQL, database name `bms`. PyMySQL driver (configured in `bms/__init__.py`). 23+ migrations in `app01/migrations/`.
-
-Custom datetime display uses `Asia/Shanghai` timezone.
+- `USE_TZ = False` — all datetimes are naive (Asia/Shanghai local time, no timezone conversion).
+- `requirements.txt` contains Windows-platform wheels; on macOS/Linux install packages manually or use a cleaned requirements file.
+- Migrations directory is `app01/migrations/`. A pending unapplied migration `0024_add_indexes_and_expand_fields.py` exists.
