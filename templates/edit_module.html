@@ -2,40 +2,55 @@
 {% block page_title %} — {% if module %}编辑模块{% else %}新增模块{% endif %}{% endblock %}
 {% block topbar_content %}
   <span class="ds-topbar-title">{% if module %}编辑模块{% else %}新增模块{% endif %}</span>
+  <span class="ds-topbar-spacer"></span>
+  <a href="{% url 'module_list' %}" class="ds-btn ds-btn-ghost">返回列表</a>
 {% endblock %}
 {% block content %}
-<div class="ds-form-card" style="max-width:560px;">
-  <form method="POST" action="{% url 'edit_module' %}">
-    {% csrf_token %}
-    {% if module %}
-    <input type="hidden" name="id" value="{{ module.id }}">
+<div class="ds-form-page" style="padding-top:20px;">
+  <div class="ds-form-card">
+    <div class="ds-form-card-title">{% if module %}编辑模块{% else %}新增模块{% endif %}</div>
+    {% if messages %}
+    <div style="margin-bottom:16px;">
+      {% for message in messages %}
+      <div style="padding:10px 14px;border-radius:6px;margin-bottom:8px;font-size:13.5px;
+        {% if 'error' in message.tags %}background:#fef2f2;border:1px solid #fecaca;color:#991b1b;
+        {% elif 'success' in message.tags %}background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;
+        {% else %}background:#f0f9ff;border:1px solid #bae6fd;color:#0c4a6e;{% endif %}">
+        {{ message }}
+      </div>
+      {% endfor %}
+    </div>
     {% endif %}
-
-    <div class="ds-form-group">
-      <label class="ds-label">Keyword <span style="color:#ef4444;">*</span></label>
-      <input type="text" name="keyword" class="ds-input" required
-        value="{{ form_data.keyword|default:module.keyword|default:'' }}"
-        placeholder="例：C16-NH">
-    </div>
-
-    <div class="ds-form-group">
-      <label class="ds-label">Type Code <span style="color:#ef4444;">*</span></label>
-      <input type="text" name="type_code" class="ds-input" required
-        value="{{ form_data.type_code|default:module.type_code|default:'' }}"
-        placeholder="例：Lipid">
-    </div>
-
-    <div class="ds-form-group">
-      <label class="ds-label">Strand_MWs</label>
-      <input type="text" name="Strand_MWs" class="ds-input"
-        value="{{ form_data.Strand_MWs|default:module.Strand_MWs|default:'' }}"
-        placeholder="（选填）分子量">
-    </div>
-
-    <div style="display:flex;gap:8px;margin-top:24px;">
-      <button type="submit" class="ds-btn ds-btn-primary">保存</button>
-      <a href="{% url 'module_list' %}" class="ds-btn ds-btn-ghost">取消</a>
-    </div>
-  </form>
+    <form method="POST" action="{% if module %}{% url 'edit_module' %}?id={{ module.id }}{% else %}{% url 'edit_module' %}{% endif %}">
+      {% csrf_token %}
+      <div class="ds-form-row">
+        <label class="ds-form-label" for="keyword">Keyword <span style="color:#ef4444;">*</span></label>
+        <input type="text" id="keyword" name="keyword" class="ds-form-control"
+          placeholder="例：C16-NH"
+          value="{% if form_data %}{{ form_data.keyword }}{% elif module %}{{ module.keyword }}{% endif %}"
+          required>
+      </div>
+      <div class="ds-form-row">
+        <label class="ds-form-label" for="type_code">Type Code <span style="color:#ef4444;">*</span></label>
+        <input type="text" id="type_code" name="type_code" class="ds-form-control"
+          placeholder="例：Lipid"
+          value="{% if form_data %}{{ form_data.type_code }}{% elif module %}{{ module.type_code }}{% endif %}"
+          required>
+      </div>
+      <div class="ds-form-row">
+        <label class="ds-form-label" for="Strand_MWs">Strand_MWs</label>
+        <input type="text" id="Strand_MWs" name="Strand_MWs" class="ds-form-control"
+          placeholder="（选填）分子量"
+          value="{% if form_data %}{{ form_data.Strand_MWs }}{% elif module %}{{ module.Strand_MWs }}{% endif %}">
+      </div>
+      <div style="margin-top:24px;display:flex;justify-content:flex-end;gap:10px;">
+        <a href="{% url 'module_list' %}" class="ds-btn ds-btn-ghost">返回</a>
+        <button type="submit" class="ds-btn ds-btn-primary"
+          onclick="return confirm('{% if module %}此操作将修改当前数据，您确定要更新吗？{% else %}此操作将创建新模块，您确定吗？{% endif %}');">
+          {% if module %}更新{% else %}创建{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
 </div>
 {% endblock %}
