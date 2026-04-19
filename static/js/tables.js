@@ -13,7 +13,7 @@ $(document).ready(function() {
             [1, 'asc']
         ],
         lengthMenu: [5, 10, 20, 50],
-        dom: "t<'ds-dt-footer'<'ds-pagesize-wrap'l><'ds-record-info'i><p>>",
+        dom: "t<'ds-table-footer'<'ds-pagesize-wrap'l><'ds-record-info'i><p>>",
         language: {
             lengthMenu: "每页显示 _MENU_ 条",
             info: "共 _TOTAL_ 条",
@@ -32,6 +32,9 @@ $(document).ready(function() {
             $(row).find('.row-checkbox').prop('checked', data._selected);
         }
     });
+
+    // 给 DataTables length select 加上设计系统样式类
+    $(table.table().container()).find('.dataTables_length select').addClass('ds-pagesize-select');
 
     // 初始化已有行的 _selected 字段
     table.rows().every(function() {

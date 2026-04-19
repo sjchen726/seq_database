@@ -659,11 +659,10 @@ input[type=checkbox] { accent-color: #6366f1; width: 13px; height: 13px; cursor:
 .ds-tb-btn.ds-tb-purple { background:#fdf4ff; border-color:#f3e8ff; color:#7c3aed; }
 .ds-tb-btn.ds-tb-purple:hover { background:#fae8ff; border-color:#e9d5ff; color:#7c3aed; }
 
-/* ── DataTables footer bar (seq_list) ── */
-.ds-dt-footer {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 8px 14px; border-top: 1px solid #e8edf4; background: #f8fafc;
+/* ── DataTables controls inside ds-table-footer (seq_list) ── */
+.ds-table-footer .dataTables_length label {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11.5px; color: #64748b; margin: 0;
 }
-.ds-dt-footer .dataTables_length { display: flex; align-items: center; }
-.ds-dt-footer .dataTables_info { padding-top: 0 !important; margin-left: 4px; }
-.ds-dt-footer .dataTables_paginate { padding-top: 0 !important; margin-left: auto; }
+.ds-table-footer .dataTables_info { padding-top: 0 !important; font-size: 11px; color: #94a3b8; font-family: 'DM Mono', monospace; }
+.ds-table-footer .dataTables_paginate { padding-top: 0 !important; margin-left: auto; display: flex; gap: 3px; }
