@@ -1,259 +1,173 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>序列管理系统</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- jQuery UI -->
-    <link href="https://code.jquery.com/ui/1.10.3/themes/redmond/jquery-ui.css" rel="stylesheet" media="screen">
+{% extends 'base.html' %}
 
-    <!-- Bootstrap -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <!-- styles -->
-    <link href="/static/css/styles.css" rel="stylesheet">
+{% block page_title %} — 编辑序列{% endblock %}
 
-    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
-    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
-    <!--[if lt IE 9]>
-    <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
-    <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
-    <![endif]-->
-</head>
-<body>
-<div class="header">
-    <div class="container">
-        <div class="row">
-            <div class="col-md-5">
-                <!-- Logo -->
-                <div class="logo">
-                    <h1><a href="/seq_list">序列管理系统</a></h1>
-                </div>
-            </div>
-            <div class="col-md-5">
-                <div class="row">
-                    <div class="col-lg-12">
-                        <div class="input-group form">
-                            <input type="text" class="form-control" placeholder="Search...">
-                            <span class="input-group-btn">
-	                         <button class="btn btn-primary" type="button">Search</button>
-	                       </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-2">
-                <div class="navbar navbar-dark bg-dark" role="banner">
-                    <nav class="collapse navbar-collapse bs-navbar-collapse navbar-right" role="navigation">
-                        <ul class="nav navbar-nav">
-                            <li class="dropdown">
-                                <a href="#" class="dropdown-toggle" data-bs-toggle="dropdown">个人信息<b class="caret"></b></a>
-                                <ul class="dropdown-menu animated fadeInUp">
-<!--                                    <li><a href="profile.html">Profile</a></li>-->
-                                        {% if request.user.is_authenticated %}
-                                            <li><a href="#">用户名: {{ request.user.username }}</a></li>
-                                            <li><a href="#">邮箱: {{ request.user.email }}</a></li>
-                                            <li class="divider"></li>
-                                            <li><a href="/login/">退出登录</a></li>
-                                        {% else %}
-                                            <li><a href="/login/">请登录</a></li>
-                                        {% endif %}
-                                </ul>
-                            </li>
-                        </ul>
-                    </nav>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+{% block topbar_content %}
+  <span class="ds-topbar-title">编辑序列</span>
+  <span style="font-family:'DM Mono',monospace;font-size:12px;color:#94a3b8;margin-left:6px;">{{ delivery.Strand_MWs }}</span>
+  <span class="ds-topbar-spacer"></span>
+  <a href="{{ request.GET.next|default:'/seq_list/' }}" class="ds-btn ds-btn-ghost">← 返回列表</a>
+{% endblock %}
 
-<div class="page-content">
-    <div class="row">
-        <div class="col-md-2">
-            <div class="sidebar content-box" style="display: block;">
-                <ul class="nav">
-                    <!-- Main menu -->
-<!--                    <li><a href="index.html"><i class="bi bi-house"></i>首页</a></li>-->
-                  <!-- <li class="current"><a href="/publisher_list"><i class="bi bi-list-ul"></i> 出版社管理</a></li> --> 
-                  <li><a href="/author_list"><i class="bi bi-circle-fill"></i> 项目人员管理</a></li>
-                  <li><a href="/seq_list"><i class="bi bi-pencil"></i> 序列信息管理</a></li>
-                    <li class="submenu">
-                        <a href="#">
-                            <i class="bi bi-list-ul"></i> 系统设置
-                            <span class="caret pull-right"></span>
-                        </a>
-                        <!-- Sub menu -->
-                        <ul>
-                 <!--           <li><a href="login.html">Login</a></li> -->
-                            <li><a href="/signup">注册</a></li>
-                            <li><a href="/change_password">修改密码</a></li>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
-        </div>
-        <div class="col-md-10">
-            <div class="content-box-large">
-                <div class="panel-heading">
-                    <div class="panel-title">编辑序列信息</div>
-                </div>
-                <div class="panel-body">
-                    <form class="form-horizontal" role="form" action="/edit_seq/?id={{ delivery.id }}&strand_MWs={{ delivery.Strand_MWs}}&next={{ request.GET.next|urlencode }}" method="post">
-                                                    <input type="text" name="edit_id" value="{{ delivery.id }}" class="hide">
-                        {% csrf_token %}
-                        <input type="hidden" name="next" value="{{ request.GET.next }}">
-                        <input type="hidden" name="dt_page" value="{{ request.GET.dt_page }}">      
-                        <div class="form-group">
-                            <label for="input1" class="col-sm-2 control-label">Project</label>
-                            <div class="col-sm-10">
-                                <input class="form-control" id="input1" placeholder="Project" name="edit_project" value="{{ delivery.project}}"  readonly>
-                            </div>  
-                        </div>
-                        <div class="form-group">
-                            <label for="input2" class="col-sm-2 control-label">5' Ligand</label>
-                            <div class="col-sm-10">
-                                <input class="form-control" id="input2" placeholder="5' ligand" name="edit_delivery5" value="{{ delivery.delivery5 }}">
-                            </div> 
-                        </div>
-                        <div class="form-group">
-                            <label for="input3" class="col-sm-2 control-label">Sequence</label>
-                            <div class="col-sm-10">
-                                <input class="form-control" id="input3" placeholder="Sequence" name="edit_seq" value="{{ delivery.modify_seq }}" readonly>
-                            </div>  <!-- 不能改 -->
-                        </div>                      
-                        <div class="form-group">
-                            <label for="input4" class="col-sm-2 control-label">3' Ligand</label>
-                            <div class="col-sm-10">
-                                <input class="form-control" id="input4" placeholder="3' ligand" name="edit_delivery3" value="{{ delivery.delivery3 }}">
-                            </div>  
-                        </div>
-                        <div class="form-group">
-                            <label for="input5" class="col-sm-2 control-label">Transcript</label>
-                            <div class="col-sm-10">
-                                <input class="form-control" id="input5" placeholder="Transcript" name="edit_Transcript" value="{{ seqinfo.Transcript }}"  readonly>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="input6" class="col-sm-2 control-label">Target</label>
-                            <div class="col-sm-10">
-                                <input class="form-control" id="input6" placeholder="Target" name="edit_Target" value="{{ delivery.Target }}" readonly>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="input7" class="col-sm-2 control-label">Position</label>
-                            <div class="col-sm-10">
-                                <input class="form-control" id="input7" placeholder="Position" name="edit_position" value="{{ seqinfo.Pos }}"  readonly>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="input8" class="col-sm-2 control-label">Strand_MWs</label>
-                            <div class="col-sm-10">
-                                <input class="form-control" id="input8" placeholder="Strand MWs" name="edit_Strand_MWs" value="{{ delivery.Strand_MWs }}">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="input9" class="col-sm-2 control-label">Parents</label>
-                            <div class="col-sm-10">
-                                <input class="form-control" id="input9" placeholder="Parents" name="edit_parents" value="{{ delivery.parents }}">
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="input13" class="col-sm-2 control-label">Remarks</label>
-                            <div class="col-sm-10">
-                                <input class="form-control" id="input13" placeholder="Remarks" name="edit_Remark" value="{{ delivery.Remark }}">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="input15" class="col-sm-2 control-label">更新时间</label>
-                            <div class="col-sm-10">
-                                <input class="form-control" id="input15" placeholder="更新时间" name="edit_date" type="datetime-local">
-                            </div>
-                        </div>
-                        <script>
-                            // 获取当前日期和时间
-                            const now = new Date();
-                            const year = now.getFullYear();
-                            const month = String(now.getMonth() + 1).padStart(2, '0'); // 月份从0开始，需要+1
-                            const day = String(now.getDate()).padStart(2, '0'); // 补0
-                            const hours = String(now.getHours()).padStart(2, '0'); // 补0
-                            const minutes = String(now.getMinutes()).padStart(2, '0'); // 补0
-                        
-                            // 格式化为 'YYYY-MM-DDTHH:MM'
-                            const currentDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
-                        
-                            // 设置 input 的 value 为当前日期和时间
-                            document.getElementById("input15").value = currentDateTime;
-                        </script>
+{% block content %}
+<div class="ds-form-page" style="padding-top:20px;">
+  <div class="ds-form-card">
+    <div class="ds-form-card-title">序列信息编辑</div>
 
-                        <div class="form-group">
-                            <div class="col-sm-offset-2 col-sm-10">
-                                <button type="submit" class="btn btn-primary" onclick="return confirm('此操作将修改当前数据，您确定要更新吗？');">更新</button>
-<!--                                <button type="" class="btn btn-default">返回</button>-->
-                                <button type="button" id="cancelBtn" class="btn btn-default">返回</button>
-                            </div>
+    <form method="post" action="/edit_seq/?id={{ delivery.id }}&strand_MWs={{ delivery.Strand_MWs }}&next={{ request.GET.next|urlencode }}">
+      {% csrf_token %}
+      <input type="hidden" name="edit_id" value="{{ delivery.id }}">
+      <input type="hidden" name="next" value="{{ request.GET.next }}">
+      <input type="hidden" name="dt_page" value="{{ request.GET.dt_page }}">
 
-                        </div>
-                    </form>
-                </div>
+      <div class="row g-3">
 
-            </div>
-
-
-
-        </div>
-    </div>
-</div>
-
-<footer>
-    <div class="container">
-
-        <div class="copy text-center">
-            Copyright BTYY-OPRA 2025 <a href='#'>Website</a>
+        <!-- Project (read-only) -->
+        <div class="col-md-6">
+          <label class="ds-form-label">Project</label>
+          <span class="ds-readonly-value">{{ delivery.project }}</span>
+          <input type="hidden" name="edit_project" value="{{ delivery.project }}">
         </div>
 
-    </div>
-</footer>
+        <!-- Target (read-only) -->
+        <div class="col-md-6">
+          <label class="ds-form-label">Target</label>
+          <span class="ds-readonly-value">{{ delivery.Target }}</span>
+          <input type="hidden" name="edit_Target" value="{{ delivery.Target }}">
+        </div>
 
-<link href="/static/vendors/datatables/dataTables.bootstrap.css" rel="stylesheet" media="screen">
+        <!-- Sequence / modify_seq (read-only) -->
+        <div class="col-md-12">
+          <label class="ds-form-label">Sequence</label>
+          <span class="ds-readonly-value mono">{{ delivery.modify_seq }}</span>
+          <input type="hidden" name="edit_seq" value="{{ delivery.modify_seq }}">
+        </div>
 
-<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
-<script src="https://code.jquery.com/jquery.js"></script>
-<!-- jQuery UI -->
-<script src="https://code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
-<!-- Include all compiled plugins (below), or include individual files as needed -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+        <!-- Transcript (read-only) -->
+        <div class="col-md-6">
+          <label class="ds-form-label">Transcript</label>
+          <span class="ds-readonly-value">{{ seqinfo.Transcript }}</span>
+          <input type="hidden" name="edit_Transcript" value="{{ seqinfo.Transcript }}">
+        </div>
 
-<script src="/static/vendors/datatables/js/jquery.dataTables.min.js"></script>
+        <!-- Position (read-only) -->
+        <div class="col-md-6">
+          <label class="ds-form-label">Position</label>
+          <span class="ds-readonly-value">{{ seqinfo.Pos }}</span>
+          <input type="hidden" name="edit_position" value="{{ seqinfo.Pos }}">
+        </div>
 
-<script src="/static/vendors/datatables/dataTables.bootstrap.js"></script>
+        <!-- 5' Ligand (editable) -->
+        <div class="col-md-6">
+          <label class="ds-form-label" for="edit_delivery5">5' Ligand</label>
+          <input type="text"
+                 id="edit_delivery5"
+                 name="edit_delivery5"
+                 class="ds-form-control"
+                 placeholder="5' ligand"
+                 value="{{ delivery.delivery5 }}">
+        </div>
 
-<script src="/static/js/custom.js"></script>
-<script src="/static/js/tables.js"></script>
+        <!-- 3' Ligand (editable) -->
+        <div class="col-md-6">
+          <label class="ds-form-label" for="edit_delivery3">3' Ligand</label>
+          <input type="text"
+                 id="edit_delivery3"
+                 name="edit_delivery3"
+                 class="ds-form-control"
+                 placeholder="3' ligand"
+                 value="{{ delivery.delivery3 }}">
+        </div>
+
+        <!-- Strand_MWs (editable) -->
+        <div class="col-md-6">
+          <label class="ds-form-label" for="edit_Strand_MWs">Strand_MWs</label>
+          <input type="text"
+                 id="edit_Strand_MWs"
+                 name="edit_Strand_MWs"
+                 class="ds-form-control"
+                 placeholder="Strand MWs"
+                 value="{{ delivery.Strand_MWs }}">
+        </div>
+
+        <!-- Parents (editable) -->
+        <div class="col-md-6">
+          <label class="ds-form-label" for="edit_parents">Parents</label>
+          <input type="text"
+                 id="edit_parents"
+                 name="edit_parents"
+                 class="ds-form-control"
+                 placeholder="Parents"
+                 value="{{ delivery.parents }}">
+        </div>
+
+        <!-- Remarks (editable) -->
+        <div class="col-md-12">
+          <label class="ds-form-label" for="edit_Remark">Remarks</label>
+          <input type="text"
+                 id="edit_Remark"
+                 name="edit_Remark"
+                 class="ds-form-control"
+                 placeholder="Remarks"
+                 value="{{ delivery.Remark }}">
+        </div>
+
+        <!-- 更新时间 (editable, datetime-local) -->
+        <div class="col-md-6">
+          <label class="ds-form-label" for="updateTimeInput">更新时间</label>
+          <input type="datetime-local"
+                 id="updateTimeInput"
+                 name="edit_date"
+                 class="ds-form-control">
+        </div>
+
+        <!-- Buttons -->
+        <div class="col-md-12" style="margin-top:8px;display:flex;gap:10px;align-items:center;">
+          <button type="submit"
+                  class="ds-btn ds-btn-primary"
+                  onclick="return confirm('此操作将修改当前数据，您确定要更新吗？');">
+            保存修改
+          </button>
+          <button type="button" id="cancelBtn" class="ds-btn ds-btn-ghost">返回</button>
+        </div>
+
+      </div><!-- /row -->
+    </form>
+  </div><!-- /ds-form-card -->
+</div><!-- /ds-form-page -->
+{% endblock %}
+
+{% block extra_scripts %}
 <script>
-    // 返回到传入的 next URL（如果有），并附加 dt_page 参数以保持 DataTable 页码
-    (function() {
-        var btn = document.getElementById('cancelBtn');
-        if (!btn) return;
-        btn.addEventListener('click', function() {
-            var nextInput = document.querySelector('input[name="next"]');
-            var dtInput = document.querySelector('input[name="dt_page"]');
-            var next = nextInput && nextInput.value ? nextInput.value : '/seq_list/';
-            var dt = dtInput && dtInput.value ? dtInput.value : null;
+  // Auto-fill current datetime on load
+  const el = document.getElementById('updateTimeInput');
+  if (el && !el.value) {
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    el.value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  }
 
-            try {
-                var url = new URL(next, window.location.origin);
-                if (dt) url.searchParams.set('dt_page', dt);
-                window.location.href = url.toString();
-            } catch (e) {
-                // next may be a relative/path or malformed; fallback
-                var final = next;
-                if (dt) final += (next.indexOf('?') === -1 ? '?' : '&') + 'dt_page=' + encodeURIComponent(dt);
-                window.location.href = final;
-            }
-        });
-    })();
+  // Return to next URL, preserving dt_page parameter
+  (function() {
+    var btn = document.getElementById('cancelBtn');
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+      var nextInput = document.querySelector('input[name="next"]');
+      var dtInput = document.querySelector('input[name="dt_page"]');
+      var next = nextInput && nextInput.value ? nextInput.value : '/seq_list/';
+      var dt = dtInput && dtInput.value ? dtInput.value : null;
+
+      try {
+        var url = new URL(next, window.location.origin);
+        if (dt) url.searchParams.set('dt_page', dt);
+        window.location.href = url.toString();
+      } catch (e) {
+        // next may be a relative/path or malformed; fallback
+        var final = next;
+        if (dt) final += (next.indexOf('?') === -1 ? '?' : '&') + 'dt_page=' + encodeURIComponent(dt);
+        window.location.href = final;
+      }
+    });
+  })();
 </script>
-</body>
-</html>
+{% endblock %}
