@@ -19,36 +19,67 @@
     <table class="ds-table">
       <thead>
         <tr>
-          <th class="cell-id">#</th>
-          <th>Module</th>
+          <th>Keyword</th>
           <th>Type Code</th>
-          <th>Molecular Weight</th>
+          <th>Strand_MWs</th>
           <th>操作</th>
         </tr>
       </thead>
       <tbody>
         {% for module in module_list %}
         <tr>
-          <td class="cell-dim">{{ module.id }}</td>
-          <td><code style="background:#f0f4f8;color:#0f172a;padding:2px 7px;border-radius:3px;font-size:12px;font-family:monospace;">{{ module.keyword }}</code></td>
-          <td class="cell-code">{{ module.type_code }}</td>
-          <td class="cell-dim">{{ module.Strand_MWs|default_if_none:'—' }}</td>
+          <td>
+            <code style="background:#1e293b;color:#e2e8f0;padding:2px 8px;border-radius:4px;font-size:11px;font-family:'DM Mono',monospace;">{{ module.keyword }}</code>
+          </td>
+          <td>
+            <span class="type-code-pill" data-type="{{ module.type_code }}" style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:500;">{{ module.type_code }}</span>
+          </td>
+          <td style="font-family:'DM Mono',monospace;color:#94a3b8;font-size:12px;">
+            {{ module.Strand_MWs|default_if_none:'—' }}
+          </td>
           <td>
             <div class="ds-actions">
-              <a class="ds-act ds-act-edit" href="{% url 'edit_module' %}?id={{ module.id }}" title="编辑">&#9998;</a>
+              <a href="{% url 'edit_module' %}?id={{ module.id }}" class="ds-btn ds-btn-ghost" style="padding:3px 10px;font-size:12px;">编辑</a>
               <form method="POST" action="{% url 'delete_module' %}" style="display:inline;" onsubmit="return confirm('确定删除该模块？');">
                 {% csrf_token %}
                 <input type="hidden" name="id" value="{{ module.id }}">
-                <button type="submit" class="ds-act" style="background:none;border:none;cursor:pointer;color:#ef4444;padding:4px 8px;border-radius:5px;font-size:13px;" title="删除">&#128465;</button>
+                <button type="submit" class="ds-btn" style="padding:3px 10px;font-size:12px;color:#ef4444;border:1px solid #fca5a5;background:none;cursor:pointer;border-radius:6px;">删除</button>
               </form>
             </div>
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:32px;">暂无模块数据</td></tr>
+        <tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:32px;">暂无模块数据</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+(function() {
+  var palette = [
+    ['#dbeafe', '#1d4ed8'],
+    ['#ede9fe', '#6d28d9'],
+    ['#fef3c7', '#92400e'],
+    ['#dcfce7', '#15803d'],
+    ['#fce7f3', '#9d174d'],
+    ['#e0f2fe', '#0369a1'],
+    ['#ffedd5', '#c2410c'],
+    ['#f3f4f6', '#374151']
+  ];
+  var colorMap = {};
+  var idx = 0;
+  document.querySelectorAll('.type-code-pill').forEach(function(el) {
+    var code = el.getAttribute('data-type');
+    if (!colorMap[code]) {
+      colorMap[code] = palette[idx % palette.length];
+      idx++;
+    }
+    el.style.background = colorMap[code][0];
+    el.style.color = colorMap[code][1];
+  });
+})();
+</script>
 {% endblock %}
