@@ -569,3 +569,80 @@ input[type=checkbox] { accent-color: #6366f1; width: 13px; height: 13px; cursor:
 .ds-group-card { border-radius: 8px; overflow: hidden; border: 1px solid #e8edf4; margin-bottom: 20px; }
 .ds-group-card-ss { border-color: #bfdbfe; }
 .ds-group-card-as { border-color: #bbf7d0; }
+
+/* multi_blast_results legacy classes (kept with original names) */
+.result-wrapper { padding: 16px 0; }
+.group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+}
+.group-header-ss { background: #eff6ff; }
+.group-header-as { background: #f0fdf4; }
+.group-title { font-weight: 700; font-size: 14px; }
+.group-title-ss { color: #1d4ed8; }
+.group-title-as { color: #15803d; }
+.group-count { font-size: 12px; color: #64748b; }
+.group-count-ss { color: #3b82f6; }
+.group-count-as { color: #22c55e; }
+.cmp-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.cmp-table th {
+  background: #f8fafc;
+  padding: 8px 10px;
+  border-bottom: 2px solid #e8edf4;
+  text-align: left;
+  white-space: nowrap;
+  font-weight: 600;
+  color: #475569;
+}
+.cmp-table td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+.cmp-table tr:hover td { background: #f8fafc; }
+.expand-btn {
+  background: none;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  font-size: 11.5px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color .15s, color .15s;
+}
+.expand-btn:hover, .expand-btn.active { border-color: #2563eb; color: #2563eb; }
+.mods-row { display: none; }
+.mods-row.open { display: table-row; }
+.mods-inner { padding: 12px 16px; background: #f8fafc; }
+.mods-inner-header { font-size: 12.5px; color: #475569; margin-bottom: 10px; }
+.mods-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.mods-table th {
+  background: #f1f5f9;
+  padding: 6px 8px;
+  border-bottom: 1px solid #e2e8f0;
+  font-weight: 600;
+  color: #64748b;
+  white-space: nowrap;
+}
+.mods-table td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; }
+.mods-table tr.is-current td { background: #fefce8; }
+.current-mark {
+  display: inline-block;
+  font-size: 10px;
+  background: #fbbf24;
+  color: #78350f;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 4px;
+}
+.result-empty-state { text-align: center; padding: 48px; color: #94a3b8; font-size: 14px; }
+.btn-expand-all {
+  margin-left: auto;
+  background: none;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.btn-expand-all:hover { border-color: #2563eb; color: #2563eb; }
