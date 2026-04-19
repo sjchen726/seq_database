@@ -2472,7 +2472,7 @@ def delete_module(request):
 
 @login_required
 def seqmodule_list(request):
-    seqmodule_list = SeqModule.objects.all().values('id', 'keyword', 'base_char')
+    seqmodule_list = SeqModule.objects.all().values('id', 'keyword', 'base_char', 'linker_connector', 'description')
     return render(request, 'seqmodule_list.html', {'seqmodule_list': seqmodule_list})
 
 
