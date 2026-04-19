@@ -74,6 +74,9 @@
   document.querySelectorAll('.type-code-pill').forEach(function(el) {
     var code = el.getAttribute('data-type');
     if (!colorMap[code]) {
+      if (idx >= palette.length) {
+        console.warn('module_list: type_code palette exhausted, colors will repeat.');
+      }
       colorMap[code] = palette[idx % palette.length];
       idx++;
     }
