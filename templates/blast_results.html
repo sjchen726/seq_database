@@ -5,41 +5,8 @@
   <span class="ds-topbar-spacer"></span>
   <button onclick="window.close()" class="ds-btn ds-btn-ghost" style="color:#dc2626;border-color:#fecaca;">✕ 关闭窗口</button>
 {% endblock %}
-{% block extra_styles %}
-<style>
-.blast-header-card {
-    background: #fff;
-    border: 1px solid #e8edf4;
-    border-radius: 8px;
-    padding: 14px 18px;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
-}
-.naked-seq {
-    font-family: monospace;
-    font-size: 14px;
-    background: #eff6ff;
-    padding: 3px 10px;
-    border-radius: 4px;
-    letter-spacing: 1px;
-    color: #1d4ed8;
-}
-.source-badge {
-    background: #fbbf24;
-    color: #78350f;
-    padding: 1px 8px;
-    border-radius: 10px;
-    font-size: 11px;
-    margin-left: 6px;
-    font-weight: 600;
-}
-</style>
-{% endblock %}
 {% block content %}
-<div class="blast-header-card">
+<div class="ds-info-card">
   <div>
     <strong>Blast 结果</strong>
     <span style="display:inline-block;background:#dbeafe;color:#1d4ed8;padding:1px 8px;border-radius:10px;font-size:12px;margin-left:8px;font-weight:600;">{{ seq_type }}</span>
@@ -48,7 +15,7 @@
     </span>
   </div>
   <div>
-    裸序列：<span class="naked-seq">{{ naked_seq }}</span>
+    裸序列：<span class="ds-seq-badge">{{ naked_seq }}</span>
     <span style="margin-left:12px;font-size:12.5px;color:#64748b;">共 {{ result_count }} 条修饰</span>
   </div>
 </div>
@@ -77,7 +44,7 @@
           <td>
             {{ item.deliveries.0.duplex_id|default_if_none:'' }}
             {% if item.deliveries.0.duplex_id == source_duplex_id %}
-              <span class="source-badge">来源</span>
+              <span class="ds-source-badge">来源</span>
             {% endif %}
           </td>
           <td>{{ item.Project|default_if_none:'' }}</td>
