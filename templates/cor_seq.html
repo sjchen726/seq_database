@@ -1,389 +1,174 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>序列管理系统</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- jQuery UI -->
-    <link href="https://code.jquery.com/ui/1.10.3/themes/redmond/jquery-ui.css" rel="stylesheet" media="screen">
+{% extends 'base.html' %}
+{% block page_title %} — 序列核实{% endblock %}
+{% block topbar_content %}
+  <span class="ds-topbar-title">序列核实</span>
+  <span class="ds-topbar-spacer"></span>
+  <a href="{% url 'seq_list' %}" class="ds-btn ds-btn-ghost">&#8592; 返回列表</a>
+{% endblock %}
+{% block content %}
 
-    <!-- Bootstrap -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <!-- styles -->
-    <link href="/static/css/styles.css" rel="stylesheet">
-
-    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
-    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
-    <!--[if lt IE 9]>
-    <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
-    <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
-    <![endif]-->
-
-</head>
-<body>
-
-<div class="header">
-    <div class="container">
-        <div class="row">
-            <div class="col-md-5">
-                <!-- Logo -->
-                <div class="logo">
-                    <h1><a href="/seq_list">序列管理系统</a></h1>
-                </div>
-            </div>
-            <div class="col-md-5">
-                <div class="row">
-                    <div class="col-lg-12">
-                        <div class="input-group form">
-                            <input type="text" id="searchInput" class="form-control" placeholder="Search...">
-                            <span class="input-group-btn">
-                                <button class="btn btn-primary" id="searchBtn" type="button">Search...</button>
-                                <button class="btn btn-info" id="advancedSearchBtn" type="button" style="margin-left: 10px;">高级搜索</button>
-                            </span>
-                        </div>
-
-                        <!-- 高级搜索面板 -->
-                        <div id="advancedSearchPanel" style="display: none;">
-                            <form id="advancedSearchForm" method="GET" action="{% url 'search' %}">
-                                {% csrf_token %}
-                                <div class="search-header" id="dragHandle">
-                                    <span>🔍 高级搜索</span>
-                                    <button id="closeSearchPanel" type="button">✖</button>
-                                </div>
-                                <div class="advanced-search-grid">
-                                    <div class="search-column">
-                                        <label>Strand ID: <input type="text" name="filterSequence"></label>
-                                        <label>5' Ligand: <input type="text" name="filter5Delivery"></label>
-                                        <label>Sequences: <input type="text" name="filterSeq"></label>
-                                        <label>Target: <input type="text" name="filterTarget"></label>
-                                        <label>Strand_MWs: <input type="text" name="filterStrandMWs"></label>
-                                        <label>Remarks: <input type="text" name="filterRemarks"></label>
-                                        <label>Sequence ID: <input type="text" name="filterAsSeqtype"></label>
-                                    </div>
-                                    <div class="search-column">
-                                        <label>Project: <input type="text" name="filterProject"></label>
-                                        <label>3' Ligand: <input type="text" name="filter3Delivery"></label>
-                                        <label>Modify Sequences: <input type="text" name="filterModifySeq"></label>
-                                        <label>Transcript: <input type="text" name="filterTranscript"></label>
-                                        <label>Position: <input type="text" name="filterPos"></label>
-                                        <label>Parents: <input type="text" name="filterParents"></label>
-                                    </div>
-                                </div>
-                                <div class="search-buttons">
-                                    <button type="submit" id="applyFilters">✅ 应用筛选</button>
-                                    <a href="{% url 'search' %}" id="clearFilters" class="button-style">❌ 清除筛选</a>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-2">
-                <div class="navbar navbar-dark bg-dark" role="banner">
-                    <nav class="collapse navbar-collapse bs-navbar-collapse navbar-right" role="navigation">
-                        <ul class="nav navbar-nav">
-                            <li class="dropdown">
-                                <a href="#" class="dropdown-toggle" data-bs-toggle="dropdown">个人信息<b class="caret"></b></a>
-                                <ul class="dropdown-menu animated fadeInUp">
-                                    {% if request.user.is_authenticated %}
-                                        <li><a href="#">用户名: {{ request.user.username }}</a></li>
-                                        <li><a href="#">邮箱: {{ request.user.email }}</a></li>
-                                        <li class="divider"></li>
-                                        <li><a href="/login/">退出登录</a></li>
-                                    {% else %}
-                                        <li><a href="/login/">请登录</a></li>
-                                    {% endif %}
-                                </ul>
-                            </li>
-                        </ul>
-                    </nav>
-                </div>
-            </div>
-        </div>
-    </div>
+<!-- 工具栏 -->
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+  <button id="show-selected" type="button" class="ds-btn ds-btn-ghost" style="font-size:12.5px;">
+    &#10003; 显示选中序列
+  </button>
+  <button id="download-selected" class="ds-btn ds-btn-ghost" style="font-size:12.5px;">
+    &#8595; 下载选中项
+  </button>
+  <button type="button" class="ds-btn ds-btn-ghost" id="toggleColumnPanel" style="font-size:12.5px;">
+    <i class="bi bi-table"></i> 列显示
+  </button>
 </div>
 
-<!-- JavaScript 提示 -->
-<script type="text/javascript">
-    {% if messages %}
-        const messages = [
-            {% for message in messages %}
-                "{{ message|escapejs }}",
-            {% endfor %}
-        ];
-
-        function displayMessages(messages) {
-            messages.forEach(function(msg) {
-                alert(msg);  // 弹出窗口显示消息
-            });
-        }
-
-        displayMessages(messages);
-    {% endif %}
-</script>
-
-<div class="page-content">
-    <div class="row">
-        <div class="col-md-2">
-            <div class="sidebar content-box" style="display: block;">
-                <ul class="nav">
-                    <li><a href="/author_list"><i class="bi bi-circle-fill"></i> 项目人员管理</a></li>
-                    <li class="submenu">
-                        <a href="/seq_list">
-                            <i class="bi bi-pencil"></i> 序列信息管理
-                            <span class="caret pull-right"></span>
-                        </a>
-                        <ul style="display: block;">
-                            <li><a href="/module_list/">配体模块列表</a></li>
-                            <li><a href="/seqmodule_list/">序列修饰列表</a></li>
-                            <li><a href="/register_seq/">序列注册</a></li>
-                            <li><a href="/reg_seq_list/">注册序列列表</a></li>
-                            <li><a href="/seq_delivery/">序列信息上传</a></li>
-                            <li><a href="/seq_list/">序列信息列表</a></li>
-                        </ul>
-                    </li>
-
-                    <li class="submenu">
-                        <a href="#">
-                            <i class="bi bi-list-ul"></i> 系统设置
-                            <span class="caret pull-right"></span>
-                        </a>
-                        <!-- Sub menu -->
-                        <ul>
-                <!--            <li><a href="/login">Login</a></li> -->
-                            <li><a href="/signup">注册</a></li>
-                            <li><a href="/change_password">修改密码</a></li>
-                        </ul>
-                    </li>
-
-                     <div class="content-box p-3 mb-4 border rounded bg-light" style="max-width: 800px; margin: auto;"> 
-                        <div class="row">
-                            <!-- 左侧字段选择 -->
-                            <div class="col-md-8" style="min-width: 300px;">
-                                <h5 class="mb-3" style="font-size: 16px;"><strong>选择显示/导出字段</strong></h5>
-                                <div class="field-box" id="column-controls">
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="1" value="duplex_id" checked> Strand ID</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="2" value="project" checked> Project</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="3" value="Target" checked> Target</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="4" value="seq_type" checked> Sequence Type</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="5" value="delivery5" checked> Ligand 1</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="6" value="modify_seq" checked> Sequences (AS 5'-3')</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="7" value="delivery3" checked> Ligand 2</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="8" value="Transcript" checked> Transcript</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="9" value="Pos" checked> Position</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="10" value="Strand_MWs" checked> Strand_MWs</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="11" value="parents" checked> Parents</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="12" value="remarks" checked> Remarks</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="13" value="created_at" checked> Update Time</label>
-                                    <label><input type="checkbox" class="toggle-vis export-field" data-column="14" value="操作" checked> 操作</label>
-                                    
-                                </div>
-                            </div>
-                        </div>
-                        <!-- 右侧按钮 -->
-
-                        <div class="col-md-4 d-flex justify-content-start align-items-center" style="min-width: 200px; margin-top: 60px;">
-                            <button id="show-selected" type="button" class="btn btn-success custom-btn me-2" style="font-size: 18px;">
-                                ✅ 显示选中序列
-                            </button>
-                            <button id="download-selected" class="btn btn-info custom-btn" style="font-size: 18px; margin-top: 20px;">
-                                ⬇️ 下载选中项
-                            </button>
-                        </div>
-
-                    </div>
-
-                        
-                </ul>
-            </div>
-        </div>
-        <div class="col-md-10">
-            <div class="content-box-large">
-                <div class="panel-heading">
-                    <div class="panel-title">序列关联信息列表</div>
-                </div>
-
-                <div class="panel-body">
-                    <table id="example" class="table table-striped table-bordered" style="width:100%">                                                                                                                                                                                                 
-                        <thead>
-                            <tr>
-                      <!--           <th style="display: none;">SortKey</th> 新增，用于排序 -->
-                                <th><input type="checkbox" id="select-all"></th> 
-                                <th >Strand ID</th>
-                                <th >Project</th>
-                                <th> Target</th> 
-                                <th> Sequence Type </th>
-                                <th >Ligand 1</th>
-                                <th>
-                                    Sequences <br>
-                                    <select id="seq_type_selector" class="form-control form-control-sm" style="width: auto; display: inline-block; margin-top: 2px; min-width: 100px; font-size: 16px;">
-                                        <option value="SS" {% if selected_seq_type == 'SS' %}selected{% endif %}>AS: 5'-3'; SS: 3'-5'</option>
-                                        <option value="AS" {% if selected_seq_type == 'AS' %}selected{% endif %}>SS: 5'-3'; AS: 3'-5'</option>
-                                    </select> 
-                                </th>
-                                <th >Ligand 2</th>
-                                <th >Transcript</th>
-                                <th >Position</th>
-                                <th >Strand_MWs</th>
-                                <th >Parents</th>
-                                <th >Remarks</th>
-                                <th >Update Time</th>
-                                <th >操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for seq in sequence_list %}
-                                {% for delivery in seq.deliveries %}
-                                    <tr {% if seq.rm_code == query_id %} data-query="true" {% endif %} class="{% if loop.index is odd %}odd{% else %}even{% endif %} group-bg-1">
-                                        <td><input type="checkbox" class="row-checkbox"></td>
-                                        <td style="white-space: nowrap;">
-                                            {% if seq.rm_code == query_id %}
-                                                <strong style="color: red;">{{ delivery.duplex_id | default_if_none:"" }}</strong>
-                                            {% else %}
-                                                <span style="color: black;">{{ delivery.duplex_id | default_if_none:"" }}</span>
-                                            {% endif %}
-                                        </td>
-                                        
-                                        <td>{{ seq.Project | default_if_none:"" }}</td>
-
-                                        <td>{{ delivery.Target | default_if_none:"" }}</td>
-                                        <td>{{ delivery.Seq_type | default_if_none:"" }}</td>
-                                        <td>
-                                            <div class="delivery-container" style="justify-content: flex-end;" >
-                                                {% if delivery.Seq_type == 'AS' and selected_seq_type == "SS" %}
-                                                    {% with delivery.delivery5_colored as delivery_colored %}
-                                                    {% include "char_block_AS.html" %}
-                                                    {% endwith %}
-                                                {% elif delivery.Seq_type == 'AS' and selected_seq_type == "AS" %}
-                                                    {% with delivery.delivery3_colored as delivery_colored %}
-                                                    {% include "char_block_AS.html" %}
-                                                    {% endwith %}
-                                                {% elif  delivery.Seq_type == 'SS' and selected_seq_type == "AS" %}
-                                                    {% with delivery.delivery5_colored as delivery_colored %}
-                                                    {% include "char_block_SS.html" %}
-                                                    {% endwith %}
-                                                {% elif  delivery.Seq_type == 'SS' and selected_seq_type == "SS" %}
-                                                    {% with delivery.delivery3_colored as delivery_colored %}
-                                                    {% include "char_block_SS.html" %}
-                                                    {% endwith %}
-                                                {% endif %}
-                                            </div>
-                                        </td>
-                           <!--            <td>{{ seq.seq | default_if_none:"" }}</td> -->
-                                        <td>
-                                            <div data-modify-seq="{% if selected_seq_type == delivery.Seq_type %}
-                                                                {{ seq.seq|join:''|slice:'::-1' }}
-                                                            {% else %}
-                                                                {{ seq.seq|join:'' }}
-                                                            {% endif %}"
-                                            style="display: flex; justify-content: {% if selected_seq_type == 'SS' %}flex-start{% elif selected_seq_type == 'AS' %}flex-end{% else %}center{% endif %};">
-                                                    {% for seq_item in seq.modify_seq_colored %}
-                                                            <div style="display: flex; flex-direction: column; align-items: center;">
-
-                                                                {% if delivery.Seq_type == "SS" %}
-                                                                    <!-- SS: count 在上 -->
-                                                                    <span class="seq-count" style="width: auto;">
-                                                                        {% if seq_item.count %} {{ seq_item.count }} {% else %} &nbsp; {% endif %}
-                                                                    </span>
-                                                                {% endif %}
-                                                                {% if seq_item.is_combo %}<span class="seq-delivery-label" style="background-color:{{ seq_item.delivery_color }};">{{ seq_item.delivery_label }}</span>{% else %}<span class="seq-delivery-placeholder">&nbsp;</span>{% endif %}
-
-                                                                <!-- 字符 span，始终居中 -->
-                                                                <span class="seq-container {% if seq_item.char == 's' or seq_item.char == 'o' %}seq-narrow{% else %}seq-wide{% endif %}"
-                                                                    style="background-color: 
-                                                                        {% if seq_item.type == 'normal' %} rgb(189, 199, 248);
-                                                                        {% elif seq_item.type == 'f' %} rgb(22, 245, 22);
-                                                                        {% elif seq_item.type == 'm' %} rgb(68, 68, 68); color: white;
-                                                                        {% elif seq_item.type == 'd' %} rgb(212, 93, 245);
-                                                                        {% elif seq_item.type == 's' %} rgb(253, 246, 61);
-                                                                        {% elif seq_item.type == 'o' %} rgb(198, 196, 198);
-                                                                        {% elif seq_item.type == 'ss' %} rgb(212, 93, 245);
-                                                                        {% elif seq_item.type == 'moe' %} rgb(212, 93, 245);
-                                                                        {% elif seq_item.type == 'OCF3' %} rgb(212, 93, 245);
-                                                                        {% elif seq_item.type == 'GNA' %} rgb(212, 93, 245);
-                                                                        {% elif seq_item.type == 'TNA' %}rgb(245, 86, 86); color: white;
-                                                                        {% elif seq_item.type == 'I' %} rgb(212, 93, 245);
-                                                                        {% elif seq_item.type == 'others' %} rgba(112, 203, 248, 1);
-                                                                        {% comment %} {% elif seq_item.type == 'invab' %} rgb(178, 136, 252); {% endcomment %}
-                                                                        {% elif seq_item.type == 'unknown' %} rgb(163, 163, 163);
-                                                                        {% endif %};"
-                                                                >
-                                                                {{ seq_item.char }}
-                                                                </span>
-
-                                                                {% if  delivery.Seq_type == "AS" %}
-                                                                    <!-- AS: count 在下 -->
-                                                                    <span class="seq-count" style="width: auto;">
-                                                                        {% if seq_item.count %} {{ seq_item.count }} {% else %} &nbsp; {% endif %}
-                                                                    </span>
-                                                                {% endif %}
-
-                                                            </div>
-                                                        {% endfor %}
-
-                                                </div>
-                                        </td>
-                            
-                                        <td>
-                                            <div class="delivery-container"  style="justify-content: flex-start;" >
-                                                {% if delivery.Seq_type == 'AS' and selected_seq_type == "SS" %}
-                                                    {% with delivery.delivery3_colored as delivery_colored %}
-                                                    {% include "char_block_AS.html" %}
-                                                    {% endwith %}
-                                                {% elif delivery.Seq_type == 'AS' and selected_seq_type == "AS" %}
-                                                    {% with delivery.delivery5_colored as delivery_colored %}
-                                                    {% include "char_block_AS.html" %}
-                                                    {% endwith %}
-                                                {% elif  delivery.Seq_type == 'SS' and selected_seq_type == "AS" %}
-                                                    {% with delivery.delivery3_colored as delivery_colored %}
-                                                    {% include "char_block_SS.html" %}
-                                                    {% endwith %}
-                                                {% elif  delivery.Seq_type == 'SS' and selected_seq_type == "SS" %}
-                                                    {% with delivery.delivery5_colored as delivery_colored %}
-                                                    {% include "char_block_SS.html" %}
-                                                    {% endwith %}
-                                                {% endif %}
-                                            </div>
-                                        </td>
-                                        <td>{{ seq.Transcript | default_if_none:"" }}</td>
-                                        <td>{{ seq.Pos | default_if_none:"" }}</td>
-                                        <td>{{ delivery.Strand_MWs | default_if_none:"" }}</td>
-                                        <td>{{ delivery.Parents | default_if_none:"" }}</td>
-                                        <td>{{ seq.Remark | default_if_none:"" }}</td>
-                                        <td>{{ seq.formatted_update_time | default_if_none:"" }}</td>
-                                        
-                                        <td class="text-center">
-                                            <a class="btn btn-info btn-sm" href="/seq_list/"><i class="fa fa-pencil fa-fw" aria-hidden="true"></i>返回</a>
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
+<!-- 列显示控制面板 -->
+<div id="columnFilterPanel" style="display:none;background:#f8fafc;border:1px solid #e8edf4;border-radius:8px;padding:12px 16px;margin-bottom:10px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+    <span style="font-size:13px;font-weight:600;color:#0f172a;">选择显示/导出字段</span>
+    <button type="button" class="ds-btn ds-btn-ghost" id="closeColumnPanel" style="font-size:12px;padding:2px 8px;">收起</button>
+  </div>
+  <div id="column-controls" style="display:flex;flex-wrap:wrap;gap:8px;font-size:12.5px;">
+    <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="toggle-vis export-field" data-column="1" value="duplex_id" checked> Strand ID</label>
+    <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="toggle-vis export-field" data-column="2" value="project" checked> Project</label>
+    <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="toggle-vis export-field" data-column="3" value="Target" checked> Target</label>
+    <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="toggle-vis export-field" data-column="4" value="seq_type" checked> Sequence Type</label>
+    <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="toggle-vis export-field" data-column="5" value="delivery5" checked> Ligand 1</label>
+    <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="toggle-vis export-field" data-column="6" value="modify_seq" checked> Sequences (AS 5'-3')</label>
+    <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="toggle-vis export-field" data-column="7" value="delivery3" checked> Ligand 2</label>
+    <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="toggle-vis export-field" data-column="8" value="Transcript" checked> Transcript</label>
+    <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="toggle-vis export-field" data-column="9" value="Pos" checked> Position</label>
+    <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="toggle-vis export-field" data-column="10" value="Strand_MWs" checked> Strand_MWs</label>
+    <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="toggle-vis export-field" data-column="11" value="parents" checked> Parents</label>
+    <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="toggle-vis export-field" data-column="12" value="remarks" checked> Remarks</label>
+    <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="toggle-vis export-field" data-column="13" value="created_at" checked> Update Time</label>
+    <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" class="toggle-vis export-field" data-column="14" value="操作" checked> 操作</label>
+  </div>
 </div>
 
-<footer>
-    <div class="container">
-        <div class="copy text-center">
-            Copyright BTYY-OPRA 2025 <a href='#'>Website</a>
-        </div>
-    </div>
-</footer>
-
+<div class="ds-table-card">
+  <div class="ds-table-scroll">
+    <table id="example" class="ds-table">
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="select-all"></th>
+          <th>Strand ID</th>
+          <th>Project</th>
+          <th>Target</th>
+          <th>Sequence Type</th>
+          <th>Ligand 1</th>
+          <th>
+            Sequences<br>
+            <select id="seq_type_selector" style="width:auto;display:inline-block;margin-top:2px;min-width:100px;font-size:13px;border:1px solid #e2e8f0;border-radius:4px;padding:2px 4px;">
+              <option value="SS" {% if selected_seq_type == 'SS' %}selected{% endif %}>AS: 5'-3'; SS: 3'-5'</option>
+              <option value="AS" {% if selected_seq_type == 'AS' %}selected{% endif %}>SS: 5'-3'; AS: 3'-5'</option>
+            </select>
+          </th>
+          <th>Ligand 2</th>
+          <th>Transcript</th>
+          <th>Position</th>
+          <th>Strand_MWs</th>
+          <th>Parents</th>
+          <th>Remarks</th>
+          <th>Update Time</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for seq in sequence_list %}
+          {% for delivery in seq.deliveries %}
+          <tr {% if seq.rm_code == query_id %} data-query="true" {% endif %}>
+            <td><input type="checkbox" class="row-checkbox"></td>
+            <td style="white-space: nowrap;">
+              {% if seq.rm_code == query_id %}
+                <strong style="color: #dc2626;">{{ delivery.duplex_id|default_if_none:"" }}</strong>
+              {% else %}
+                <span>{{ delivery.duplex_id|default_if_none:"" }}</span>
+              {% endif %}
+            </td>
+            <td>{{ seq.Project|default_if_none:"" }}</td>
+            <td>{{ delivery.Target|default_if_none:"" }}</td>
+            <td>{{ delivery.Seq_type|default_if_none:"" }}</td>
+            <td>
+              <div class="delivery-container" style="justify-content: flex-end;">
+                {% if delivery.Seq_type == 'AS' and selected_seq_type == "SS" %}
+                  {% with delivery.delivery5_colored as delivery_colored %}{% include "char_block_AS.html" %}{% endwith %}
+                {% elif delivery.Seq_type == 'AS' and selected_seq_type == "AS" %}
+                  {% with delivery.delivery3_colored as delivery_colored %}{% include "char_block_AS.html" %}{% endwith %}
+                {% elif delivery.Seq_type == 'SS' and selected_seq_type == "AS" %}
+                  {% with delivery.delivery5_colored as delivery_colored %}{% include "char_block_SS.html" %}{% endwith %}
+                {% elif delivery.Seq_type == 'SS' and selected_seq_type == "SS" %}
+                  {% with delivery.delivery3_colored as delivery_colored %}{% include "char_block_SS.html" %}{% endwith %}
+                {% endif %}
+              </div>
+            </td>
+            <td>
+              <div data-modify-seq="{% if selected_seq_type == delivery.Seq_type %}{{ seq.seq|join:''|slice:'::-1' }}{% else %}{{ seq.seq|join:'' }}{% endif %}"
+                  style="display: flex; justify-content: {% if selected_seq_type == 'SS' %}flex-start{% elif selected_seq_type == 'AS' %}flex-end{% else %}center{% endif %};">
+                {% for seq_item in seq.modify_seq_colored %}
+                  <div style="display: flex; flex-direction: column; align-items: center;">
+                    {% if delivery.Seq_type == "SS" %}
+                      <span class="seq-count" style="width: auto;">{% if seq_item.count %} {{ seq_item.count }} {% else %} &nbsp; {% endif %}</span>
+                    {% endif %}
+                    {% if seq_item.is_combo %}<span class="seq-delivery-label" style="background-color:{{ seq_item.delivery_color }};">{{ seq_item.delivery_label }}</span>{% else %}<span class="seq-delivery-placeholder">&nbsp;</span>{% endif %}
+                    <span class="seq-container {% if seq_item.char == 's' or seq_item.char == 'o' %}seq-narrow{% else %}seq-wide{% endif %}"
+                        style="background-color:
+                            {% if seq_item.type == 'normal' %} rgb(189, 199, 248);
+                            {% elif seq_item.type == 'f' %} rgb(22, 245, 22);
+                            {% elif seq_item.type == 'm' %} rgb(68, 68, 68); color: white;
+                            {% elif seq_item.type == 'd' %} rgb(212, 93, 245);
+                            {% elif seq_item.type == 's' %} rgb(253, 246, 61);
+                            {% elif seq_item.type == 'o' %} rgb(198, 196, 198);
+                            {% elif seq_item.type == 'ss' %} rgb(212, 93, 245);
+                            {% elif seq_item.type == 'moe' %} rgb(212, 93, 245);
+                            {% elif seq_item.type == 'OCF3' %} rgb(212, 93, 245);
+                            {% elif seq_item.type == 'GNA' %} rgb(212, 93, 245);
+                            {% elif seq_item.type == 'TNA' %}rgb(245, 86, 86); color: white;
+                            {% elif seq_item.type == 'I' %} rgb(212, 93, 245);
+                            {% elif seq_item.type == 'others' %} rgba(112, 203, 248, 1);
+                            {% elif seq_item.type == 'unknown' %} rgb(163, 163, 163);
+                            {% endif %};">
+                    {{ seq_item.char }}
+                    </span>
+                    {% if delivery.Seq_type == "AS" %}
+                      <span class="seq-count" style="width: auto;">{% if seq_item.count %} {{ seq_item.count }} {% else %} &nbsp; {% endif %}</span>
+                    {% endif %}
+                  </div>
+                {% endfor %}
+              </div>
+            </td>
+            <td>
+              <div class="delivery-container" style="justify-content: flex-start;">
+                {% if delivery.Seq_type == 'AS' and selected_seq_type == "SS" %}
+                  {% with delivery.delivery3_colored as delivery_colored %}{% include "char_block_AS.html" %}{% endwith %}
+                {% elif delivery.Seq_type == 'AS' and selected_seq_type == "AS" %}
+                  {% with delivery.delivery5_colored as delivery_colored %}{% include "char_block_AS.html" %}{% endwith %}
+                {% elif delivery.Seq_type == 'SS' and selected_seq_type == "AS" %}
+                  {% with delivery.delivery3_colored as delivery_colored %}{% include "char_block_SS.html" %}{% endwith %}
+                {% elif delivery.Seq_type == 'SS' and selected_seq_type == "SS" %}
+                  {% with delivery.delivery5_colored as delivery_colored %}{% include "char_block_SS.html" %}{% endwith %}
+                {% endif %}
+              </div>
+            </td>
+            <td>{{ seq.Transcript|default_if_none:"" }}</td>
+            <td>{{ seq.Pos|default_if_none:"" }}</td>
+            <td>{{ delivery.Strand_MWs|default_if_none:"" }}</td>
+            <td>{{ delivery.Parents|default_if_none:"" }}</td>
+            <td>{{ seq.Remark|default_if_none:"" }}</td>
+            <td>{{ seq.formatted_update_time|default_if_none:"" }}</td>
+            <td class="text-center">
+              <a class="ds-act ds-act-edit" href="{% url 'seq_list' %}">返回</a>
+            </td>
+          </tr>
+          {% endfor %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
 <link href="/static/vendors/datatables/dataTables.bootstrap.css" rel="stylesheet" media="screen">
-<!-- 引入脚本 -->
-<script src="https://code.jquery.com/jquery.js"></script>
-<script src="https://code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
 <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/static/vendors/datatables/dataTables.bootstrap.js"></script>
-<script src="/static/js/custom.js"></script>
 <script src="/static/js/tables.js"></script>
 <script src="/static/js/forms.js"></script>
 <script src="/static/js/search.js"></script>
@@ -391,14 +176,22 @@
 <script>
 document.getElementById('seq_type_selector').addEventListener('change', function () {
     const selectedType = this.value;
-
-    // 构造新的 URL，保留其他参数
     const url = new URL(window.location.href);
     url.searchParams.set('sorted_seq_type', selectedType);
-
-    // 跳转到新 URL，触发后端视图
     window.location.href = url.toString();
 });
+
+(function() {
+    var toggleBtn = document.getElementById('toggleColumnPanel');
+    var panel = document.getElementById('columnFilterPanel');
+    var closeBtn = document.getElementById('closeColumnPanel');
+    if (toggleBtn && panel) {
+        toggleBtn.addEventListener('click', function() {
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        });
+    }
+    if (closeBtn) closeBtn.addEventListener('click', function() { panel.style.display = 'none'; });
+})();
 </script>
 <div id="msg-toast-container" style="position:fixed;top:20px;right:20px;z-index:9999;"></div>
 <script>
@@ -406,5 +199,4 @@ document.getElementById('seq_type_selector').addEventListener('change', function
 (function(){var l='{{ message.tags }}';if(l==='error')l='error';else if(l==='warning')l='warning';else if(l==='success')l='success';else l='info';if(typeof showToast==='function')showToast('{{ message|escapejs }}',l);})();
 {% endfor %}{% endif %}
 </script>
-</body>
-</html>
+{% endblock %}
