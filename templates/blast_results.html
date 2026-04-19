@@ -1,132 +1,123 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Blast — {{ seq_type }} 裸序列修饰列表</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <link href="/static/css/styles.css" rel="stylesheet">
-    <style>
-        body { padding: 20px; background: #f8f9fa; }
-        .blast-header {
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            padding: 16px 20px;
-            margin-bottom: 18px;
-        }
-        .blast-header h4 { margin: 0 0 6px 0; }
-        .naked-seq {
-            font-family: monospace;
-            font-size: 15px;
-            background: #f0f4ff;
-            padding: 4px 10px;
-            border-radius: 4px;
-            letter-spacing: 1px;
-        }
-        .seq-blocks { display: flex; flex-wrap: nowrap; align-items: flex-end; }
-        table { font-size: 13px; }
-        th { white-space: nowrap; }
-        .source-badge {
-            background: #ffc107;
-            color: #333;
-            padding: 2px 8px;
-            border-radius: 10px;
-            font-size: 11px;
-            margin-left: 8px;
-        }
-    </style>
-</head>
-<body>
-
-<div class="blast-header">
-    <h4>
-        Blast 结果 &nbsp;
-        <span class="label label-info">{{ seq_type }}</span>
-        <span style="margin-left:12px; font-size:13px; color:#666;">
-            来源：<strong>{{ source_duplex_id }}</strong>
-        </span>
-    </h4>
-    <div>
-        裸序列：<span class="naked-seq">{{ naked_seq }}</span>
-        &nbsp;&nbsp;
-        <span class="label label-default">共 {{ result_count }} 条修饰</span>
-        &nbsp;&nbsp;
-        <button onclick="window.close()" class="btn btn-danger btn-sm" style="margin-left:8px; font-weight:600;">✕ 关闭窗口</button>
-    </div>
+{% extends 'base.html' %}
+{% block page_title %} — Blast {{ seq_type }} 裸序列修饰列表{% endblock %}
+{% block topbar_content %}
+  <span class="ds-topbar-title">Blast 结果 — {{ seq_type }}</span>
+  <span class="ds-topbar-spacer"></span>
+  <button onclick="window.close()" class="ds-btn ds-btn-ghost" style="color:#dc2626;border-color:#fecaca;">✕ 关闭窗口</button>
+{% endblock %}
+{% block extra_styles %}
+<style>
+.blast-header-card {
+    background: #fff;
+    border: 1px solid #e8edf4;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.naked-seq {
+    font-family: monospace;
+    font-size: 14px;
+    background: #eff6ff;
+    padding: 3px 10px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+    color: #1d4ed8;
+}
+.source-badge {
+    background: #fbbf24;
+    color: #78350f;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    margin-left: 6px;
+    font-weight: 600;
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="blast-header-card">
+  <div>
+    <strong>Blast 结果</strong>
+    <span style="display:inline-block;background:#dbeafe;color:#1d4ed8;padding:1px 8px;border-radius:10px;font-size:12px;margin-left:8px;font-weight:600;">{{ seq_type }}</span>
+    <span style="margin-left:12px; font-size:13px; color:#64748b;">
+      来源：<strong>{{ source_duplex_id }}</strong>
+    </span>
+  </div>
+  <div>
+    裸序列：<span class="naked-seq">{{ naked_seq }}</span>
+    <span style="margin-left:12px;font-size:12.5px;color:#64748b;">共 {{ result_count }} 条修饰</span>
+  </div>
 </div>
 
 {% if results %}
-<div class="table-responsive">
-<table class="table table-bordered table-hover" style="background:#fff;">
-    <thead style="background:#f5f5f5;">
+<div class="ds-table-card">
+  <div class="ds-table-scroll">
+    <table class="ds-table">
+      <thead>
         <tr>
-            <th>Strand ID</th>
-            <th>Project</th>
-            <th>Target</th>
-            <th>Sequence ID</th>
-            <th style="text-align:right;">5' Ligand</th>
-            <th>Sequences</th>
-            <th>3' Ligand</th>
-            <th>Strand_MWs</th>
-            <th>Parents</th>
-            <th>Remarks</th>
+          <th>Strand ID</th>
+          <th>Project</th>
+          <th>Target</th>
+          <th>Sequence ID</th>
+          <th style="text-align:right;">5' Ligand</th>
+          <th>Sequences</th>
+          <th>3' Ligand</th>
+          <th>Strand_MWs</th>
+          <th>Parents</th>
+          <th>Remarks</th>
         </tr>
-    </thead>
-    <tbody>
+      </thead>
+      <tbody>
         {% for item in results %}
         <tr {% if item.deliveries.0.duplex_id == source_duplex_id %}style="background:#fffbea;"{% endif %}>
-            <td>
-                {{ item.deliveries.0.duplex_id|default_if_none:'' }}
-                {% if item.deliveries.0.duplex_id == source_duplex_id %}
-                    <span class="source-badge">来源</span>
-                {% endif %}
-            </td>
-            <td>{{ item.Project|default_if_none:'' }}</td>
-            <td>{{ item.deliveries.0.Target|default_if_none:'' }}</td>
-            <td>{{ item.deliveries.0.Seq_type|default_if_none:'' }}_{{ item.deliveries.0.delivery_id|default_if_none:'' }}</td>
-
-            <!-- 5' Ligand -->
-            <td>
-                <div class="delivery-container" style="justify-content: flex-end;">
-                    {% with item.deliveries.0.delivery5_colored as delivery_colored %}
-                        {% include "char_block_SS.html" %}
-                    {% endwith %}
-                </div>
-            </td>
-
-            <!-- 修饰序列色块 -->
-            <td>{% include "blast_seq_blocks.html" with seq_colored=item.modify_seq_colored %}</td>
-
-            <!-- 3' Ligand -->
-            <td>
-                <div class="delivery-container" style="justify-content: flex-start;">
-                    {% with item.deliveries.0.delivery3_colored as delivery_colored %}
-                        {% include "char_block_SS.html" %}
-                    {% endwith %}
-                </div>
-            </td>
-
-            <td>{{ item.deliveries.0.Strand_MWs|default_if_none:'' }}</td>
-            <td>{{ item.deliveries.0.Parents|default_if_none:'' }}</td>
-            <td>{{ item.Remark|linebreaksbr|default_if_none:'' }}</td>
+          <td>
+            {{ item.deliveries.0.duplex_id|default_if_none:'' }}
+            {% if item.deliveries.0.duplex_id == source_duplex_id %}
+              <span class="source-badge">来源</span>
+            {% endif %}
+          </td>
+          <td>{{ item.Project|default_if_none:'' }}</td>
+          <td>{{ item.deliveries.0.Target|default_if_none:'' }}</td>
+          <td>{{ item.deliveries.0.Seq_type|default_if_none:'' }}_{{ item.deliveries.0.delivery_id|default_if_none:'' }}</td>
+          <td>
+            <div class="delivery-container" style="justify-content: flex-end;">
+              {% with item.deliveries.0.delivery5_colored as delivery_colored %}
+                {% include "char_block_SS.html" %}
+              {% endwith %}
+            </div>
+          </td>
+          <td>{% include "blast_seq_blocks.html" with seq_colored=item.modify_seq_colored %}</td>
+          <td>
+            <div class="delivery-container" style="justify-content: flex-start;">
+              {% with item.deliveries.0.delivery3_colored as delivery_colored %}
+                {% include "char_block_SS.html" %}
+              {% endwith %}
+            </div>
+          </td>
+          <td>{{ item.deliveries.0.Strand_MWs|default_if_none:'' }}</td>
+          <td>{{ item.deliveries.0.Parents|default_if_none:'' }}</td>
+          <td>{{ item.Remark|linebreaksbr|default_if_none:'' }}</td>
         </tr>
         {% endfor %}
-    </tbody>
-</table>
+      </tbody>
+    </table>
+  </div>
 </div>
 {% else %}
-<div class="alert alert-warning">未找到相同裸序列的其他修饰版本。</div>
+<div style="padding:32px;text-align:center;color:#94a3b8;font-size:14px;background:#fff;border:1px solid #e8edf4;border-radius:8px;">
+  未找到相同裸序列的其他修饰版本。
+</div>
 {% endif %}
-
-<script src="https://code.jquery.com/jquery.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock %}
+{% block extra_scripts %}
 <div id="msg-toast-container" style="position:fixed;top:20px;right:20px;z-index:9999;"></div>
 <script>
 {% if messages %}{% for message in messages %}
 (function(){var l='{{ message.tags }}';if(l==='error')l='error';else if(l==='warning')l='warning';else if(l==='success')l='success';else l='info';if(typeof showToast==='function')showToast('{{ message|escapejs }}',l);})();
 {% endfor %}{% endif %}
 </script>
-</body>
-</html>
+{% endblock %}
