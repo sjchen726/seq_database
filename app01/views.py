@@ -2122,7 +2122,10 @@ def cor_seq(request):
 @login_required
 def reg_seq_list(request):
     q = request.GET.get('q', '').strip()
-    page_size = int(request.GET.get('page_size', 20))
+    try:
+        page_size = int(request.GET.get('page_size', 20))
+    except (ValueError, TypeError):
+        page_size = 20
 
     sequences = Sequence.objects.exclude(seq_type='duplex').prefetch_related('target_info')
     if q:
