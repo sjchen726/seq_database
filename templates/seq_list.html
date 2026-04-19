@@ -23,10 +23,7 @@
   <a class="ds-btn ds-btn-green" href="{% url 'multi_blast' %}">⌗ 多序列比对</a>
 {% endblock %}
 
-{% block extra_head %}
-<link href="/static/vendors/datatables/dataTables.bootstrap.css" rel="stylesheet" media="screen">
-<link href="/static/css/styles.css" rel="stylesheet">
-{% endblock %}
+{% block extra_head %}{% endblock %}
 
 {% block content %}
 
@@ -177,7 +174,7 @@
 <!-- Table -->
 <div class="ds-table-card">
   <div class="ds-table-scroll">
-    <table id="example" class="table table-container table-bordered" style="width:100%">
+    <table id="example" class="ds-table" style="width:100%">
       <thead>
         <tr>
           <th><input type="checkbox" id="select-all"></th>
