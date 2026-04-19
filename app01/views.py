@@ -12,6 +12,7 @@ import pandas as pd
 from django.contrib import messages
 from datetime import datetime
 from django.db.models import Q
+from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 import os, csv
 from django.utils.timezone import now
@@ -2336,12 +2337,18 @@ def download_selected(request):
 
 @login_required
 def module_list(request):
+    page_size = int(request.GET.get('page_size', 20))
+    page = int(request.GET.get('page', 1))
 
-    # 获取所有 DeliveryModule 的 keyword 和 type_code
-    module_list = DeliveryModule.objects.all().values('id', 'keyword', 'type_code', 'Strand_MWs')
-    
-    # 渲染模板并传递数据
-    return render(request, 'module_list.html', {'module_list': module_list})
+    queryset = DeliveryModule.objects.all().values('id', 'keyword', 'type_code', 'Strand_MWs')
+    paginator = Paginator(queryset, page_size)
+    page_obj = paginator.get_page(page)
+
+    return render(request, 'module_list.html', {
+        'module_list': page_obj.object_list,
+        'page_obj': page_obj,
+        'page_size': page_size,
+    })
 
 
 @login_required
