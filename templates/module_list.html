@@ -11,40 +11,34 @@
 {% endblock %}
 {% block content %}
 <div class="ds-table-card">
-  <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border-bottom:2px solid #e8edf4;">
-    <span style="font-size:12px;color:#64748b;">✅ 共 {{ page_obj.paginator.count }} 条</span>
-    <div style="width:1px;height:16px;background:#d1d5db;"></div>
-    <span style="font-size:12px;color:#64748b;">💡 每个 Type Code 对应特定颜色</span>
+  <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;background:#fff;border-bottom:1.5px solid #e8edf4;">
+    <span style="font-size:11.5px;color:#64748b;">✅ 共 {{ page_obj.paginator.count }} 条</span>
+    <div style="width:1px;height:14px;background:#d1d5db;"></div>
+    <span style="font-size:11.5px;color:#64748b;">💡 每个 Type Code 对应特定颜色</span>
   </div>
   <div class="ds-table-scroll">
-    <table style="border-collapse:collapse;width:100%;border-spacing:0;">
+    <table class="ds-table">
       <thead>
         <tr>
-          <th style="min-width:130px;text-align:center;padding:11px 12px;font-size:13px;font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;background:#f8fafc;border-bottom:2px solid #c1c9d4;border-right:1px solid #e8edf4;">Keyword <span style="display:inline-flex;flex-direction:column;gap:2px;margin-left:6px;opacity:0.3;vertical-align:middle;"><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:4px solid currentColor;display:block;"></span><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid currentColor;display:block;"></span></span></th>
-          <th style="text-align:center;padding:11px 12px;font-size:13px;font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;background:#f8fafc;border-bottom:2px solid #c1c9d4;border-right:1px solid #e8edf4;">Type Code <span style="display:inline-flex;flex-direction:column;gap:2px;margin-left:6px;opacity:0.3;vertical-align:middle;"><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:4px solid currentColor;display:block;"></span><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid currentColor;display:block;"></span></span></th>
-          <th style="min-width:80px;text-align:center;padding:11px 12px;font-size:13px;font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;background:#f8fafc;border-bottom:2px solid #c1c9d4;border-right:1px solid #e8edf4;">Strand_MWs <span style="display:inline-flex;flex-direction:column;gap:2px;margin-left:6px;opacity:0.3;vertical-align:middle;"><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:4px solid currentColor;display:block;"></span><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid currentColor;display:block;"></span></span></th>
-          <th style="text-align:center;padding:11px 12px;font-size:13px;font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;background:#f8fafc;border-bottom:2px solid #c1c9d4;">操作</th>
+          <th style="min-width:130px;">Keyword</th>
+          <th>Type Code</th>
+          <th style="min-width:80px;">Strand_MWs</th>
+          <th style="cursor:default;">操作</th>
         </tr>
       </thead>
       <tbody>
         {% for module in module_list %}
         <tr>
-          <td style="text-align:center;padding:10px 12px;border-bottom:1.5px solid #d1d5db;border-right:1px solid #e8edf4;">
-            <code style="background:#f1f5f9;color:#334155;padding:3px 8px;border-radius:4px;font-size:12px;font-family:'DM Mono',monospace;white-space:nowrap;">{{ module.keyword }}</code>
-          </td>
-          <td style="text-align:center;padding:10px 12px;border-bottom:1.5px solid #d1d5db;border-right:1px solid #e8edf4;">
-            <span class="type-code-pill" data-type="{{ module.type_code }}" style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">{{ module.type_code }}</span>
-          </td>
-          <td style="text-align:center;padding:10px 12px;border-bottom:1.5px solid #d1d5db;border-right:1px solid #e8edf4;color:#94a3b8;font-family:'DM Mono',monospace;font-size:12px;">
-            {{ module.Strand_MWs|default_if_none:'—' }}
-          </td>
-          <td style="text-align:center;padding:10px 12px;border-bottom:1.5px solid #d1d5db;">
-            <div style="display:flex;gap:4px;justify-content:center;">
-              <a href="{% url 'edit_module' %}?id={{ module.id }}" style="padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;">编辑</a>
+          <td><code style="background:#f1f5f9;color:#334155;padding:2px 7px;border-radius:4px;font-size:11px;font-family:'DM Mono',monospace;white-space:nowrap;">{{ module.keyword }}</code></td>
+          <td><span class="type-code-pill" data-type="{{ module.type_code }}" style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;">{{ module.type_code }}</span></td>
+          <td class="cell-mono-dim">{{ module.Strand_MWs|default_if_none:'—' }}</td>
+          <td>
+            <div class="ds-actions">
+              <a href="{% url 'edit_module' %}?id={{ module.id }}" class="ds-act ds-act-edit">编辑</a>
               <form method="POST" action="{% url 'delete_module' %}" style="display:inline;" onsubmit="return confirm('确定删除该模块？');">
                 {% csrf_token %}
                 <input type="hidden" name="id" value="{{ module.id }}">
-                <button type="submit" style="padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;border:1px solid #fca5a5;color:#ef4444;background:#fff;cursor:pointer;display:inline-flex;align-items:center;">删除</button>
+                <button type="submit" class="ds-act" style="border-color:#fca5a5;color:#ef4444;background:#fff;">删除</button>
               </form>
             </div>
           </td>
@@ -56,29 +50,30 @@
     </table>
   </div>
   {% if page_obj.paginator.count > page_size %}
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#fff;border-top:2px solid #e8edf4;">
-    <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#475569;">
+  <div class="ds-table-footer">
+    <div class="ds-pagesize-wrap">
       每页显示
-      <select id="page-size-select" onchange="window.location.href='?page=1&page_size='+this.value" style="appearance:none;background:#f8fafc url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2394a3b8'/%3E%3C/svg%3E&quot;) no-repeat right 8px center;border:1px solid #e2e8f0;border-radius:6px;padding:4px 24px 4px 9px;font-size:12px;font-family:'DM Mono',monospace;color:#334155;cursor:pointer;outline:none;">
+      <select class="ds-pagesize-select" onchange="window.location.href='?page=1&page_size='+this.value">
         <option value="10" {% if page_size == 10 %}selected{% endif %}>10</option>
         <option value="20" {% if page_size == 20 %}selected{% endif %}>20</option>
         <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
       </select>
-      条，共 {{ page_obj.paginator.count }} 条
+      条
     </div>
-    <div style="display:flex;align-items:center;gap:4px;">
+    <span class="ds-record-info">共 {{ page_obj.paginator.count }} 条</span>
+    <div class="ds-pagination">
       {% if page_obj.has_previous %}
-      <a href="?page={{ page_obj.previous_page_number }}&page_size={{ page_size }}" style="min-width:30px;height:30px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;color:#334155;font-size:16px;font-weight:300;letter-spacing:-2px;display:flex;align-items:center;justify-content:center;text-decoration:none;">‹</a>
+      <a href="?page={{ page_obj.previous_page_number }}&page_size={{ page_size }}" class="ds-pg">‹</a>
       {% endif %}
       {% for num in page_obj.paginator.page_range %}
         {% if page_obj.number == num %}
-        <a style="min-width:30px;height:30px;border-radius:6px;border:1px solid transparent;background:linear-gradient(135deg,#38bdf8,#6366f1);color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(99,102,241,0.3);">{{ num }}</a>
+        <span class="ds-pg active">{{ num }}</span>
         {% else %}
-        <a href="?page={{ num }}&page_size={{ page_size }}" style="min-width:30px;height:30px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;color:#334155;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;text-decoration:none;">{{ num }}</a>
+        <a href="?page={{ num }}&page_size={{ page_size }}" class="ds-pg">{{ num }}</a>
         {% endif %}
       {% endfor %}
       {% if page_obj.has_next %}
-      <a href="?page={{ page_obj.next_page_number }}&page_size={{ page_size }}" style="min-width:30px;height:30px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;color:#334155;font-size:16px;font-weight:300;letter-spacing:-2px;display:flex;align-items:center;justify-content:center;text-decoration:none;">›</a>
+      <a href="?page={{ page_obj.next_page_number }}&page_size={{ page_size }}" class="ds-pg">›</a>
       {% endif %}
     </div>
   </div>
@@ -89,23 +84,14 @@
 <script>
 (function() {
   var palette = [
-    ['#dbeafe', '#1d4ed8'],
-    ['#ede9fe', '#6d28d9'],
-    ['#fef3c7', '#92400e'],
-    ['#dcfce7', '#15803d'],
-    ['#fce7f3', '#9d174d'],
-    ['#e0f2fe', '#0369a1'],
-    ['#ffedd5', '#c2410c'],
-    ['#f3f4f6', '#374151']
+    ['#dbeafe','#1d4ed8'],['#ede9fe','#6d28d9'],['#fef3c7','#92400e'],
+    ['#dcfce7','#15803d'],['#fce7f3','#9d174d'],['#e0f2fe','#0369a1'],
+    ['#ffedd5','#c2410c'],['#f3f4f6','#374151']
   ];
-  var colorMap = {};
-  var idx = 0;
+  var colorMap = {}, idx = 0;
   document.querySelectorAll('.type-code-pill').forEach(function(el) {
     var code = el.getAttribute('data-type');
-    if (!colorMap[code]) {
-      colorMap[code] = palette[idx % palette.length];
-      idx++;
-    }
+    if (!colorMap[code]) { colorMap[code] = palette[idx % palette.length]; idx++; }
     el.style.background = colorMap[code][0];
     el.style.color = colorMap[code][1];
   });
