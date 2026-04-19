@@ -2,7 +2,18 @@
 {% block page_title %} — 注册序列列表{% endblock %}
 {% block topbar_content %}
   <span class="ds-topbar-title">注册序列列表</span>
+  {% if page_obj %}
+  <span class="ds-count-badge">{{ page_obj.paginator.count }}</span>
+  {% endif %}
   <span class="ds-topbar-spacer"></span>
+  <form method="get" action="" style="display:contents;">
+    <div class="ds-search-wrap" style="width:180px;">
+      <i class="bi bi-search ds-search-icon"></i>
+      <input type="text" name="q" class="ds-search-input" placeholder="搜索 Strand ID…" value="{{ q }}">
+    </div>
+    {% if q %}<button type="submit" class="ds-btn ds-btn-ghost" style="height:34px;padding:0 10px;font-size:11.5px;">搜索</button>{% endif %}
+    {% if q %}<a href="{% url 'reg_seq_list' %}" class="ds-btn ds-btn-ghost" style="height:34px;padding:0 10px;font-size:11.5px;">✕ 清除</a>{% endif %}
+  </form>
   <a href="{% url 'register_seq' %}" class="ds-btn ds-btn-primary">&#8593; 注册新序列</a>
 {% endblock %}
 {% block content %}
@@ -48,6 +59,37 @@
     </table>
   </div>
 </div>
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="ds-table-footer">
+    <div class="ds-pagesize-wrap">
+      每页显示
+      <select class="ds-pagesize-select" onchange="window.location.href='?page=1&page_size='+this.value+'{% if q %}&q={{ q }}{% endif %}'">
+        <option value="20" {% if page_size == 20 %}selected{% endif %}>20</option>
+        <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
+        <option value="100" {% if page_size == 100 %}selected{% endif %}>100</option>
+      </select>
+      条
+    </div>
+    <span class="ds-record-info">共 {{ page_obj.paginator.count }} 条</span>
+    <div class="ds-pagination">
+      {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}&page_size={{ page_size }}{% if q %}&q={{ q }}{% endif %}" class="ds-pg">‹</a>
+      {% endif %}
+      {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+        <span class="ds-pg active">{{ num }}</span>
+        {% elif num == 1 or num == page_obj.paginator.num_pages or num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+        <a href="?page={{ num }}&page_size={{ page_size }}{% if q %}&q={{ q }}{% endif %}" class="ds-pg">{{ num }}</a>
+        {% elif num == page_obj.number|add:"-3" or num == page_obj.number|add:"3" %}
+        <span class="ds-pg" style="border:none;cursor:default;">…</span>
+        {% endif %}
+      {% endfor %}
+      {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}&page_size={{ page_size }}{% if q %}&q={{ q }}{% endif %}" class="ds-pg">›</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
 {% endblock %}
 {% block extra_scripts %}
 <link href="/static/vendors/datatables/dataTables.bootstrap.css" rel="stylesheet" media="screen">
