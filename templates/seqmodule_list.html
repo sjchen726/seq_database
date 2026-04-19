@@ -2,69 +2,84 @@
 {% block page_title %} — 序列修饰模块{% endblock %}
 {% block topbar_content %}
   <span class="ds-topbar-title">序列修饰模块</span>
-  {% if seqmodule_list %}
-  <span class="ds-count-badge">{{ seqmodule_list|length }}</span>
+  {% if page_obj %}
+  <span class="ds-count-badge">{{ page_obj.paginator.count }}</span>
   {% endif %}
   <span class="ds-topbar-spacer"></span>
   <a href="{% url 'upload_seqmodules' %}" class="ds-btn ds-btn-ghost">&#8593; 批量上传</a>
   <a href="{% url 'edit_seqmodule' %}" class="ds-btn ds-btn-primary">＋ 新增模块</a>
 {% endblock %}
 {% block content %}
-<div class="ds-table-card" style="flex:none;max-width:860px;">
-  <div class="ds-table-scroll">
-    <table class="ds-table">
-      <thead>
-        <tr>
-          <th>Keyword</th>
-          <th>Base Char</th>
-          <th>Linker Connector</th>
-          <th>Description</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for module in seqmodule_list %}
-        <tr>
-          <td>
-            <code style="background:#1e293b;color:#e2e8f0;padding:2px 8px;border-radius:4px;font-size:11px;font-family:'DM Mono',monospace;">{{ module.keyword }}</code>
-          </td>
-          <td>
-            {% if module.base_char == 'A' %}
-              <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:500;background:#dbeafe;color:#1d4ed8;">A</span>
-            {% elif module.base_char == 'U' %}
-              <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:500;background:#ffedd5;color:#c2410c;">U</span>
-            {% elif module.base_char == 'G' %}
-              <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:500;background:#dcfce7;color:#15803d;">G</span>
-            {% elif module.base_char == 'C' %}
-              <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:500;background:#fce7f3;color:#9d174d;">C</span>
-            {% elif module.base_char %}
-              <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:500;background:#f1f5f9;color:#475569;">{{ module.base_char }}</span>
-            {% else %}
-              <span style="color:#94a3b8;">—</span>
-            {% endif %}
-          </td>
-          <td>
-            <code style="background:#f1f5f9;color:#334155;padding:1px 6px;border-radius:3px;font-family:'DM Mono',monospace;font-size:10px;">{{ module.linker_connector|default:'—' }}</code>
-          </td>
-          <td style="color:#64748b;font-size:13px;">
-            {{ module.description|default:'—' }}
-          </td>
-          <td>
-            <div class="ds-actions">
-              <a href="{% url 'edit_seqmodule' %}?id={{ module.id }}" class="ds-btn ds-btn-ghost" style="padding:3px 10px;font-size:12px;color:#2563eb;">编辑</a>
-              <form method="POST" action="{% url 'delete_seqmodule' %}" style="display:inline;" onsubmit="return confirm('确定删除该修饰模块？');">
-                {% csrf_token %}
-                <input type="hidden" name="id" value="{{ module.id }}">
-                <button type="submit" class="ds-btn" style="padding:3px 10px;font-size:12px;color:#ef4444;border:1px solid #fca5a5;background:none;cursor:pointer;border-radius:6px;">删除</button>
-              </form>
-            </div>
-          </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:32px;">暂无修饰模块数据</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+<div class="ds-table-scroll">
+  <table class="ds-table">
+    <thead>
+      <tr>
+        <th style="min-width:120px;">Keyword</th>
+        <th>Base Char</th>
+        <th style="min-width:60px;">Linker Connector</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for module in seqmodule_list %}
+      <tr>
+        <td>
+          <code style="background:#f1f5f9;color:#334155;padding:2px 8px;border-radius:4px;font-size:11px;font-family:'DM Mono',monospace;white-space:nowrap;">{{ module.keyword }}</code>
+        </td>
+        <td>
+          {% if module.base_char == 'A' %}
+            <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:500;background:#dbeafe;color:#1d4ed8;">A</span>
+          {% elif module.base_char == 'U' %}
+            <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:500;background:#ffedd5;color:#c2410c;">U</span>
+          {% elif module.base_char == 'G' %}
+            <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:500;background:#dcfce7;color:#15803d;">G</span>
+          {% elif module.base_char == 'C' %}
+            <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:500;background:#fce7f3;color:#9d174d;">C</span>
+          {% elif module.base_char %}
+            <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:500;background:#f1f5f9;color:#475569;">{{ module.base_char }}</span>
+          {% else %}
+            <span style="color:#94a3b8;">—</span>
+          {% endif %}
+        </td>
+        <td>
+          <code style="background:#f1f5f9;color:#334155;padding:1px 6px;border-radius:3px;font-family:'DM Mono',monospace;font-size:10px;white-space:nowrap;">{{ module.linker_connector|default:'—' }}</code>
+        </td>
+        <td>
+          <div class="ds-actions">
+            <a href="{% url 'edit_seqmodule' %}?id={{ module.id }}" class="ds-btn ds-btn-ghost" style="padding:3px 10px;font-size:12px;">编辑</a>
+            <form method="POST" action="{% url 'delete_seqmodule' %}" style="display:inline;" onsubmit="return confirm('确定删除该修饰模块？');">
+              {% csrf_token %}
+              <input type="hidden" name="id" value="{{ module.id }}">
+              <button type="submit" class="ds-btn" style="padding:3px 10px;font-size:12px;color:#ef4444;border:1px solid #fca5a5;background:none;cursor:pointer;border-radius:6px;">删除</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:32px;">暂无修饰模块数据</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if page_obj.paginator.count > page_size %}
+<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#fff;border:1px solid #e8edf4;border-top:none;border-radius:0 0 10px 10px;">
+  <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#64748b;">
+    每页显示
+    <select id="page-size-select" onchange="window.location.href='?page=1&page_size='+this.value" style="appearance:none;background:#f8fafc url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2394a3b8'/%3E%3C/svg%3E&quot;) no-repeat right 8px center;border:1px solid #e2e8f0;border-radius:6px;padding:4px 24px 4px 9px;font-size:12px;font-family:'DM Mono',monospace;color:#334155;cursor:pointer;outline:none;">
+      <option value="10" {% if page_size == 10 %}selected{% endif %}>10</option>
+      <option value="20" {% if page_size == 20 %}selected{% endif %}>20</option>
+      <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
+    </select>
+    条，共 {{ page_obj.paginator.count }} 条
+  </div>
+  <div style="display:flex;gap:4px;">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}&page_size={{ page_size }}" class="ds-btn ds-btn-ghost" style="padding:4px 10px;font-size:12px;">‹ 上一页</a>
+    {% endif %}
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}&page_size={{ page_size }}" class="ds-btn ds-btn-ghost" style="padding:4px 10px;font-size:12px;">下一页 ›</a>
+    {% endif %}
   </div>
 </div>
+{% endif %}
 {% endblock %}
