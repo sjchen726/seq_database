@@ -417,6 +417,20 @@
       </tbody>
     </table>
   </div>
+  <div class="ds-table-footer" id="dt-custom-footer" style="display:none;">
+    <div class="ds-pagesize-wrap">
+      每页显示
+      <select class="ds-pagesize-select" id="dt-pagesize">
+        <option value="5">5</option>
+        <option value="10">10</option>
+        <option value="20" selected>20</option>
+        <option value="50">50</option>
+      </select>
+      条
+    </div>
+    <span class="ds-record-info" id="dt-info"></span>
+    <div class="ds-pagination" id="dt-pagination"></div>
+  </div>
 </div>
 
 {% include 'clone_modal.html' %}
@@ -528,6 +542,55 @@ document.getElementById('clearFilters').addEventListener('click', function() {
             item.remove();
         }
     });
+});
+</script>
+
+<script>
+$(document).ready(function() {
+    var footer = document.getElementById('dt-custom-footer');
+    var infoEl = document.getElementById('dt-info');
+    var pgEl = document.getElementById('dt-pagination');
+    var sizeEl = document.getElementById('dt-pagesize');
+
+    function buildFooter() {
+        var info = window.table.page.info();
+        infoEl.textContent = '共 ' + info.recordsDisplay + ' 条';
+
+        var total = info.pages;
+        var cur = info.page;
+        pgEl.innerHTML = '';
+        footer.style.display = total > 0 ? '' : 'none';
+        if (total <= 1) return;
+
+        function pgBtn(text, target, active) {
+            var el;
+            if (active) {
+                el = document.createElement('span');
+                el.className = 'ds-pg active';
+            } else {
+                el = document.createElement('a');
+                el.className = 'ds-pg';
+                el.href = '#';
+                el.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    window.table.page(target).draw(false);
+                });
+            }
+            el.textContent = text;
+            return el;
+        }
+
+        if (cur > 0) pgEl.appendChild(pgBtn('‹', cur - 1, false));
+        for (var i = 0; i < total; i++) pgEl.appendChild(pgBtn(i + 1, i, i === cur));
+        if (cur < total - 1) pgEl.appendChild(pgBtn('›', cur + 1, false));
+    }
+
+    sizeEl.addEventListener('change', function() {
+        window.table.page.len(parseInt(this.value)).draw();
+    });
+
+    window.table.on('draw', buildFooter);
+    buildFooter();
 });
 </script>
 {% endblock %}
