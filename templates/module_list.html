@@ -17,28 +17,28 @@
     <span style="font-size:12px;color:#64748b;">💡 每个 Type Code 对应特定颜色</span>
   </div>
   <div class="ds-table-scroll">
-    <table class="ds-table">
+    <table style="border-collapse:collapse;width:100%;border-spacing:0;">
       <thead>
         <tr>
-          <th style="min-width:130px;">Keyword <span style="display:inline-flex;flex-direction:column;gap:2px;margin-left:6px;opacity:0.3;vertical-align:middle;"><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:4px solid currentColor;display:block;"></span><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid currentColor;display:block;"></span></span></th>
-          <th>Type Code <span style="display:inline-flex;flex-direction:column;gap:2px;margin-left:6px;opacity:0.3;vertical-align:middle;"><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:4px solid currentColor;display:block;"></span><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid currentColor;display:block;"></span></span></th>
-          <th style="min-width:80px;">Strand_MWs <span style="display:inline-flex;flex-direction:column;gap:2px;margin-left:6px;opacity:0.3;vertical-align:middle;"><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:4px solid currentColor;display:block;"></span><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid currentColor;display:block;"></span></span></th>
-          <th style="text-align:left;">操作</th>
+          <th style="min-width:130px;text-align:center;padding:11px 12px;font-size:13px;font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;background:#f8fafc;border-bottom:2px solid #c1c9d4;border-right:1px solid #e8edf4;">Keyword <span style="display:inline-flex;flex-direction:column;gap:2px;margin-left:6px;opacity:0.3;vertical-align:middle;"><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:4px solid currentColor;display:block;"></span><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid currentColor;display:block;"></span></span></th>
+          <th style="text-align:center;padding:11px 12px;font-size:13px;font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;background:#f8fafc;border-bottom:2px solid #c1c9d4;border-right:1px solid #e8edf4;">Type Code <span style="display:inline-flex;flex-direction:column;gap:2px;margin-left:6px;opacity:0.3;vertical-align:middle;"><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:4px solid currentColor;display:block;"></span><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid currentColor;display:block;"></span></span></th>
+          <th style="min-width:80px;text-align:center;padding:11px 12px;font-size:13px;font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;background:#f8fafc;border-bottom:2px solid #c1c9d4;border-right:1px solid #e8edf4;">Strand_MWs <span style="display:inline-flex;flex-direction:column;gap:2px;margin-left:6px;opacity:0.3;vertical-align:middle;"><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:4px solid currentColor;display:block;"></span><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid currentColor;display:block;"></span></span></th>
+          <th style="text-align:center;padding:11px 12px;font-size:13px;font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:0.05em;background:#f8fafc;border-bottom:2px solid #c1c9d4;">操作</th>
         </tr>
       </thead>
       <tbody>
         {% for module in module_list %}
         <tr>
-          <td>
+          <td style="text-align:center;padding:10px 12px;border-bottom:1.5px solid #d1d5db;border-right:1px solid #e8edf4;">
             <code style="background:#f1f5f9;color:#334155;padding:3px 8px;border-radius:4px;font-size:12px;font-family:'DM Mono',monospace;white-space:nowrap;">{{ module.keyword }}</code>
           </td>
-          <td>
+          <td style="text-align:center;padding:10px 12px;border-bottom:1.5px solid #d1d5db;border-right:1px solid #e8edf4;">
             <span class="type-code-pill" data-type="{{ module.type_code }}" style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">{{ module.type_code }}</span>
           </td>
-          <td style="color:#94a3b8;font-family:'DM Mono',monospace;font-size:13px;text-align:center;">
+          <td style="text-align:center;padding:10px 12px;border-bottom:1.5px solid #d1d5db;border-right:1px solid #e8edf4;color:#94a3b8;font-family:'DM Mono',monospace;font-size:12px;">
             {{ module.Strand_MWs|default_if_none:'—' }}
           </td>
-          <td style="text-align:center;">
+          <td style="text-align:center;padding:10px 12px;border-bottom:1.5px solid #d1d5db;">
             <div style="display:flex;gap:4px;justify-content:center;">
               <a href="{% url 'edit_module' %}?id={{ module.id }}" style="padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;">编辑</a>
               <form method="POST" action="{% url 'delete_module' %}" style="display:inline;" onsubmit="return confirm('确定删除该模块？');">
