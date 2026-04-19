@@ -2,106 +2,70 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>RNA序列管理系统 — 注册</title>
+  <title>SeqDB — 注册账户</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-  <link href="/static/css/styles.css" rel="stylesheet">
-  <style>
-    body { margin: 0; height: 100vh; display: flex; overflow: hidden; }
-    .brand-side {
-      width: 40%;
-      background: linear-gradient(135deg, #1a3a5c 0%, #1a6496 100%);
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 40px;
-    }
-    .brand-side .brand-icon { font-size: 3rem; margin-bottom: 16px; opacity: 0.9; }
-    .brand-side h1 { font-size: 1.9rem; font-weight: 700; margin-bottom: 10px; letter-spacing: 0.5px; }
-    .brand-side p { opacity: 0.75; font-size: 0.95rem; text-align: center; line-height: 1.6; }
-    .form-side {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #f8fafc;
-      overflow-y: auto;
-    }
-    .register-card { width: 400px; padding: 20px 0; }
-    .register-card h4 { font-weight: 700; color: #1a3a5c; margin-bottom: 1.5rem; }
-    @media (max-width: 640px) {
-      .brand-side { display: none; }
-      .form-side { width: 100%; }
-    }
-  </style>
+  <link href="/static/css/design-system.css" rel="stylesheet">
 </head>
-<body>
-  <div class="brand-side">
-    <div class="brand-icon"><i class="bi bi-activity"></i></div>
-    <h1>SeqDB</h1>
-    <p>RNA 序列管理系统<br>核酸药物研发数据平台</p>
-  </div>
-  <div class="form-side">
-    <div class="register-card">
-      <h4 class="text-center"><i class="bi bi-person-plus me-2"></i>注册账户</h4>
-
-      <!-- Django messages -->
-      {% if messages %}
-        {% for message in messages %}
-          <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-          </div>
-        {% endfor %}
-      {% endif %}
-
-      <form method="post" action="/register/">
-        {% csrf_token %}
-        <div class="mb-3">
-          <label for="reg_username" class="form-label">用户名</label>
-          <input type="text" class="form-control" id="reg_username" name="username" placeholder="用户名" required>
-        </div>
-        <div class="mb-3">
-          <label for="reg_email" class="form-label">邮箱</label>
-          <input type="email" class="form-control" id="reg_email" name="email" placeholder="邮箱地址">
-        </div>
-        <div class="mb-3">
-          <label for="reg_password" class="form-label">密码</label>
-          <input type="password" class="form-control" id="reg_password" name="password" placeholder="密码" required>
-        </div>
-        <div class="mb-3">
-          <label for="user_type" class="form-label">用户类型</label>
-          <select class="form-select" id="user_type" name="user_type">
-            <option value="" disabled selected>请选择用户类型</option>
-            <option value="project">项目管理</option>
-            <option value="delivery">递送</option>
-            <option value="modify">修饰</option>
-          </select>
-        </div>
-        <div class="mb-4">
-          <label for="permissions_project" class="form-label">负责项目</label>
-          <input type="text" class="form-control" id="permissions_project" name="permissions_project"
-                 placeholder="格式: BPR-3M01,BPR-3M02">
-          <div class="form-text">多个项目用逗号分隔</div>
-        </div>
-        <button type="submit" class="btn btn-primary w-100 py-2" style="background:#1a6496;border-color:#1a6496;font-size:1rem;">
-          注册
-        </button>
-      </form>
-      <div class="text-center mt-3" style="font-size:0.9rem; color:#666;">
-        已有账户？<a href="/login" style="color:#1a6496;">登录</a>
-      </div>
+<body class="ds-standalone-body">
+<div class="ds-standalone-card" style="max-width:460px;">
+  <div class="ds-standalone-logo">
+    <div class="ds-logo-mark">S</div>
+    <div>
+      <div class="ds-logo-text">SeqDB</div>
+      <div class="ds-logo-tagline">Sequence Database</div>
     </div>
   </div>
+  <div class="ds-standalone-title">注册账户</div>
+  <div class="ds-standalone-sub">RNA 序列管理系统 · 核酸药物研发数据平台</div>
 
-  <!-- Toast 容器 -->
-  <div id="msg-toast-container" style="position:fixed;top:20px;right:20px;z-index:9999;"></div>
+  {% if messages %}
+  <div style="margin-bottom:16px;">
+    {% for message in messages %}
+    <div style="padding:10px 14px;border-radius:6px;margin-bottom:8px;font-size:13.5px;
+      {% if 'error' in message.tags %}background:#fef2f2;border:1px solid #fecaca;color:#991b1b;
+      {% elif 'success' in message.tags %}background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;
+      {% else %}background:#f0f9ff;border:1px solid #bae6fd;color:#0c4a6e;{% endif %}">
+      {{ message }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
 
-  <script src="https://code.jquery.com/jquery.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="/static/js/custom.js"></script>
+  <form method="post" action="/register/">
+    {% csrf_token %}
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:5px;" for="reg_username">用户名</label>
+      <input type="text" class="ds-form-control" id="reg_username" name="username" placeholder="用户名" required style="width:100%;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:5px;" for="reg_email">邮箱</label>
+      <input type="email" class="ds-form-control" id="reg_email" name="email" placeholder="邮箱地址" style="width:100%;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:5px;" for="reg_password">密码</label>
+      <input type="password" class="ds-form-control" id="reg_password" name="password" placeholder="密码" required style="width:100%;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:5px;" for="user_type">用户类型</label>
+      <select class="ds-form-control" id="user_type" name="user_type" style="width:100%;box-sizing:border-box;">
+        <option value="" disabled selected>请选择用户类型</option>
+        <option value="project">项目管理</option>
+        <option value="delivery">递送</option>
+        <option value="modify">修饰</option>
+      </select>
+    </div>
+    <div style="margin-bottom:20px;">
+      <label style="display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:5px;" for="permissions_project">负责项目</label>
+      <input type="text" class="ds-form-control" id="permissions_project" name="permissions_project"
+             placeholder="格式: BPR-3M01,BPR-3M02" style="width:100%;box-sizing:border-box;">
+      <p style="font-size:12px;color:#94a3b8;margin:4px 0 0 0;">多个项目用逗号分隔</p>
+    </div>
+    <button type="submit" class="ds-btn ds-btn-primary" style="width:100%;justify-content:center;">注册</button>
+  </form>
+  <div style="text-align:center;margin-top:16px;font-size:13px;color:#64748b;">
+    已有账户？<a href="/login" style="color:#2563eb;text-decoration:none;font-weight:500;">登录</a>
+  </div>
+</div>
 </body>
 </html>
