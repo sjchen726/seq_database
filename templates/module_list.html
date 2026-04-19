@@ -39,7 +39,7 @@
           </td>
           <td>
             <div class="ds-actions">
-              <a href="{% url 'edit_module' %}?id={{ module.id }}" class="ds-btn ds-btn-ghost" style="padding:3px 10px;font-size:12px;">编辑</a>
+              <a href="{% url 'edit_module' %}?id={{ module.id }}" class="ds-btn ds-btn-ghost" style="padding:3px 10px;font-size:12px;color:#2563eb;">编辑</a>
               <form method="POST" action="{% url 'delete_module' %}" style="display:inline;" onsubmit="return confirm('确定删除该模块？');">
                 {% csrf_token %}
                 <input type="hidden" name="id" value="{{ module.id }}">
