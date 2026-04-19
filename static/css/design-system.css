@@ -659,6 +659,12 @@ input[type=checkbox] { accent-color: #6366f1; width: 13px; height: 13px; cursor:
 .ds-tb-btn.ds-tb-purple { background:#fdf4ff; border-color:#f3e8ff; color:#7c3aed; }
 .ds-tb-btn.ds-tb-purple:hover { background:#fae8ff; border-color:#e9d5ff; color:#7c3aed; }
 
+/* ── Row group color strips (seq_list 组合/展开) ── */
+tr.group-bg-1 { background-color: #f9fafb !important; border-left: 4px solid #4f91ff !important; }
+tr.group-bg-2 { background-color: #ffffff !important; border-left: 4px solid #4fda84 !important; }
+tr.group-bg-1:hover,
+tr.group-bg-2:hover { background-color: #eef3f8 !important; border-left-color: #f2abe8 !important; }
+
 /* ── Sequence / Ligand display (from styles.css) ── */
 .delivery-container {
   display: flex;
