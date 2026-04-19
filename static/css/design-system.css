@@ -646,3 +646,24 @@ input[type=checkbox] { accent-color: #6366f1; width: 13px; height: 13px; cursor:
   cursor: pointer;
 }
 .btn-expand-all:hover { border-color: #2563eb; color: #2563eb; }
+
+/* ── Toolbar button color variants ── */
+.ds-tb-btn.ds-tb-green { background:#f0fdf4; border-color:#bbf7d0; color:#15803d; }
+.ds-tb-btn.ds-tb-green:hover { background:#dcfce7; border-color:#86efac; color:#15803d; }
+.ds-tb-btn.ds-tb-blue { background:#eff6ff; border-color:#bfdbfe; color:#1d4ed8; }
+.ds-tb-btn.ds-tb-blue:hover { background:#dbeafe; border-color:#93c5fd; color:#1d4ed8; }
+.ds-tb-btn.ds-tb-violet { background:#ede9fe; border-color:#ddd6fe; color:#6d28d9; }
+.ds-tb-btn.ds-tb-violet:hover { background:#ddd6fe; border-color:#c4b5fd; color:#6d28d9; }
+.ds-tb-btn.ds-tb-orange { background:#fff7ed; border-color:#fed7aa; color:#c2410c; }
+.ds-tb-btn.ds-tb-orange:hover { background:#ffedd5; border-color:#fdba74; color:#c2410c; }
+.ds-tb-btn.ds-tb-purple { background:#fdf4ff; border-color:#f3e8ff; color:#7c3aed; }
+.ds-tb-btn.ds-tb-purple:hover { background:#fae8ff; border-color:#e9d5ff; color:#7c3aed; }
+
+/* ── DataTables footer bar (seq_list) ── */
+.ds-dt-footer {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 8px 14px; border-top: 1px solid #e8edf4; background: #f8fafc;
+}
+.ds-dt-footer .dataTables_length { display: flex; align-items: center; }
+.ds-dt-footer .dataTables_info { padding-top: 0 !important; margin-left: 4px; }
+.ds-dt-footer .dataTables_paginate { padding-top: 0 !important; margin-left: auto; }

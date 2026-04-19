@@ -13,9 +13,12 @@ $(document).ready(function() {
             [1, 'asc']
         ],
         lengthMenu: [5, 10, 20, 50],
-        scrollX: isScrollable,
-        scrollY: isScrollable ? '62vh' : undefined,
-        scrollCollapse: isScrollable,
+        dom: "t<'ds-dt-footer'<'ds-pagesize-wrap'l><'ds-record-info'i><p>>",
+        language: {
+            lengthMenu: "每页显示 _MENU_ 条",
+            info: "共 _TOTAL_ 条",
+            infoEmpty: "共 0 条",
+        },
         columnDefs: [{
             targets: 0,
             orderable: false,

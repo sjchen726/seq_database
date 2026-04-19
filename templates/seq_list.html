@@ -123,13 +123,13 @@
 
 <!-- Toolbar -->
 <div class="ds-toolbar">
-  <button id="toggleCollapseBtn" class="ds-tb-btn">▤ 组合/展开</button>
-  <button id="show-selected" type="button" class="ds-tb-btn">☑ 显示选中</button>
-  <a id="download-selected" class="ds-tb-btn" href="#">↓ 下载选中</a>
-  <button id="toggleProjectPanel" type="button" class="ds-tb-btn {% if selected_projects %}ds-active-filter{% endif %}">
+  <button id="toggleCollapseBtn" class="ds-tb-btn ds-tb-green">▤ 组合/展开</button>
+  <button id="show-selected" type="button" class="ds-tb-btn ds-tb-blue">☑ 显示选中</button>
+  <a id="download-selected" class="ds-tb-btn ds-tb-violet" href="#">↓ 下载选中</a>
+  <button id="toggleProjectPanel" type="button" class="ds-tb-btn ds-tb-orange {% if selected_projects %}ds-active-filter{% endif %}">
     ▼ 项目筛选 {% if selected_projects %}<span class="ds-tb-badge">{{ selected_projects|length }}</span>{% endif %}
   </button>
-  <button id="toggleColumnPanel" type="button" class="ds-tb-btn">◧ 列显示</button>
+  <button id="toggleColumnPanel" type="button" class="ds-tb-btn ds-tb-purple">◧ 列显示</button>
 </div>
 
 <!-- Project filter panel -->
