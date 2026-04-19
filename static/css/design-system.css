@@ -25,7 +25,7 @@ body {
 
 /* ── Sidebar ── */
 .ds-sidebar {
-  width: 210px;
+  width: 220px;
   flex-shrink: 0;
   background: #fff;
   display: flex;
@@ -48,7 +48,7 @@ body {
 .ds-logo-mark {
   width: 32px;
   height: 32px;
-  background: linear-gradient(135deg, #38bdf8, #6366f1);
+  background: #16a34a;
   border-radius: 9px;
   display: flex;
   align-items: center;
@@ -56,7 +56,7 @@ body {
   color: #fff;
   font-weight: 800;
   font-size: 14px;
-  box-shadow: 0 3px 10px rgba(99,102,241,0.32);
+  box-shadow: 0 3px 10px rgba(22,163,74,0.32);
   flex-shrink: 0;
 }
 
@@ -99,7 +99,7 @@ body {
   position: absolute;
   left: -8px; top: 20%; bottom: 20%;
   width: 3px;
-  background: linear-gradient(180deg, #38bdf8, #6366f1);
+  background: linear-gradient(180deg, #16a34a, #22d3ee);
   border-radius: 0 3px 3px 0;
 }
 
@@ -131,7 +131,7 @@ body {
 
 .ds-user-avatar {
   width: 32px; height: 32px;
-  background: linear-gradient(135deg, #38bdf8, #6366f1);
+  background: linear-gradient(135deg, #16a34a, #22d3ee);
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-size: 13px; font-weight: 700; flex-shrink: 0;
@@ -185,9 +185,9 @@ body {
 }
 
 .ds-btn-primary {
-  background: linear-gradient(135deg, #38bdf8, #6366f1);
+  background: linear-gradient(135deg, #16a34a, #22d3ee);
   color: #fff;
-  box-shadow: 0 2px 8px rgba(99,102,241,0.28);
+  box-shadow: 0 2px 8px rgba(22,163,74,0.28);
 }
 .ds-btn-primary:hover { opacity: 0.9; color: #fff; text-decoration: none; }
 
@@ -370,7 +370,7 @@ body {
   text-decoration: none;
 }
 .ds-pg:hover { border-color: #c4b5fd; color: #6366f1; background: #f5f3ff; text-decoration: none; }
-.ds-pg.active { background: linear-gradient(135deg, #38bdf8, #6366f1); color: #fff; border-color: transparent; font-weight: 700; box-shadow: 0 2px 6px rgba(99,102,241,0.3); }
+.ds-pg.active { background: linear-gradient(135deg, #16a34a, #22d3ee); color: #fff; border-color: transparent; font-weight: 700; box-shadow: 0 2px 6px rgba(22,163,74,0.3); }
 
 /* ── Form card (used in edit/register pages) ── */
 .ds-form-page { padding: 24px 20px; display: flex; justify-content: center; }
