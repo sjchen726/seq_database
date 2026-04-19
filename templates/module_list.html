@@ -10,70 +10,80 @@
   <a href="{% url 'edit_module' %}" class="ds-btn ds-btn-primary">&#43; 新增模块</a>
 {% endblock %}
 {% block content %}
-<div style="padding:10px 16px;font-size:12.5px;color:#64748b;background:#fff;border:1px solid #e8edf4;border-radius:10px;margin-bottom:2px;">
-  <i class="bi bi-info-circle"></i>
-  每个 Type Code 对应特定显示颜色，相同 Type Code 显示相同颜色。请保持团队内统一，避免随意更改。
-</div>
-<div class="ds-table-scroll">
-  <table class="ds-table">
-    <thead>
-      <tr>
-        <th style="min-width:120px;">Keyword</th>
-        <th>Type Code</th>
-        <th style="min-width:80px;">Strand_MWs</th>
-        <th>操作</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for module in module_list %}
-      <tr>
-        <td>
-          <code style="background:#f1f5f9;color:#334155;padding:2px 8px;border-radius:4px;font-size:11px;font-family:'DM Mono',monospace;white-space:nowrap;">{{ module.keyword }}</code>
-        </td>
-        <td>
-          <span class="type-code-pill" data-type="{{ module.type_code }}" style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:500;">{{ module.type_code }}</span>
-        </td>
-        <td style="font-family:'DM Mono',monospace;color:#94a3b8;font-size:12px;white-space:nowrap;">
-          {{ module.Strand_MWs|default_if_none:'—' }}
-        </td>
-        <td>
-          <div class="ds-actions">
-            <a href="{% url 'edit_module' %}?id={{ module.id }}" class="ds-btn ds-btn-ghost" style="padding:3px 10px;font-size:12px;">编辑</a>
-            <form method="POST" action="{% url 'delete_module' %}" style="display:inline;" onsubmit="return confirm('确定删除该模块？');">
-              {% csrf_token %}
-              <input type="hidden" name="id" value="{{ module.id }}">
-              <button type="submit" class="ds-btn" style="padding:3px 10px;font-size:12px;color:#ef4444;border:1px solid #fca5a5;background:none;cursor:pointer;border-radius:6px;">删除</button>
-            </form>
-          </div>
-        </td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:32px;">暂无模块数据</td></tr>
+<div class="ds-table-card">
+  <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border-bottom:2px solid #e8edf4;">
+    <span style="font-size:12px;color:#64748b;">✅ 共 {{ page_obj.paginator.count }} 条</span>
+    <div style="width:1px;height:16px;background:#d1d5db;"></div>
+    <span style="font-size:12px;color:#64748b;">💡 每个 Type Code 对应特定颜色</span>
+  </div>
+  <div class="ds-table-scroll">
+    <table class="ds-table">
+      <thead>
+        <tr>
+          <th style="min-width:130px;">Keyword <span style="display:inline-flex;flex-direction:column;gap:2px;margin-left:6px;opacity:0.3;vertical-align:middle;"><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:4px solid currentColor;display:block;"></span><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid currentColor;display:block;"></span></span></th>
+          <th>Type Code <span style="display:inline-flex;flex-direction:column;gap:2px;margin-left:6px;opacity:0.3;vertical-align:middle;"><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:4px solid currentColor;display:block;"></span><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid currentColor;display:block;"></span></span></th>
+          <th style="min-width:80px;">Strand_MWs <span style="display:inline-flex;flex-direction:column;gap:2px;margin-left:6px;opacity:0.3;vertical-align:middle;"><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-bottom:4px solid currentColor;display:block;"></span><span style="width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid currentColor;display:block;"></span></span></th>
+          <th style="text-align:left;">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for module in module_list %}
+        <tr>
+          <td>
+            <code style="background:#f1f5f9;color:#334155;padding:3px 8px;border-radius:4px;font-size:12px;font-family:'DM Mono',monospace;white-space:nowrap;">{{ module.keyword }}</code>
+          </td>
+          <td>
+            <span class="type-code-pill" data-type="{{ module.type_code }}" style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">{{ module.type_code }}</span>
+          </td>
+          <td style="color:#94a3b8;font-family:'DM Mono',monospace;font-size:13px;text-align:center;">
+            {{ module.Strand_MWs|default_if_none:'—' }}
+          </td>
+          <td style="text-align:center;">
+            <div style="display:flex;gap:4px;justify-content:center;">
+              <a href="{% url 'edit_module' %}?id={{ module.id }}" style="padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;">编辑</a>
+              <form method="POST" action="{% url 'delete_module' %}" style="display:inline;" onsubmit="return confirm('确定删除该模块？');">
+                {% csrf_token %}
+                <input type="hidden" name="id" value="{{ module.id }}">
+                <button type="submit" style="padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;border:1px solid #fca5a5;color:#ef4444;background:#fff;cursor:pointer;display:inline-flex;align-items:center;">删除</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:32px;">暂无模块数据</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj.paginator.count > page_size %}
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#fff;border-top:2px solid #e8edf4;">
+    <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#475569;">
+      每页显示
+      <select id="page-size-select" onchange="window.location.href='?page=1&page_size='+this.value" style="appearance:none;background:#f8fafc url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2394a3b8'/%3E%3C/svg%3E&quot;) no-repeat right 8px center;border:1px solid #e2e8f0;border-radius:6px;padding:4px 24px 4px 9px;font-size:12px;font-family:'DM Mono',monospace;color:#334155;cursor:pointer;outline:none;">
+        <option value="10" {% if page_size == 10 %}selected{% endif %}>10</option>
+        <option value="20" {% if page_size == 20 %}selected{% endif %}>20</option>
+        <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
+      </select>
+      条，共 {{ page_obj.paginator.count }} 条
+    </div>
+    <div style="display:flex;align-items:center;gap:4px;">
+      {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}&page_size={{ page_size }}" style="min-width:30px;height:30px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;color:#334155;font-size:16px;font-weight:300;letter-spacing:-2px;display:flex;align-items:center;justify-content:center;text-decoration:none;">‹</a>
+      {% endif %}
+      {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+        <a style="min-width:30px;height:30px;border-radius:6px;border:1px solid transparent;background:linear-gradient(135deg,#38bdf8,#6366f1);color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(99,102,241,0.3);">{{ num }}</a>
+        {% else %}
+        <a href="?page={{ num }}&page_size={{ page_size }}" style="min-width:30px;height:30px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;color:#334155;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;text-decoration:none;">{{ num }}</a>
+        {% endif %}
       {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% if page_obj.paginator.count > page_size %}
-<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#fff;border:1px solid #e8edf4;border-top:none;border-radius:0 0 10px 10px;">
-  <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#64748b;">
-    每页显示
-    <select id="page-size-select" onchange="window.location.href='?page=1&page_size='+this.value" style="appearance:none;background:#f8fafc url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2394a3b8'/%3E%3C/svg%3E&quot;) no-repeat right 8px center;border:1px solid #e2e8f0;border-radius:6px;padding:4px 24px 4px 9px;font-size:12px;font-family:'DM Mono',monospace;color:#334155;cursor:pointer;outline:none;">
-      <option value="10" {% if page_size == 10 %}selected{% endif %}>10</option>
-      <option value="20" {% if page_size == 20 %}selected{% endif %}>20</option>
-      <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
-    </select>
-    条，共 {{ page_obj.paginator.count }} 条
+      {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}&page_size={{ page_size }}" style="min-width:30px;height:30px;border-radius:6px;border:1px solid #e2e8f0;background:#fff;color:#334155;font-size:16px;font-weight:300;letter-spacing:-2px;display:flex;align-items:center;justify-content:center;text-decoration:none;">›</a>
+      {% endif %}
+    </div>
   </div>
-  <div style="display:flex;gap:4px;">
-    {% if page_obj.has_previous %}
-    <a href="?page={{ page_obj.previous_page_number }}&page_size={{ page_size }}" class="ds-btn ds-btn-ghost" style="padding:4px 10px;font-size:12px;">‹ 上一页</a>
-    {% endif %}
-    {% if page_obj.has_next %}
-    <a href="?page={{ page_obj.next_page_number }}&page_size={{ page_size }}" class="ds-btn ds-btn-ghost" style="padding:4px 10px;font-size:12px;">下一页 ›</a>
-    {% endif %}
-  </div>
+  {% endif %}
 </div>
-{% endif %}
 {% endblock %}
 {% block extra_scripts %}
 <script>
