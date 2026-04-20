@@ -20,45 +20,45 @@
       <input type="hidden" name="next" value="{{ request.GET.next }}">
       <input type="hidden" name="dt_page" value="{{ request.GET.dt_page }}">
 
-      <div class="row g-3">
+      <div class="ds-form-2col">
 
         <!-- Project (read-only) -->
-        <div class="col-md-6">
+        <div>
           <label class="ds-form-label">Project</label>
           <span class="ds-readonly-value">{{ delivery.project }}</span>
           <input type="hidden" name="edit_project" value="{{ delivery.project }}">
         </div>
 
         <!-- Target (read-only) -->
-        <div class="col-md-6">
+        <div>
           <label class="ds-form-label">Target</label>
           <span class="ds-readonly-value">{{ delivery.Target }}</span>
           <input type="hidden" name="edit_Target" value="{{ delivery.Target }}">
         </div>
 
         <!-- Sequence / modify_seq (read-only) -->
-        <div class="col-md-12">
+        <div class="ds-form-span-2">
           <label class="ds-form-label">Sequence</label>
           <span class="ds-readonly-value mono">{{ delivery.modify_seq }}</span>
           <input type="hidden" name="edit_seq" value="{{ delivery.modify_seq }}">
         </div>
 
         <!-- Transcript (read-only) -->
-        <div class="col-md-6">
+        <div>
           <label class="ds-form-label">Transcript</label>
           <span class="ds-readonly-value">{{ seqinfo.Transcript }}</span>
           <input type="hidden" name="edit_Transcript" value="{{ seqinfo.Transcript }}">
         </div>
 
         <!-- Position (read-only) -->
-        <div class="col-md-6">
+        <div>
           <label class="ds-form-label">Position</label>
           <span class="ds-readonly-value">{{ seqinfo.Pos }}</span>
           <input type="hidden" name="edit_position" value="{{ seqinfo.Pos }}">
         </div>
 
         <!-- 5' Ligand (editable) -->
-        <div class="col-md-6">
+        <div>
           <label class="ds-form-label" for="edit_delivery5">5' Ligand</label>
           <input type="text"
                  id="edit_delivery5"
@@ -69,7 +69,7 @@
         </div>
 
         <!-- 3' Ligand (editable) -->
-        <div class="col-md-6">
+        <div>
           <label class="ds-form-label" for="edit_delivery3">3' Ligand</label>
           <input type="text"
                  id="edit_delivery3"
@@ -80,7 +80,7 @@
         </div>
 
         <!-- Strand_MWs (editable) -->
-        <div class="col-md-6">
+        <div>
           <label class="ds-form-label" for="edit_Strand_MWs">Strand_MWs</label>
           <input type="text"
                  id="edit_Strand_MWs"
@@ -91,7 +91,7 @@
         </div>
 
         <!-- Parents (editable) -->
-        <div class="col-md-6">
+        <div>
           <label class="ds-form-label" for="edit_parents">Parents</label>
           <input type="text"
                  id="edit_parents"
@@ -102,7 +102,7 @@
         </div>
 
         <!-- Remarks (editable) -->
-        <div class="col-md-12">
+        <div class="ds-form-span-2">
           <label class="ds-form-label" for="edit_Remark">Remarks</label>
           <input type="text"
                  id="edit_Remark"
@@ -113,7 +113,7 @@
         </div>
 
         <!-- 更新时间 (editable, datetime-local) -->
-        <div class="col-md-6">
+        <div>
           <label class="ds-form-label" for="updateTimeInput">更新时间</label>
           <input type="datetime-local"
                  id="updateTimeInput"
@@ -122,7 +122,7 @@
         </div>
 
         <!-- Buttons -->
-        <div class="col-md-12" style="margin-top:8px;display:flex;gap:10px;align-items:center;">
+        <div class="ds-form-span-2" style="margin-top:8px;display:flex;gap:10px;align-items:center;">
           <button type="submit"
                   class="ds-btn ds-btn-primary"
                   onclick="return confirm('此操作将修改当前数据，您确定要更新吗？');">
@@ -131,7 +131,7 @@
           <button type="button" id="cancelBtn" class="ds-btn ds-btn-ghost">返回</button>
         </div>
 
-      </div><!-- /row -->
+      </div><!-- /ds-form-2col -->
     </form>
   </div><!-- /ds-form-card -->
 </div><!-- /ds-form-page -->
