@@ -4,133 +4,6 @@
   <span class="ds-topbar-title">多序列比对</span>
   <span class="ds-topbar-spacer"></span>
 {% endblock %}
-{% block extra_styles %}
-<style>
-.seq-input-area { margin-bottom: 4px; }
-.seq-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 6px;
-    animation: rowIn .12s ease;
-}
-@keyframes rowIn {
-    from { opacity: 0; transform: translateY(-3px); }
-    to   { opacity: 1; transform: none; }
-}
-.seq-row .seq-num {
-    width: 26px;
-    text-align: right;
-    font-size: 12px;
-    color: #a0aab4;
-    flex-shrink: 0;
-    font-variant-numeric: tabular-nums;
-}
-.seq-row input[type=text] {
-    flex: 1;
-    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
-    font-size: 13px;
-    border: 1px solid #c8d0d8;
-    border-radius: 4px;
-    padding: 7px 11px;
-    color: #2d3748;
-    transition: border-color .15s, box-shadow .15s;
-    background: #fff;
-}
-.seq-row input[type=text]:focus {
-    outline: none;
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37,99,235,.12);
-}
-.seq-row input[type=text]::placeholder { color: #bbc4ce; }
-.btn-remove-row {
-    background: none;
-    border: none;
-    color: #c8d0d8;
-    font-size: 17px;
-    line-height: 1;
-    cursor: pointer;
-    padding: 4px 7px;
-    border-radius: 4px;
-    flex-shrink: 0;
-    transition: color .12s, background .12s;
-}
-.btn-remove-row:hover { color: #e74c3c; background: #fef0f0; }
-.btn-add-row {
-    background: none;
-    border: 1px dashed #c0c8d4;
-    color: #6a7a8a;
-    font-size: 12.5px;
-    padding: 6px 16px;
-    border-radius: 5px;
-    cursor: pointer;
-    margin-top: 8px;
-    transition: border-color .15s, color .15s, background .15s;
-}
-.btn-add-row:hover { border-color: #2563eb; color: #2563eb; background: #f0f6ff; }
-.hint-box {
-    background: #f8fafc;
-    border: 1px solid #e8edf4;
-    border-radius: 6px;
-    padding: 14px 18px;
-    margin-top: 20px;
-}
-.hint-title {
-    font-size: 12.5px;
-    font-weight: 600;
-    color: #0f172a;
-    margin-bottom: 10px;
-}
-.hint-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 5px 24px;
-}
-.hint-row {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    font-size: 12px;
-    color: #5a6a7a;
-}
-.hint-code {
-    font-family: 'SFMono-Regular', Consolas, monospace;
-    background: #e8edf4;
-    padding: 1px 7px;
-    border-radius: 3px;
-    color: #0f172a;
-    white-space: nowrap;
-    font-size: 12px;
-    flex-shrink: 0;
-}
-.hint-note {
-    margin-top: 10px;
-    color: #9baab4;
-    font-size: 11.5px;
-    border-top: 1px solid #edf2f7;
-    padding-top: 8px;
-}
-.blast-action-bar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 24px;
-    padding-top: 18px;
-    border-top: 1px solid #edf2f7;
-}
-.btn-blast-clear {
-    background: none;
-    border: 1px solid #c8d0d8;
-    color: #6a7a8a;
-    padding: 8px 18px;
-    border-radius: 5px;
-    font-size: 13px;
-    cursor: pointer;
-    transition: border-color .15s, color .15s;
-}
-.btn-blast-clear:hover { border-color: #9baab4; color: #4a5568; }
-</style>
-{% endblock %}
 {% block content %}
 <div class="ds-form-page" style="padding-top:20px;">
   <div class="ds-form-card" style="max-width:800px;">
@@ -139,52 +12,52 @@
     <form method="POST" action="{% url 'multi_blast' %}">
       {% csrf_token %}
 
-      <div id="seq-list" class="seq-input-area">
-        <div class="seq-row">
-          <span class="seq-num">1</span>
-          <input type="text" name="seq_id" placeholder="如：AS_123456.1 或 BP000001" autocomplete="off">
-          <button type="button" class="btn-remove-row" title="删除此行">&times;</button>
+      <div id="seq-list" class="ds-seq-input-area">
+        <div class="ds-seq-row">
+          <span class="ds-seq-num">1</span>
+          <input type="text" name="seq_id" class="ds-seq-input" placeholder="如：AS_123456.1 或 BP000001" autocomplete="off">
+          <button type="button" class="ds-btn-remove-row" title="删除此行">&times;</button>
         </div>
-        <div class="seq-row">
-          <span class="seq-num">2</span>
-          <input type="text" name="seq_id" placeholder="如：SS_654321.2" autocomplete="off">
-          <button type="button" class="btn-remove-row" title="删除此行">&times;</button>
+        <div class="ds-seq-row">
+          <span class="ds-seq-num">2</span>
+          <input type="text" name="seq_id" class="ds-seq-input" placeholder="如：SS_654321.2" autocomplete="off">
+          <button type="button" class="ds-btn-remove-row" title="删除此行">&times;</button>
         </div>
-        <div class="seq-row">
-          <span class="seq-num">3</span>
-          <input type="text" name="seq_id" placeholder="如：BP000001" autocomplete="off">
-          <button type="button" class="btn-remove-row" title="删除此行">&times;</button>
+        <div class="ds-seq-row">
+          <span class="ds-seq-num">3</span>
+          <input type="text" name="seq_id" class="ds-seq-input" placeholder="如：BP000001" autocomplete="off">
+          <button type="button" class="ds-btn-remove-row" title="删除此行">&times;</button>
         </div>
       </div>
 
-      <button type="button" id="btn-add-row" class="btn-add-row">+ 添加序列</button>
+      <button type="button" id="btn-add-row" class="ds-btn-add-row">+ 添加序列</button>
 
-      <div class="hint-box">
-        <div class="hint-title">支持的输入格式</div>
-        <div class="hint-grid">
-          <div class="hint-row">
-            <span class="hint-code">AS_123456.1</span>
+      <div class="ds-hint-box">
+        <div class="ds-hint-title">支持的输入格式</div>
+        <div class="ds-hint-grid">
+          <div class="ds-hint-row">
+            <span class="ds-hint-code">AS_123456.1</span>
             <span>Sequence ID（AS 链）</span>
           </div>
-          <div class="hint-row">
-            <span class="hint-code">SS_123456.1</span>
+          <div class="ds-hint-row">
+            <span class="ds-hint-code">SS_123456.1</span>
             <span>Sequence ID（SS 链）</span>
           </div>
-          <div class="hint-row">
-            <span class="hint-code">BP000001</span>
+          <div class="ds-hint-row">
+            <span class="ds-hint-code">BP000001</span>
             <span>Strand ID（含 AS+SS 配对）</span>
           </div>
-          <div class="hint-row">
-            <span class="hint-code">123456.1</span>
+          <div class="ds-hint-row">
+            <span class="ds-hint-code">123456.1</span>
             <span>Delivery ID（不含链型前缀）</span>
           </div>
         </div>
-        <div class="hint-note">空行将被自动忽略；重复序列仅处理一次</div>
+        <div class="ds-hint-note">空行将被自动忽略；重复序列仅处理一次</div>
       </div>
 
-      <div class="blast-action-bar">
+      <div class="ds-blast-action-bar">
         <button type="submit" class="ds-btn ds-btn-primary">开始比对</button>
-        <button type="button" class="btn-blast-clear" id="btn-clear-all">清空</button>
+        <button type="button" class="ds-btn-blast-clear" id="btn-clear-all">清空</button>
       </div>
     </form>
   </div>
@@ -196,14 +69,14 @@
     var list = document.getElementById('seq-list');
 
     function updateNumbers() {
-        list.querySelectorAll('.seq-row').forEach(function(row, i) {
-            row.querySelector('.seq-num').textContent = i + 1;
+        list.querySelectorAll('.ds-seq-row').forEach(function(row, i) {
+            row.querySelector('.ds-seq-num').textContent = i + 1;
         });
     }
 
     function addRemoveListener(row) {
-        row.querySelector('.btn-remove-row').addEventListener('click', function () {
-            if (list.querySelectorAll('.seq-row').length > 1) {
+        row.querySelector('.ds-btn-remove-row').addEventListener('click', function () {
+            if (list.querySelectorAll('.ds-seq-row').length > 1) {
                 row.remove();
                 updateNumbers();
             } else {
@@ -212,16 +85,16 @@
         });
     }
 
-    list.querySelectorAll('.seq-row').forEach(addRemoveListener);
+    list.querySelectorAll('.ds-seq-row').forEach(addRemoveListener);
 
     document.getElementById('btn-add-row').addEventListener('click', function () {
-        var count = list.querySelectorAll('.seq-row').length;
+        var count = list.querySelectorAll('.ds-seq-row').length;
         var newRow = document.createElement('div');
-        newRow.className = 'seq-row';
+        newRow.className = 'ds-seq-row';
         newRow.innerHTML =
-            '<span class="seq-num">' + (count + 1) + '</span>' +
-            '<input type="text" name="seq_id" placeholder="输入序列编号..." autocomplete="off">' +
-            '<button type="button" class="btn-remove-row" title="删除此行">&times;</button>';
+            '<span class="ds-seq-num">' + (count + 1) + '</span>' +
+            '<input type="text" name="seq_id" class="ds-seq-input" placeholder="输入序列编号..." autocomplete="off">' +
+            '<button type="button" class="ds-btn-remove-row" title="删除此行">&times;</button>';
         list.appendChild(newRow);
         addRemoveListener(newRow);
         newRow.querySelector('input').focus();
@@ -229,7 +102,7 @@
 
     document.getElementById('btn-clear-all').addEventListener('click', function () {
         list.querySelectorAll('input').forEach(function(inp) { inp.value = ''; });
-        list.querySelectorAll('.seq-row:not(:first-child)').forEach(function(r) { r.remove(); });
+        list.querySelectorAll('.ds-seq-row:not(:first-child)').forEach(function(r) { r.remove(); });
         updateNumbers();
         list.querySelector('input').focus();
     });
