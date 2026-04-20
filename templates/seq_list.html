@@ -31,7 +31,7 @@
 <div id="advancedSearchPanel" style="display: none;" class="ds-search-panel">
   <div class="ds-search-panel-header" id="dragHandle">
     <span>🔍 高级搜索</span>
-    <button id="closeSearchPanel" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;">✖</button>
+    <button id="closeSearchPanel" class="ds-close-btn">✖</button>
   </div>
   <form id="advancedSearchForm" method="GET" action="{% url 'seq_list' %}">
     <input type="hidden" name="seq_type" value="{{ selected_seq_type }}">
@@ -103,7 +103,7 @@
 
 <!-- Active filter bar -->
 {% if has_search %}
-<div id="activeFilterBar" style="font-size:12px;color:#64748b;margin-bottom:6px;display:flex;flex-wrap:wrap;gap:4px;">
+<div id="activeFilterBar" class="ds-active-filter-bar">
   {% if search_q %}<span class="ds-filter-tag">关键词: {{ search_q }}</span>{% endif %}
   {% if field_filters.filterSequence %}<span class="ds-filter-tag">Strand ID: {{ field_filters.filterSequence }}</span>{% endif %}
   {% if field_filters.filterNakedSeq %}<span class="ds-filter-tag">Naked Seq: {{ field_filters.filterNakedSeq }}</span>{% endif %}
