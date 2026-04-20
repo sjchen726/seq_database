@@ -5,12 +5,10 @@
   <span class="ds-topbar-spacer"></span>
   <a href="{% url 'seq_list' %}" class="ds-btn ds-btn-ghost">&#8592; 返回列表</a>
 {% endblock %}
-{% block extra_styles %}
+{% block content %}
 <form style="display:none;" id="csrf-token-holder" method="post">
 {% csrf_token %}
 </form>
-{% endblock %}
-{% block content %}
 
 <!-- 工具栏 -->
 <div class="seq-toolbar" style="margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
