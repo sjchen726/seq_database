@@ -732,3 +732,88 @@ tr.group-bg-2:hover { background-color: #eef3f8 !important; border-left-color: #
   min-width: 4px;
 }
 
+/* ── Form 2-column grid (replaces Bootstrap row/col) ── */
+.ds-form-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 0;
+}
+.ds-form-span-2 { grid-column: 1 / -1; }
+
+/* ── Utility: vertical divider ── */
+.ds-divider-v { width: 1px; height: 14px; background: #d1d5db; flex-shrink: 0; }
+
+/* ── Utility: close button ── */
+.ds-close-btn {
+  background: none; border: none; color: #94a3b8;
+  cursor: pointer; font-size: 16px; padding: 0; line-height: 1;
+  transition: color 0.12s;
+}
+.ds-close-btn:hover { color: #475569; }
+
+/* ── Active filter bar ── */
+.ds-active-filter-bar {
+  font-size: 12px; color: #64748b;
+  display: flex; flex-wrap: wrap; gap: 4px;
+  margin-bottom: 6px;
+}
+
+/* ── multi_blast: sequence input row ── */
+.ds-seq-num {
+  width: 26px; text-align: right; font-size: 12px;
+  color: #a0aab4; flex-shrink: 0; font-variant-numeric: tabular-nums;
+}
+.ds-seq-row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+  animation: rowIn .12s ease;
+}
+.ds-seq-input {
+  flex: 1;
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  border: 1px solid #c8d0d8;
+  border-radius: 4px;
+  padding: 7px 11px;
+  color: #2d3748;
+  transition: border-color .15s, box-shadow .15s;
+  background: #fff;
+}
+.ds-seq-input:focus {
+  outline: none;
+  border-color: #a5b4fc;
+  box-shadow: 0 0 0 3px rgba(99,102,241,.12);
+}
+.ds-seq-input::placeholder { color: #bbc4ce; }
+.ds-btn-remove-row {
+  background: none; border: none; color: #c8d0d8;
+  font-size: 17px; line-height: 1; cursor: pointer;
+  padding: 4px 7px; border-radius: 4px; flex-shrink: 0;
+  transition: color .12s, background .12s;
+}
+.ds-btn-remove-row:hover { color: #e74c3c; background: #fef0f0; }
+.ds-btn-add-row {
+  background: none; border: 1px dashed #c0c8d4; color: #6a7a8a;
+  font-size: 12.5px; padding: 6px 16px; border-radius: 5px;
+  cursor: pointer; margin-top: 8px;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.ds-btn-add-row:hover { border-color: #a5b4fc; color: #6366f1; background: #f0f6ff; }
+.ds-hint-box {
+  background: #f8fafc; border: 1px solid #e8edf4;
+  border-radius: 6px; padding: 14px 18px; margin-top: 20px;
+}
+.ds-hint-title { font-size: 12.5px; font-weight: 600; color: #0f172a; margin-bottom: 10px; }
+.ds-hint-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 24px; }
+.ds-hint-row { display: flex; align-items: baseline; gap: 8px; font-size: 12px; color: #5a6a7a; }
+.ds-hint-code {
+  font-family: 'DM Mono', monospace; background: #e8edf4;
+  padding: 1px 7px; border-radius: 3px; color: #0f172a;
+  white-space: nowrap; font-size: 12px; flex-shrink: 0;
+}
+.ds-hint-note {
+  margin-top: 10px; color: #9baab4; font-size: 11.5px;
+  border-top: 1px solid #edf2f7; padding-top: 8px;
+}
+.ds-blast-action-bar { display: flex; align-items: center; gap: 10px; }
+
