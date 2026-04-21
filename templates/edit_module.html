@@ -10,14 +10,9 @@
   <div class="ds-form-card">
     <div class="ds-form-card-title">{% if module %}编辑模块{% else %}新增模块{% endif %}</div>
     {% if messages %}
-    <div style="margin-bottom:16px;">
+    <div class="ds-alert-list">
       {% for message in messages %}
-      <div style="padding:10px 14px;border-radius:6px;margin-bottom:8px;font-size:13.5px;
-        {% if 'error' in message.tags %}background:#fef2f2;border:1px solid #fecaca;color:#991b1b;
-        {% elif 'success' in message.tags %}background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;
-        {% else %}background:#f0f9ff;border:1px solid #bae6fd;color:#0c4a6e;{% endif %}">
-        {{ message }}
-      </div>
+      <div class="ds-alert {% if 'error' in message.tags %}ds-alert-error{% elif 'success' in message.tags %}ds-alert-success{% else %}ds-alert-info{% endif %}">{{ message }}</div>
       {% endfor %}
     </div>
     {% endif %}
