@@ -50,13 +50,13 @@
               <form method="POST" action="{% url 'delete_seqmodule' %}" style="display:inline;" onsubmit="return confirm('确定删除该修饰模块？');">
                 {% csrf_token %}
                 <input type="hidden" name="id" value="{{ module.id }}">
-                <button type="submit" class="ds-act" style="border-color:#fca5a5;color:#ef4444;background:#fff;">删除</button>
+                <button type="submit" class="ds-act-delete">删除</button>
               </form>
             </div>
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:32px;">暂无修饰模块数据</td></tr>
+        <tr><td colspan="4" class="ds-empty-state">暂无修饰模块数据</td></tr>
         {% endfor %}
       </tbody>
     </table>
