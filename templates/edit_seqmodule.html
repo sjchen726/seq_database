@@ -36,7 +36,7 @@
         <input type="text" id="linker_connector" name="linker_connector" class="ds-form-control"
           placeholder="o（默认）或 - 等"
           value="{% if form_data %}{{ form_data.linker_connector }}{% elif module %}{{ module.linker_connector }}{% else %}o{% endif %}">
-        <p style="font-size:12px;color:#64748b;margin:4px 0 0 0;">linker_seq 中该 token 后追加的连接符，默认为 o</p>
+        <p class="ds-form-hint">linker_seq 中该 token 后追加的连接符，默认为 o</p>
       </div>
       <div style="margin-top:24px;display:flex;justify-content:flex-end;gap:10px;">
         <a href="{% url 'seqmodule_list' %}" class="ds-btn ds-btn-ghost">返回</a>

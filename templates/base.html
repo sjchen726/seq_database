@@ -39,38 +39,38 @@
 
     <div class="ds-nav-section">序列数据</div>
     <a href="{% url 'seq_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'seq_list' %}active{% endif %}">
-      <i class="bi bi-table" style="font-size:13px;flex-shrink:0;"></i> 序列列表
+      <i class="bi bi-table ds-nav-icon"></i> 序列列表
     </a>
 
     <div class="ds-nav-divider"></div>
     <div class="ds-nav-section">功能模块</div>
     <a href="{% url 'register_seq' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'register_seq' %}active{% endif %}">
-      <i class="bi bi-plus-circle" style="font-size:13px;flex-shrink:0;"></i> 序列注册
+      <i class="bi bi-plus-circle ds-nav-icon"></i> 序列注册
     </a>
     <a href="{% url 'seq_delivery' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'seq_delivery' %}active{% endif %}">
-      <i class="bi bi-cloud-upload" style="font-size:13px;flex-shrink:0;"></i> 序列上传
+      <i class="bi bi-cloud-upload ds-nav-icon"></i> 序列上传
     </a>
 
     <div class="ds-nav-divider"></div>
     <div class="ds-nav-section">BLAST</div>
     <a href="{% url 'multi_blast' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'multi_blast' or request.resolver_match.url_name == 'multi_blast_results' %}active{% endif %}">
-      <i class="bi bi-search" style="font-size:13px;flex-shrink:0;"></i> 多序列比对
+      <i class="bi bi-search ds-nav-icon"></i> 多序列比对
     </a>
 
     <div class="ds-nav-divider"></div>
     <div class="ds-nav-section">模块管理</div>
     <a href="{% url 'module_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'module_list' or request.resolver_match.url_name == 'edit_module' %}active{% endif %}">
-      <i class="bi bi-box-seam" style="font-size:13px;flex-shrink:0;"></i> Delivery 模块
+      <i class="bi bi-box-seam ds-nav-icon"></i> Delivery 模块
     </a>
     <a href="{% url 'seqmodule_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'seqmodule_list' or request.resolver_match.url_name == 'edit_seqmodule' %}active{% endif %}">
-      <i class="bi bi-check2-square" style="font-size:13px;flex-shrink:0;"></i> 序列修饰模块
+      <i class="bi bi-check2-square ds-nav-icon"></i> 序列修饰模块
     </a>
 
     {% if request.user.user_type in 'admin,superadmin' or request.user.is_superuser %}
     <div class="ds-nav-divider"></div>
     <div class="ds-nav-section">系统</div>
     <a href="{% url 'author_list' %}" class="ds-nav-item {% if request.resolver_match.url_name in 'author_list,add_author,edit_author' %}active{% endif %}">
-      <i class="bi bi-people" style="font-size:13px;flex-shrink:0;"></i> 用户管理
+      <i class="bi bi-people ds-nav-icon"></i> 用户管理
     </a>
     {% endif %}
 
