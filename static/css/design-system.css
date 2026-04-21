@@ -221,12 +221,6 @@ body {
   font-family: 'DM Sans', sans-serif;
 }
 .ds-search-input::placeholder { color: #b0bec8; }
-.ds-search-kbd {
-  background: #e8edf4; color: #64748b;
-  font-size: 9px; font-weight: 700;
-  padding: 1px 5px; border-radius: 4px;
-  font-family: 'DM Mono', monospace;
-}
 
 /* ── Content area ── */
 .ds-content {
@@ -373,7 +367,7 @@ body {
 .ds-pg.active { background: linear-gradient(135deg, #16a34a, #22d3ee); color: #fff; border-color: transparent; font-weight: 700; box-shadow: 0 2px 6px rgba(22,163,74,0.3); }
 
 /* ── Form card (used in edit/register pages) ── */
-.ds-form-page { padding: 24px 20px; display: flex; justify-content: center; }
+.ds-form-page { padding: 20px; display: flex; justify-content: center; }
 .ds-form-card {
   background: #fff; border-radius: 14px;
   border: 1px solid #e8edf4;
@@ -827,3 +821,89 @@ tr.group-bg-2:hover { background-color: #eef3f8 !important; border-left-color: #
   border-top: 1px solid #edf2f7;
 }
 
+/* ── Alert / message banner ── */
+.ds-alert-list { margin-bottom: 16px; }
+.ds-alert {
+  padding: 10px 14px; border-radius: 6px; margin-bottom: 8px;
+  font-size: 13.5px; border: 1px solid transparent;
+}
+.ds-alert-success { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+.ds-alert-error   { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+.ds-alert-info    { background: #f0f9ff; border-color: #bae6fd; color: #0c4a6e; }
+.ds-alert-warning { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+
+/* ── Empty state row ── */
+.ds-empty-state {
+  text-align: center; color: #94a3b8; padding: 32px;
+}
+
+/* ── Form hint text ── */
+.ds-form-hint { font-size: 12px; color: #64748b; margin: 4px 0 0 0; }
+
+/* ── Action: delete ── */
+.ds-act-delete {
+  background: #fff; border: 1px solid #fca5a5; color: #ef4444;
+  border-radius: 5px; padding: 3px 10px; font-size: 12px;
+  cursor: pointer; transition: background .12s, border-color .12s;
+}
+.ds-act-delete:hover { background: #fef2f2; border-color: #f87171; }
+
+/* ── Sidebar nav icon ── */
+.ds-nav-icon { font-size: 13px; flex-shrink: 0; }
+
+/* ── Seq-type selector (inside table header) ── */
+.ds-seq-type-selector {
+  width: auto; display: inline-block; margin-top: 2px;
+  min-width: 140px; font-size: 11px;
+  border: 1px solid #e2e8f0; border-radius: 4px; padding: 2px 4px;
+}
+
+/* ── Form 3-column grid ── */
+.ds-form-3col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px 12px;
+}
+.ds-form-span-3 { grid-column: 1 / -1; }
+
+/* ── Clone row + divider ── */
+.ds-clone-row {
+  padding: 12px; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 8px;
+}
+.ds-clone-divider {
+  position: relative; display: block; height: 16px; width: 100%;
+  margin: 0.75rem 0 1rem; clear: both;
+  background: linear-gradient(90deg, rgba(74,163,223,.12), rgba(74,163,223,.06));
+}
+.ds-clone-divider::before {
+  content: ''; position: absolute; left: 5%; right: 5%; top: 50%;
+  height: 0; border-top: 1px dashed rgba(74,163,223,.6);
+  transform: translateY(-50%);
+}
+
+/* ── Button: disabled state ── */
+.ds-btn:disabled,
+.ds-btn[disabled] {
+  opacity: 0.55; cursor: not-allowed; pointer-events: none;
+}
+
+/* ── Button: loading state ── */
+@keyframes ds-spin { to { transform: rotate(360deg); } }
+.ds-btn-loading {
+  opacity: 0.75; cursor: not-allowed; pointer-events: none;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.ds-btn-loading::before {
+  content: '';
+  display: inline-block;
+  width: 13px; height: 13px;
+  border: 2px solid rgba(255,255,255,.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: ds-spin .6s linear infinite;
+  flex-shrink: 0;
+}
+.ds-btn-ghost.ds-btn-loading::before {
+  border-color: rgba(100,116,139,.3);
+  border-top-color: #64748b;
+}
