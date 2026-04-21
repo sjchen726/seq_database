@@ -34,48 +34,48 @@
   </div>
   <form id="advancedSearchForm" method="GET" action="{% url 'seq_list' %}">
     <input type="hidden" name="seq_type" value="{{ selected_seq_type }}">
-    <div class="row g-2">
-      <div class="col-md-4">
+    <div class="ds-form-3col">
+      <div>
         <label class="ds-form-label">Strand ID</label>
         <input type="text" name="filterSequence" class="ds-form-control" value="{{ field_filters.filterSequence }}">
       </div>
-      <div class="col-md-4">
+      <div>
         <label class="ds-form-label">Naked Sequence</label>
         <input type="text" name="filterNakedSeq" class="ds-form-control" value="{{ field_filters.filterNakedSeq }}" placeholder="如 CAUGGC">
       </div>
-      <div class="col-md-4">
+      <div>
         <label class="ds-form-label">Target</label>
         <input type="text" name="filterTarget" class="ds-form-control" value="{{ field_filters.filterTarget }}">
       </div>
-      <div class="col-md-4">
+      <div>
         <label class="ds-form-label">Project</label>
         <input type="text" name="filterProject" class="ds-form-control" value="{{ field_filters.filterProject }}">
       </div>
-      <div class="col-md-4">
+      <div>
         <label class="ds-form-label">Seq Type (AS/SS)</label>
         <input type="text" name="filterSeqType" class="ds-form-control" value="{{ field_filters.filterSeqType }}">
       </div>
-      <div class="col-md-4">
+      <div>
         <label class="ds-form-label">5' Ligand</label>
         <input type="text" name="filter5Delivery" class="ds-form-control" value="{{ field_filters.filter5Delivery }}">
       </div>
-      <div class="col-md-4">
+      <div>
         <label class="ds-form-label">3' Ligand</label>
         <input type="text" name="filter3Delivery" class="ds-form-control" value="{{ field_filters.filter3Delivery }}">
       </div>
-      <div class="col-md-4">
+      <div>
         <label class="ds-form-label">Transcript</label>
         <input type="text" name="filterTranscript" class="ds-form-control" value="{{ field_filters.filterTranscript }}">
       </div>
-      <div class="col-md-4">
+      <div>
         <label class="ds-form-label">Parents</label>
         <input type="text" name="filterParents" class="ds-form-control" value="{{ field_filters.filterParents }}">
       </div>
-      <div class="col-md-4">
+      <div>
         <label class="ds-form-label">Remarks</label>
         <input type="text" name="filterRemarks" class="ds-form-control" value="{{ field_filters.filterRemarks }}">
       </div>
-      <div class="col-12" id="modifySeqInputsWrap">
+      <div class="ds-form-span-3" id="modifySeqInputsWrap">
         <label class="ds-form-label">Modify Sequence (5'-3')，多值 AND 关系</label>
         <div id="modifySeqInputs">
           {% for v in field_filters.filterSeq %}
@@ -184,7 +184,7 @@
           <th>Ligand 1</th>
           <th>
             Sequences<br>
-            <select id="seq_type_selector" class="ds-pagesize-select" style="width:auto;margin-top:2px;min-width:140px;font-size:11px;">
+            <select id="seq_type_selector" class="ds-seq-type-selector">
               <option value="SS" {% if selected_seq_type == 'SS' %}selected{% endif %}>AS: 5'-3'; SS: 3'-5'</option>
               <option value="AS" {% if selected_seq_type == 'AS' %}selected{% endif %}>SS: 5'-3'; AS: 3'-5'</option>
             </select>
