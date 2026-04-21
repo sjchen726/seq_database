@@ -6,7 +6,7 @@
   <a href="{% url 'reg_seq_list' %}" class="ds-btn ds-btn-ghost">返回列表</a>
 {% endblock %}
 {% block content %}
-<div class="ds-form-page" style="padding-top:20px;">
+<div class="ds-form-page">
   <div class="ds-form-card">
     <div class="ds-form-card-title">编辑序列信息 — {{ seq.rm_code }}</div>
     <form method="POST" action="{% url 'edit_reg_seq' %}?id={{ seq.rm_code }}">
