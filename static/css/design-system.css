@@ -879,11 +879,11 @@ tr.group-bg-2:hover { background-color: #eef3f8 !important; border-left-color: #
 
 /* ── Button: loading state ── */
 @keyframes ds-spin { to { transform: rotate(360deg); } }
-.ds-btn-loading {
+.ds-btn.ds-btn-loading {
   opacity: 0.75; cursor: not-allowed; pointer-events: none;
   display: inline-flex; align-items: center; gap: 7px;
 }
-.ds-btn-loading::before {
+.ds-btn.ds-btn-loading::before {
   content: '';
   display: inline-block;
   width: 13px; height: 13px;

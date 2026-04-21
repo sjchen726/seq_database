@@ -9,4 +9,14 @@
     btn._originalText = btn.textContent;
     btn.textContent = '处理中…';
   });
+
+  window.addEventListener('pageshow', function (e) {
+    if (e.persisted) {
+      document.querySelectorAll('.ds-btn-loading').forEach(function (btn) {
+        btn.classList.remove('ds-btn-loading');
+        btn.disabled = false;
+        if (btn._originalText) { btn.textContent = btn._originalText; }
+      });
+    }
+  });
 })();
