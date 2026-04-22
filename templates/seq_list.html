@@ -301,7 +301,6 @@
             <div class="ds-actions">
               <a class="ds-act ds-act-edit" href="/edit_seq/?id={{ group.items.0.rm_code }}&strand_MWs={{ group.items.0.deliveries.0.Strand_MWs }}&next={{ request.get_full_path|urlencode }}">编辑</a>
               <button class="ds-act ds-act-clone clone-seq-btn" data-strand-id="{{ group.duplex_id }}">克隆序列</button>
-              <a class="ds-act ds-act-blast" href="/blast_seq/?delivery_id={{ group.items.0.rm_code }}&seq_type={{ group.items.0.deliveries.0.Seq_type }}" target="_blank">Blast</a>
             </div>
           </td>
         </tr>
@@ -407,7 +406,6 @@
             <div class="ds-actions">
               <a class="ds-act ds-act-edit" href="/edit_seq/?id={{ group.items.1.rm_code }}&strand_MWs={{ group.items.1.deliveries.0.Strand_MWs }}&next={{ request.get_full_path|urlencode }}">编辑</a>
               <button class="ds-act ds-act-clone clone-seq-btn" data-strand-id="{{ group.duplex_id }}">克隆序列</button>
-              <a class="ds-act ds-act-blast" href="/blast_seq/?delivery_id={{ group.items.1.rm_code }}&seq_type={{ group.items.1.deliveries.0.Seq_type }}" target="_blank">Blast</a>
             </div>
           </td>
         </tr>
