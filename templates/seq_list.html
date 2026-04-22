@@ -19,7 +19,6 @@
   <button class="ds-btn ds-btn-ghost" id="advancedSearchBtn" type="button">⚙ 高级搜索{% if has_search and not search_q %} ●{% endif %}</button>
   <button class="ds-btn ds-btn-ghost" id="searchBtn" type="button" style="display:none;">搜索</button>
   <a class="ds-btn ds-btn-ghost" href="{% url 'seq_list' %}{% if selected_seq_type %}?seq_type={{ selected_seq_type }}{% endif %}" id="clearAllSearch" {% if not search_q and not has_search %}style="display:none;"{% endif %}>✕ 清除</a>
-  <a class="ds-btn ds-btn-green" href="{% url 'multi_blast' %}">⌗ 多序列比对</a>
 {% endblock %}
 
 {% block extra_head %}{% endblock %}
@@ -129,6 +128,8 @@
     ▼ 项目筛选 {% if selected_projects %}<span class="ds-tb-badge">{{ selected_projects|length }}</span>{% endif %}
   </button>
   <button id="toggleColumnPanel" type="button" class="ds-tb-btn ds-tb-purple">◧ 列显示</button>
+  <button id="multiBlastBtn" type="button" class="ds-tb-btn ds-tb-green"
+          data-url="{% url 'multi_blast' %}" disabled>⌗ 多序列比对</button>
 </div>
 
 <!-- Project filter panel -->
