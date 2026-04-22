@@ -2336,12 +2336,11 @@ def download_selected(request):
 
 @login_required
 def module_list(request):
-
-    # 获取所有 DeliveryModule 的 keyword 和 type_code
-    module_list = DeliveryModule.objects.all().values('id', 'keyword', 'type_code', 'Strand_MWs')
-    
-    # 渲染模板并传递数据
-    return render(request, 'module_list.html', {'module_list': module_list})
+    from django.core.paginator import Paginator
+    all_modules = DeliveryModule.objects.all().values('id', 'keyword', 'type_code', 'Strand_MWs')
+    paginator = Paginator(all_modules, 20)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+    return render(request, 'module_list.html', {'module_list': page_obj, 'page_obj': page_obj})
 
 
 @login_required
@@ -2472,8 +2471,11 @@ def delete_module(request):
 
 @login_required
 def seqmodule_list(request):
-    seqmodule_list = SeqModule.objects.all().values('id', 'keyword', 'base_char')
-    return render(request, 'seqmodule_list.html', {'seqmodule_list': seqmodule_list})
+    from django.core.paginator import Paginator
+    all_modules = SeqModule.objects.all().values('id', 'keyword', 'base_char', 'linker_connector', 'description')
+    paginator = Paginator(all_modules, 20)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+    return render(request, 'seqmodule_list.html', {'seqmodule_list': page_obj, 'page_obj': page_obj})
 
 
 @login_required
