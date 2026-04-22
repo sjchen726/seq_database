@@ -23,10 +23,12 @@
     var csrf = document.createElement('input');
     csrf.type = 'hidden';
     csrf.name = 'csrfmiddlewaretoken';
-    csrf.value = document.cookie.match(/csrftoken=([^;]+)/)[1];
+    var csrfMatch = document.cookie.match(/csrftoken=([^;]+)/);
+    if (!csrfMatch) return;
+    csrf.value = csrfMatch[1];
     form.appendChild(csrf);
 
-    checked.forEach(function (cb) {
+    Array.prototype.forEach.call(checked, function (cb) {
       var row = cb.closest('tr');
       var input = document.createElement('input');
       input.type = 'hidden';
