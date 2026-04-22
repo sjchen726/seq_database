@@ -177,12 +177,12 @@
       <thead>
         <tr>
           <th><input type="checkbox" id="select-all"></th>
-          <th>Strand ID</th>
-          <th>Project</th>
-          <th>Target</th>
-          <th>Sequence ID</th>
+          <th class="ds-th-sort">Strand ID</th>
+          <th class="ds-th-sort">Project</th>
+          <th class="ds-th-sort">Target</th>
+          <th class="ds-th-sort">Sequence ID</th>
           <th>Ligand 1</th>
-          <th>
+          <th style="text-align:center;">
             Sequences<br>
             <select id="seq_type_selector" class="ds-seq-type-selector">
               <option value="SS" {% if selected_seq_type == 'SS' %}selected{% endif %}>AS: 5'-3'; SS: 3'-5'</option>
@@ -190,12 +190,12 @@
             </select>
           </th>
           <th>Ligand 2</th>
-          <th>Transcript</th>
-          <th>Position</th>
-          <th>Strand_MWs</th>
-          <th>Parents</th>
-          <th>Remarks</th>
-          <th>Update Time</th>
+          <th class="ds-th-sort">Transcript</th>
+          <th class="ds-th-sort">Position</th>
+          <th class="ds-th-sort">Strand_MWs</th>
+          <th class="ds-th-sort">Parents</th>
+          <th class="ds-th-sort">Remarks</th>
+          <th class="ds-th-sort">Update Time</th>
           <th>操作</th>
         </tr>
       </thead>
