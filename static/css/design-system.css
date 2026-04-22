@@ -697,7 +697,7 @@ tr.group-bg-2:hover { background-color: #eef3f8 !important; border-left-color: #
   min-width: max-content;
 }
 .seq-delivery-label {
-  font-size: 0.62em;
+  font-size: 0.75em;
   font-weight: 600;
   border-radius: 3px;
   padding: 0 3px;
@@ -906,3 +906,6 @@ tr.group-bg-2:hover { background-color: #eef3f8 !important; border-left-color: #
 .ds-th-sort.ds-sort-desc { color: #1d4ed8; }
 .ds-th-sort.ds-sort-asc .ds-sort-icon,
 .ds-th-sort.ds-sort-desc .ds-sort-icon { color: #3b82f6; }
+
+/* ── Toolbar button disabled state ── */
+.ds-tb-btn:disabled { opacity: 0.45; cursor: not-allowed; }
