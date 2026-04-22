@@ -1,197 +1,47 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>序列管理系统</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- jQuery UI -->
-    <link href="https://code.jquery.com/ui/1.10.3/themes/redmond/jquery-ui.css" rel="stylesheet" media="screen">
-
-    <!-- Bootstrap -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <!-- styles -->
-    <link href="/static/css/styles.css" rel="stylesheet">
-
-    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
-    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
-    <!--[if lt IE 9]>
-    <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
-    <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
-    <![endif]-->
-</head>
-<body>
-<div class="header">
-    <div class="container">
-        <div class="row">
-            <div class="col-md-5">
-                <!-- Logo -->
-                <div class="logo">
-                    <h1><a href="seq_list/">序列管理系统</a></h1>
-                </div>
-            </div>
-            <div class="col-md-5">
-                <div class="row">
-                    <div class="col-lg-12">
-                        <div class="input-group form">
-                            <input type="text" class="form-control" placeholder="Search...">
-                            <span class="input-group-btn">
-	                         <button class="btn btn-primary" type="button">Search</button>
-	                       </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-2">
-                <div class="navbar navbar-dark bg-dark" role="banner">
-                    <nav class="collapse navbar-collapse bs-navbar-collapse navbar-right" role="navigation">
-                        <ul class="nav navbar-nav">
-                            <li class="dropdown">
-                                <a href="#" class="dropdown-toggle" data-bs-toggle="dropdown">个人信息<b class="caret"></b></a>
-                                <ul class="dropdown-menu animated fadeInUp">
-                                    {% if request.user.is_authenticated %}
-                                        <li><a href="#">用户名: {{ request.user.username }}</a></li>
-                                        <li><a href="#">邮箱: {{ request.user.email }}</a></li>
-                                        <li class="divider"></li>
-                                        <li><a href="/login/">退出登录</a></li>
-                                    {% else %}
-                                        <li><a href="/login/">请登录</a></li>
-                                    {% endif %}
-                                </ul>
-                            </li>
-                        </ul>
-                    </nav>
-                </div>
-            </div>
-        </div>
-    </div>
+{% extends 'base.html' %}
+{% block page_title %} — 编辑人员信息{% endblock %}
+{% block topbar_content %}
+  <span class="ds-topbar-title">编辑人员信息</span>
+  <span class="ds-topbar-spacer"></span>
+  <a href="{% url 'author_list' %}" class="ds-btn ds-btn-ghost">返回列表</a>
+{% endblock %}
+{% block content %}
+<div class="ds-form-page">
+  <div class="ds-form-card">
+    <div class="ds-form-card-title">编辑 — {{ user.username }}</div>
+    <form method="POST" action="{% url 'edit_author' %}?id={{ user.id }}">
+      {% csrf_token %}
+      <div class="ds-form-row">
+        <label class="ds-form-label" for="edit_username">姓名</label>
+        <input class="ds-form-control" id="edit_username" placeholder="姓名" name="edit_username" value="{{ user.username }}">
+      </div>
+      <div class="ds-form-row">
+        <label class="ds-form-label" for="edit_email">邮箱</label>
+        <input class="ds-form-control" id="edit_email" placeholder="邮箱" name="edit_email" value="{{ user.email }}">
+      </div>
+      <div class="ds-form-row">
+        <label class="ds-form-label" for="edit_user_type">角色分类</label>
+        <select class="ds-form-control" id="edit_user_type" name="edit_user_type">
+          <option value="superadmin" {% if user.user_type == "superadmin" %}selected{% endif %}>超级管理员</option>
+          <option value="admin" {% if user.user_type == "admin" %}selected{% endif %}>管理员</option>
+          <option value="data_admin" {% if user.user_type == "data_admin" %}selected{% endif %}>数据库管理员</option>
+          <option value="project" {% if user.user_type == "project" %}selected{% endif %}>项目管理</option>
+          <option value="delivery" {% if user.user_type == "delivery" %}selected{% endif %}>递送</option>
+          <option value="modify" {% if user.user_type == "modify" %}selected{% endif %}>修饰</option>
+          <option value="guest" {% if user.user_type == "guest" %}selected{% endif %}>访客</option>
+        </select>
+      </div>
+      <div class="ds-form-row">
+        <label class="ds-form-label" for="edit_permissions_project">项目权限</label>
+        <input class="ds-form-control" id="edit_permissions_project" name="edit_permissions_project"
+               type="text" placeholder="负责项目 (格式: BPR-3M01,BPR-3M02)" value="{{ user.permissions_project }}">
+        <p class="ds-form-hint">多个项目用逗号分隔。</p>
+      </div>
+      <div style="margin-top:24px;display:flex;justify-content:flex-end;gap:10px;">
+        <a href="{% url 'author_list' %}" class="ds-btn ds-btn-ghost">返回</a>
+        <button type="submit" class="ds-btn ds-btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
 </div>
-
-<div class="page-content">
-    <div class="row">
-        <div class="col-md-2">
-            <div class="sidebar content-box" style="display: block;">
-                <ul class="nav">
-                    <!-- Main menu -->
-<!--                    <li><a href="index.html"><i class="bi bi-house"></i>首页</a></li>-->
-                   <!-- <li class="current"><a href="/publisher_list"><i class="bi bi-list-ul"></i> 出版社管理</a></li> --> 
-                   <li><a href="/author_list"><i class="bi bi-circle-fill"></i> 项目人员管理</a></li>
-                   <li class="submenu">
-                    <a href="/seq_list">
-                        <i class="bi bi-pencil"></i> 序列信息管理
-                        <span class="caret pull-right"></span>
-                    </a>
-                    <ul style="display: block;">
-                        <li><a href="/module_list/">配体模块列表</a></li>
-                        <li><a href="/seqmodule_list/">序列修饰列表</a></li>
-                        <li><a href="/register_seq/">序列注册</a></li>
-                        <li><a href="/reg_seq_list/">注册序列列表</a></li>
-                        <li><a href="/seq_delivery/">序列信息上传</a></li>
-                        <li><a href="/seq_list/">序列信息列表</a></li>
-                    </ul>
-                    </li>
-                    <li class="submenu">
-                        <a href="#">
-                            <i class="bi bi-list-ul"></i> 系统设置
-                            <span class="caret pull-right"></span>
-                        </a>
-                        <!-- Sub menu -->
-                        <ul>
-                    <!--        <li><a href="/login">Login</a></li> -->
-                            <li><a href="/signup">注册</a></li>
-                            <li><a href="/change_password">修改密码</a></li>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
-        </div>
-        <div class="col-md-10">
-            <div class="content-box-large">
-                <div class="panel-heading">
-                    <div class="panel-title">项目人员信息修改</div>
-                </div>
-                <div class="panel-body">
-                    <form class="form-horizontal" role="form" action="/edit_author/?id={{ user.id }}" method="post">
-                        {% csrf_token %}
-                        {#                            <input type="text" name="edit_id" value="{{ author.id }}" class="hide">#}
-                        <div class="form-group">
-                            <label for="input1" class="col-sm-2 control-label">姓名</label>
-                            <div class="col-sm-10">
-                                <input class="form-control" id="input1" placeholder="姓名" name="edit_username" value="{{ user.username }}">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="col-sm-2 control-label">邮箱</label>
-                            <div class="col-sm-10">
-                                <input class="form-control" id="input2" placeholder="邮箱" name="edit_email" value="{{ user.email }}">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="col-sm-2 control-label">分类</label>
-                            <div class="col-sm-10">
-                                <select class="form-control" id="input3" name="edit_user_type" value="{{ user.user_type }}">
-                                    <option disabled selected>{{ user.user_type }}</option>
-                                    <option value="superadmin" {% if user.user_type == "superadmin" %}selected{% endif %}>超级管理员</option>
-                                    <option value="admin" {% if user.user_type == "admin" %}selected{% endif %}>管理员</option>
-                                    <option value="data_admin" {% if user.user_type == "data_admin" %}selected{% endif %}>数据库管理员</option>
-                                    <option value="project" {% if user.user_type == "project" %}selected{% endif %}>项目管理</option>
-                                    <option value="delivery" {% if user.user_type == "delivery" %}selected{% endif %}>递送</option>
-                                    <option value="modify" {% if user.user_type == "modify" %}selected{% endif %}>修饰</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="col-sm-2 control-label">项目权限</label>
-                            <div class="col-sm-10">
-                                <input class="form-control" id="input4", name="edit_permissions_project" type="text" placeholder="负责项目 (格式: BPR-3M01,BPR-3M02)" value="{{ user.permissions_project }}">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <div class="col-sm-offset-2 col-sm-10">
-                                <button type="submit" class="btn btn-primary">保存</button>
-<!--                                <button type="" class="btn btn-default">返回</button>-->
-                                <button type="submit" formmethod="get" formaction="/author_list" class="btn btn-default">返回</button>
-                            </div>
-                        </div>
-<!--                        <div class="col-sm-offset-2 col-sm-10">-->
-<!--                            &lt;!&ndash;                                <button type="submit" class="btn btn-primary">保存</button>&ndash;&gt;-->
-<!--                            <button href="/author_list" class="btn btn-default">返回</button>-->
-<!--                        </div>-->
-                    </form>
-                </div>
-
-            </div>
-
-
-
-        </div>
-    </div>
-</div>
-
-<footer>
-    <div class="container">
-
-        <div class="copy text-center">
-            Copyright BTYY-OPRA 2025 <a href='#'>Website</a>
-        </div>
-
-    </div>
-</footer>
-
-<link href="/static/vendors/datatables/dataTables.bootstrap.css" rel="stylesheet" media="screen">
-
-<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
-<script src="https://code.jquery.com/jquery.js"></script>
-<!-- jQuery UI -->
-<script src="https://code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
-<!-- Include all compiled plugins (below), or include individual files as needed -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
-<script src="/static/vendors/datatables/js/jquery.dataTables.min.js"></script>
-
-<script src="/static/vendors/datatables/dataTables.bootstrap.js"></script>
-
-<script src="/static/js/custom.js"></script>
-<script src="/static/js/tables.js"></script>
-</body>
-</html>
+{% endblock %}

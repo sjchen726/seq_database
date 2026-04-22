@@ -13,9 +13,7 @@ $(document).ready(function() {
             [1, 'asc']
         ],
         lengthMenu: [5, 10, 20, 50],
-        scrollX: isScrollable,
-        scrollY: isScrollable ? '62vh' : undefined,
-        scrollCollapse: isScrollable,
+        dom: "t",
         columnDefs: [{
             targets: 0,
             orderable: false,

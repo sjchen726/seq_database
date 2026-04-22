@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>SeqDB{% block page_title %}{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Bootstrap 5 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+
+  <!-- jQuery UI (needed by some pages for drag) -->
+  <link href="https://code.jquery.com/ui/1.10.3/themes/redmond/jquery-ui.css" rel="stylesheet">
+
+  <!-- Design system -->
+  <link href="/static/css/design-system.css" rel="stylesheet">
+
+  {% block extra_head %}{% endblock %}
+  {% block extra_styles %}{% endblock %}
+</head>
+<body>
+
+{# Hidden CSRF holder used by JS fetch calls #}
+<form style="display:none;" id="csrf-token-holder" method="post">
+  {% csrf_token %}
+</form>
+
+<div class="app-shell">
+
+  <!-- ── Sidebar ── -->
+  <nav class="ds-sidebar">
+    <div class="ds-sidebar-logo">
+      <div class="ds-logo-mark">S</div>
+      <div>
+        <div class="ds-logo-text">SeqDB</div>
+        <div class="ds-logo-tagline">Sequence Database</div>
+      </div>
+    </div>
+
+    <div class="ds-nav-section">序列数据</div>
+    <a href="{% url 'seq_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'seq_list' %}active{% endif %}">
+      <i class="bi bi-table ds-nav-icon"></i> 序列列表
+    </a>
+
+    <div class="ds-nav-divider"></div>
+    <div class="ds-nav-section">功能模块</div>
+    <a href="{% url 'register_seq' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'register_seq' %}active{% endif %}">
+      <i class="bi bi-plus-circle ds-nav-icon"></i> 序列注册
+    </a>
+    <a href="{% url 'seq_delivery' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'seq_delivery' %}active{% endif %}">
+      <i class="bi bi-cloud-upload ds-nav-icon"></i> 序列上传
+    </a>
+
+    <div class="ds-nav-divider"></div>
+    <div class="ds-nav-section">BLAST</div>
+    <a href="{% url 'multi_blast' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'multi_blast' or request.resolver_match.url_name == 'multi_blast_results' %}active{% endif %}">
+      <i class="bi bi-search ds-nav-icon"></i> 多序列比对
+    </a>
+
+    <div class="ds-nav-divider"></div>
+    <div class="ds-nav-section">模块管理</div>
+    <a href="{% url 'module_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'module_list' or request.resolver_match.url_name == 'edit_module' %}active{% endif %}">
+      <i class="bi bi-box-seam ds-nav-icon"></i> Delivery 模块
+    </a>
+    <a href="{% url 'seqmodule_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'seqmodule_list' or request.resolver_match.url_name == 'edit_seqmodule' %}active{% endif %}">
+      <i class="bi bi-check2-square ds-nav-icon"></i> 序列修饰模块
+    </a>
+
+    {% if request.user.user_type in 'admin,superadmin' or request.user.is_superuser %}
+    <div class="ds-nav-divider"></div>
+    <div class="ds-nav-section">系统</div>
+    <a href="{% url 'author_list' %}" class="ds-nav-item {% if request.resolver_match.url_name in 'author_list,add_author,edit_author' %}active{% endif %}">
+      <i class="bi bi-people ds-nav-icon"></i> 用户管理
+    </a>
+    {% endif %}
+
+    <div class="ds-sidebar-footer">
+      <div class="ds-user-card">
+        <div class="ds-user-avatar">{{ request.user.username|first|upper }}</div>
+        <div>
+          <div class="ds-user-name">{{ request.user.username }}</div>
+          <div class="ds-user-role">
+            <span class="ds-online-dot"></span>
+            {{ request.user.user_type|default:"user" }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── Main ── -->
+  <div class="ds-main">
+
+    <!-- Topbar -->
+    <div class="ds-topbar">
+      {% block topbar_content %}{% endblock %}
+    </div>
+
+    <!-- Scrollable content -->
+    <div class="ds-content">
+      {% if messages %}
+        {% for message in messages %}
+          <div class="ds-alert {% if message.tags == 'error' %}ds-alert-error{% elif message.tags == 'success' %}ds-alert-success{% else %}ds-alert-info{% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      {% block content %}{% endblock %}
+    </div>
+
+  </div><!-- /ds-main -->
+</div><!-- /app-shell -->
+
+<!-- Toast container (used by seq_list JS) -->
+<div id="msg-toast-container"></div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- jQuery + jQuery UI (some pages need drag) -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+
+{% block extra_scripts %}{% endblock %}
+
+<script src="/static/js/loading.js"></script>
+<script src="/static/js/table-sort.js"></script>
+
+</body>
+</html>

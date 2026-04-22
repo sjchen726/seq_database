@@ -1,219 +1,95 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>注册序列列表 - 序列管理系统</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://code.jquery.com/ui/1.10.3/themes/redmond/jquery-ui.css" rel="stylesheet" media="screen">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <link href="/static/css/styles.css" rel="stylesheet">
-</head>
-<body>
-
-<div class="header">
-    <div class="container">
-        <div class="row">
-            <div class="col-md-5">
-                <div class="logo">
-                    <h1><a href="/seq_list">序列管理系统</a></h1>
-                </div>
-            </div>
-            <div class="col-md-5">
-                <div class="row">
-                    <div class="col-lg-12">
-                        <div class="input-group form">
-                            <input type="text" id="searchInput" class="form-control" placeholder="Search...">
-                            <span class="input-group-btn">
-                                <button class="btn btn-primary" id="searchBtn" type="button">Search...</button>
-                                <button class="btn btn-info" id="advancedSearchBtn" type="button" style="margin-left: 10px;">高级搜索</button>
-                            </span>
-                        </div>
-
-                        <!-- 高级搜索面板 -->
-                        <div id="advancedSearchPanel" style="display: none;">
-                            <form id="advancedSearchForm" method="GET" action="{% url 'search' %}">
-                                {% csrf_token %}
-                                <div class="search-header" id="dragHandle">
-                                    <span>高级搜索</span>
-                                    <button id="closeSearchPanel" type="button">✖</button>
-                                </div>
-                                <div class="advanced-search-grid">
-                                    <div class="search-column">
-                                        <label>Strand ID: <input type="text" name="filterSequence"></label>
-                                        <label>5' Ligand: <input type="text" name="filter5Delivery"></label>
-                                        <label>Sequences: <input type="text" name="filterSeq"></label>
-                                        <label>Target: <input type="text" name="filterTarget"></label>
-                                        <label>Strand_MWs: <input type="text" name="filterStrandMWs"></label>
-                                        <label>Remarks: <input type="text" name="filterRemarks"></label>
-                                        <label>Sequence ID: <input type="text" name="filterAsSeqtype"></label>
-                                    </div>
-                                    <div class="search-column">
-                                        <label>Project: <input type="text" name="filterProject"></label>
-                                        <label>3' Ligand: <input type="text" name="filter3Delivery"></label>
-                                        <label>Modify Sequences: <input type="text" name="filterModifySeq"></label>
-                                        <label>Transcript: <input type="text" name="filterTranscript"></label>
-                                        <label>Position: <input type="text" name="filterPos"></label>
-                                        <label>Parents: <input type="text" name="filterParents"></label>
-                                    </div>
-                                </div>
-                                <div class="search-buttons">
-                                    <button type="submit" id="applyFilters">应用筛选</button>
-                                    <button type="button" id="clearFilters" class="button-style">清除筛选</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-2">
-                <div class="navbar navbar-dark bg-dark" role="banner">
-                    <nav class="collapse navbar-collapse bs-navbar-collapse navbar-right" role="navigation">
-                        <ul class="nav navbar-nav">
-                            <li class="dropdown">
-                                <a href="#" class="dropdown-toggle" data-bs-toggle="dropdown">个人信息<b class="caret"></b></a>
-                                <ul class="dropdown-menu animated fadeInUp">
-                                    {% if request.user.is_authenticated %}
-                                        <li><a href="#">用户名: {{ request.user.username }}</a></li>
-                                        <li><a href="#">邮箱: {{ request.user.email }}</a></li>
-                                        <li class="divider"></li>
-                                        <li><a href="/login/">退出登录</a></li>
-                                    {% else %}
-                                        <li><a href="/login/">请登录</a></li>
-                                    {% endif %}
-                                </ul>
-                            </li>
-                        </ul>
-                    </nav>
-                </div>
-            </div>
-        </div>
+{% extends 'base.html' %}
+{% block page_title %} — 注册序列列表{% endblock %}
+{% block topbar_content %}
+  <span class="ds-topbar-title">注册序列列表</span>
+  {% if page_obj %}
+  <span class="ds-count-badge">{{ page_obj.paginator.count }}</span>
+  {% endif %}
+  <span class="ds-topbar-spacer"></span>
+  <form method="get" action="" style="display:contents;">
+    <div class="ds-search-wrap" style="width:180px;">
+      <i class="bi bi-search ds-search-icon"></i>
+      <input type="text" name="q" class="ds-search-input" placeholder="搜索 Strand ID…" value="{{ q }}">
     </div>
+    {% if q %}<button type="submit" class="ds-btn ds-btn-ghost" style="height:34px;padding:0 10px;font-size:11.5px;">搜索</button>{% endif %}
+    {% if q %}<a href="{% url 'reg_seq_list' %}" class="ds-btn ds-btn-ghost" style="height:34px;padding:0 10px;font-size:11.5px;">✕ 清除</a>{% endif %}
+  </form>
+  <a href="{% url 'register_seq' %}" class="ds-btn ds-btn-primary">&#8593; 注册新序列</a>
+{% endblock %}
+{% block content %}
+<div class="ds-table-card">
+  <div class="ds-table-scroll">
+    <table class="ds-table" id="example">
+      <thead>
+        <tr>
+          <th class="ds-th-sort cell-id">Strand ID</th>
+          <th>Sequences (5'→3')</th>
+          <th class="ds-th-sort">Position</th>
+          <th class="ds-th-sort">Transcript</th>
+          <th class="ds-th-sort">Remarks</th>
+          <th class="ds-th-sort" style="white-space:nowrap;">Registration Time</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for seq in sequence_list %}
+        <tr>
+          <td class="cell-id" style="white-space:nowrap;">
+            {% if seq.rm_code == query_id %}
+              <strong style="color:#dc2626;">{{ seq.seq_prefix|default_if_none:"" }}{{ seq.rm_code|default_if_none:"" }}</strong>
+            {% else %}
+              {{ seq.seq_prefix|default_if_none:"" }}{{ seq.rm_code|default_if_none:"" }}
+            {% endif %}
+          </td>
+          <td class="cell-mono-dim">{{ seq.seq|default_if_none:"" }}</td>
+          <td class="cell-dim">{{ seq.pos|default_if_none:"" }}</td>
+          <td class="cell-dim">{{ seq.transcript|default_if_none:"" }}</td>
+          <td class="cell-text">{{ seq.remark|default_if_none:"" }}</td>
+          <td class="cell-dim" style="white-space:nowrap;">{{ seq.reg_date|default_if_none:"" }}</td>
+          <td>
+            <div class="ds-actions">
+              <a class="ds-act ds-act-edit" href="{% url 'edit_reg_seq' %}?id={{ seq.rm_code }}" title="编辑">&#9998;</a>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="ds-empty-state">暂无注册序列数据</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
-
-{% if messages %}
-<div id="msg-toast-container">
-    {% for message in messages %}
-    <div class="msg-toast">
-        <span class="msg-toast-text">{{ message }}</span>
-        <button class="msg-toast-close" onclick="this.parentElement.remove()">&times;</button>
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="ds-table-footer">
+    <div class="ds-pagesize-wrap">
+      每页显示
+      <select class="ds-pagesize-select" onchange="window.location.href='?page=1&page_size='+this.value+'{% if q %}&q={{ q }}{% endif %}'">
+        <option value="20" {% if page_size == 20 %}selected{% endif %}>20</option>
+        <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
+        <option value="100" {% if page_size == 100 %}selected{% endif %}>100</option>
+      </select>
+      条
     </div>
-    {% endfor %}
-</div>
-<script>setTimeout(function(){var c=document.getElementById('msg-toast-container');if(c)c.style.opacity='0';setTimeout(function(){if(c)c.remove();},400);},5000);</script>
-{% endif %}
-
-<div class="page-content">
-    <div class="row">
-        <div class="col-md-2">
-            <div class="sidebar content-box" style="display: block;">
-                <ul class="nav">
-                    <li><a href="/author_list"><i class="bi bi-circle-fill"></i> 项目人员管理</a></li>
-                    <li class="submenu">
-                        <a href="/seq_list">
-                            <i class="bi bi-pencil"></i> 序列信息管理
-                            <span class="caret pull-right"></span>
-                        </a>
-                        <ul style="display: block;">
-                            <li><a href="/module_list/">配体模块列表</a></li>
-                            <li><a href="/seqmodule_list/">序列修饰列表</a></li>
-                            <li><a href="/register_seq/">序列注册</a></li>
-                            <li><a href="/reg_seq_list/" class="active">注册序列列表</a></li>
-                            <li><a href="/seq_delivery/">序列信息上传</a></li>
-                            <li><a href="/seq_list/">序列信息列表</a></li>
-                        </ul>
-                    </li>
-                    <li class="submenu">
-                        <a href="#">
-                            <i class="bi bi-list-ul"></i> 系统设置
-                            <span class="caret pull-right"></span>
-                        </a>
-                        <ul>
-                            <li><a href="/signup">注册</a></li>
-                            <li><a href="/change_password">修改密码</a></li>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="col-md-10">
-            <div class="content-box-large">
-                <div class="panel-heading">
-                    <div class="panel-title">注册序列列表</div>
-                </div>
-
-                <!-- 工具栏 -->
-                <div class="seq-toolbar">
-                    <div class="seq-toolbar-left">
-                        <button id="show-selected" type="button" class="btn btn-success btn-sm">
-                            <i class="bi bi-eye"></i> 显示选中项
-                        </button>
-                    </div>
-                </div>
-
-                <div class="panel-body" style="padding: 0;">
-                    <table id="example" class="table table-bordered" style="width:100%">
-                        <thead>
-                            <tr>
-                                <th><input type="checkbox" id="select-all"></th>
-                                <th style="white-space: nowrap;">Strand ID</th>
-                                <th>Sequences(5'-3')</th>
-                                <th>Position</th>
-                                <th>Transcript</th>
-                                <th>Remarks</th>
-                                <th style="white-space: nowrap;">Registration Time</th>
-                                <th>操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for seq in sequence_list %}
-                                <tr>
-                                    <td><input type="checkbox" class="row-checkbox"></td>
-                                    <td style="white-space: nowrap;">
-                                        {% if seq.rm_code == query_id %}
-                                            <strong style="color: #c0392b;">{{ seq.seq_prefix|default_if_none:"" }}{{ seq.rm_code|default_if_none:"" }}</strong>
-                                        {% else %}
-                                            {{ seq.seq_prefix|default_if_none:"" }}{{ seq.rm_code|default_if_none:"" }}
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ seq.seq|default_if_none:"" }}</td>
-                                    <td>{{ seq.pos|default_if_none:"" }}</td>
-                                    <td>{{ seq.transcript|default_if_none:"" }}</td>
-                                    <td>{{ seq.remark|default_if_none:"" }}</td>
-                                    <td>{{ seq.reg_date|default_if_none:"" }}</td>
-                                    <td>
-                                        <div class="action-buttons">
-                                            <a class="btn btn-info btn-sm" href="/edit_reg_seq/?id={{ seq.rm_code }}">编辑</a>
-                                        </div>
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+    <span class="ds-record-info">共 {{ page_obj.paginator.count }} 条</span>
+    <div class="ds-pagination">
+      {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}&page_size={{ page_size }}{% if q %}&q={{ q }}{% endif %}" class="ds-pg">‹</a>
+      {% endif %}
+      {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+        <span class="ds-pg active">{{ num }}</span>
+        {% elif num == 1 or num == page_obj.paginator.num_pages or num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+        <a href="?page={{ num }}&page_size={{ page_size }}{% if q %}&q={{ q }}{% endif %}" class="ds-pg">{{ num }}</a>
+        {% elif num == page_obj.number|add:"-3" or num == page_obj.number|add:"3" %}
+        <span class="ds-pg" style="border:none;cursor:default;">…</span>
+        {% endif %}
+      {% endfor %}
+      {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}&page_size={{ page_size }}{% if q %}&q={{ q }}{% endif %}" class="ds-pg">›</a>
+      {% endif %}
     </div>
-</div>
-
-<footer>
-    <div class="container">
-        <div class="copy text-center">
-            Copyright BTYY-OPRA 2025 <a href="#">Website</a>
-        </div>
-    </div>
-</footer>
-
-<link href="/static/vendors/datatables/dataTables.bootstrap.css" rel="stylesheet" media="screen">
-<script src="https://code.jquery.com/jquery.js"></script>
-<script src="https://code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
-<script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/static/vendors/datatables/dataTables.bootstrap.js"></script>
-<script src="/static/js/custom.js"></script>
-<script src="/static/js/tables.js"></script>
-<script src="/static/js/search.js"></script>
-
-</body>
-</html>
+  </div>
+  {% endif %}
+{% endblock %}
+{% block extra_scripts %}
+{% endblock %}

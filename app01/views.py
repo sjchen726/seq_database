@@ -12,6 +12,7 @@ import pandas as pd
 from django.contrib import messages
 from datetime import datetime
 from django.db.models import Q
+from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 import os, csv
 from django.utils.timezone import now
@@ -2120,48 +2121,51 @@ def cor_seq(request):
 
 @login_required
 def reg_seq_list(request):
+    q = request.GET.get('q', '').strip()
+    try:
+        page_size = int(request.GET.get('page_size', 20))
+    except (ValueError, TypeError):
+        page_size = 20
 
-     # 获取所有不包含 seq_type 为 'duplex' 的 Sequence 数据（prefetch_related 避免 N+1 查询）
     sequences = Sequence.objects.exclude(seq_type='duplex').prefetch_related('target_info')
+    if q:
+        sequences = sequences.filter(rm_code__icontains=q)
 
     sequence_list = []
-
     for seq in sequences:
-        # 根据 seq_type 判断前缀
-        if seq.seq_type == 'SS' :
+        if seq.seq_type == 'SS':
             seq_prefix = 'SS_'
         elif seq.seq_type == 'AS':
             seq_prefix = 'AS_'
         else:
-            seq_prefix = ''  # 如果没有匹配的 seq_type，设为空
+            seq_prefix = ''
 
-        # 使用 prefetch_related 缓存获取 SeqInfo，避免 N+1 查询
         seq_info = seq.target_info.first()
-        remark = seq_info.Remark if seq_info else ''  # 如果没有找到匹配的 SeqInfo，则 Remark 为空
-        pos = seq_info.Pos if seq_info else ''  # 如果没有找到匹配的 SeqInfo，则 Position 为空
-        Transcript = seq_info.Transcript if seq_info else ''  # 如果没有找到匹配的 SeqInfo，则 Transcript 为空
-        
-
-        # 格式化日期
+        remark = seq_info.Remark if seq_info else ''
+        pos = seq_info.Pos if seq_info else ''
+        Transcript = seq_info.Transcript if seq_info else ''
         formatted_date = seq.created_at.strftime('%Y-%m-%d %H:%M') if seq.created_at else ''
 
-        # 构建字典数据
-        sequence_dict = {
+        sequence_list.append({
             'rm_code': seq.rm_code,
             'seq_prefix': seq_prefix,
-       #     'project': project,
             'seq': seq.seq,
             'pos': pos,
             'transcript': Transcript,
             'remark': remark,
-            'reg_date': formatted_date,  # 假设 Sequence 模型中有 created_at 字段
-        }
+            'reg_date': formatted_date,
+        })
 
-        # 将数据加入到 sequence_list
-        sequence_list.append(sequence_dict)
+    paginator = Paginator(sequence_list, page_size)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
 
-    # 渲染页面并传递数据
-    return render(request, 'reg_seq_list.html', {'sequence_list': sequence_list})
+    return render(request, 'reg_seq_list.html', {
+        'sequence_list': page_obj.object_list,
+        'page_obj': page_obj,
+        'page_size': page_size,
+        'q': q,
+    })
 
 @login_required
 def edit_reg_seq(request):
@@ -2336,11 +2340,18 @@ def download_selected(request):
 
 @login_required
 def module_list(request):
-    from django.core.paginator import Paginator
-    all_modules = DeliveryModule.objects.all().values('id', 'keyword', 'type_code', 'Strand_MWs')
-    paginator = Paginator(all_modules, 20)
-    page_obj = paginator.get_page(request.GET.get('page', 1))
-    return render(request, 'module_list.html', {'module_list': page_obj, 'page_obj': page_obj})
+    page_size = int(request.GET.get('page_size', 20))
+    page = int(request.GET.get('page', 1))
+
+    queryset = DeliveryModule.objects.all().values('id', 'keyword', 'type_code', 'Strand_MWs')
+    paginator = Paginator(queryset, page_size)
+    page_obj = paginator.get_page(page)
+
+    return render(request, 'module_list.html', {
+        'module_list': page_obj.object_list,
+        'page_obj': page_obj,
+        'page_size': page_size,
+    })
 
 
 @login_required
@@ -2471,11 +2482,18 @@ def delete_module(request):
 
 @login_required
 def seqmodule_list(request):
-    from django.core.paginator import Paginator
-    all_modules = SeqModule.objects.all().values('id', 'keyword', 'base_char', 'linker_connector', 'description')
-    paginator = Paginator(all_modules, 20)
-    page_obj = paginator.get_page(request.GET.get('page', 1))
-    return render(request, 'seqmodule_list.html', {'seqmodule_list': page_obj, 'page_obj': page_obj})
+    page_size = int(request.GET.get('page_size', 20))
+    page = int(request.GET.get('page', 1))
+
+    queryset = SeqModule.objects.all().values('id', 'keyword', 'base_char', 'linker_connector')
+    paginator = Paginator(queryset, page_size)
+    page_obj = paginator.get_page(page)
+
+    return render(request, 'seqmodule_list.html', {
+        'seqmodule_list': page_obj.object_list,
+        'page_obj': page_obj,
+        'page_size': page_size,
+    })
 
 
 @login_required
