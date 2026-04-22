@@ -18,10 +18,10 @@
     <table class="ds-table">
       <thead>
         <tr>
-          <th style="min-width:130px;">Keyword</th>
-          <th>Base Char</th>
-          <th style="min-width:90px;">Linker Connector</th>
-          <th style="cursor:default;">操作</th>
+          <th class="ds-th-sort" style="min-width:130px;">Keyword</th>
+          <th class="ds-th-sort">Base Char</th>
+          <th class="ds-th-sort" style="min-width:90px;">Linker Connector</th>
+          <th>操作</th>
         </tr>
       </thead>
       <tbody>
@@ -50,7 +50,7 @@
               <form method="POST" action="{% url 'delete_seqmodule' %}" style="display:inline;" onsubmit="return confirm('确定删除该修饰模块？');">
                 {% csrf_token %}
                 <input type="hidden" name="id" value="{{ module.id }}">
-                <button type="submit" class="ds-act-delete">删除</button>
+                <button type="submit" class="ds-act ds-act-delete">删除</button>
               </form>
             </div>
           </td>
