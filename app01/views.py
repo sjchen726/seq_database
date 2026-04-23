@@ -2804,6 +2804,14 @@ def _resolve_duplex_id(seq_id, user):
     if d and d.duplex_id:
         return d.duplex_id
 
+    # Delivery 整数主键（seq_list 的 data-rm-code 存的是 Delivery.id）
+    try:
+        d = qs.filter(id=int(seq_id)).first()
+        if d and d.duplex_id:
+            return d.duplex_id
+    except (ValueError, TypeError):
+        pass
+
     return None
 
 
