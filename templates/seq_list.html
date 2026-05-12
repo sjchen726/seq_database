@@ -239,35 +239,75 @@
               {% endfor %}
             </div>
           </td>
-          <td>
-            <div data-modify-seq="{% if selected_seq_type == 'SS' %}{{ group.items.0.seq|join:''|slice:'::-1' }}{% else %}{{ group.items.0.seq|join:'' }}{% endif %}"
-                 style="display:flex;justify-content:flex-start;">
-              {% for seq_item in group.items.0.modify_seq_colored %}
-                <div style="display:flex;flex-direction:column;align-items:center;">
-                  <span class="seq-count" style="width:auto;">
-                    {% if seq_item.count %} {{ seq_item.count }} {% else %}&nbsp;{% endif %}
-                  </span>
-                  {% if seq_item.is_combo %}<span class="seq-delivery-label" style="background-color:{{ seq_item.delivery_color }};">{{ seq_item.delivery_label }}</span>{% else %}<span class="seq-delivery-placeholder">&nbsp;</span>{% endif %}
-                  <span class="seq-container {% if seq_item.char == 's' or seq_item.char == 'o' %}seq-narrow{% else %}seq-wide{% endif %}"
-                    style="background-color:
-                      {% if seq_item.type == 'normal' %}rgb(189,199,248);
-                      {% elif seq_item.type == 'f' %}rgb(22,245,22);
-                      {% elif seq_item.type == 'm' %}rgb(68,68,68);color:white;
-                      {% elif seq_item.type == 'd' %}rgb(212,93,245);
-                      {% elif seq_item.type == 's' %}rgb(253,246,61);
-                      {% elif seq_item.type == 'o' %}rgb(198,196,198);
-                      {% elif seq_item.type == 'ss' %}rgb(212,93,245);
-                      {% elif seq_item.type == 'moe' %}rgb(212,93,245);
-                      {% elif seq_item.type == 'OCF3' %}rgb(212,93,245);
-                      {% elif seq_item.type == 'GNA' %}rgb(212,93,245);
-                      {% elif seq_item.type == 'TNA' %}rgb(245,86,86);color:white;
-                      {% elif seq_item.type == 'I' %}rgb(212,93,245);
-                      {% elif seq_item.type == 'unknown' %}rgb(163,163,163);
-                      {% elif seq_item.type == 'others' %}rgba(112,203,248,1);
-                      {% endif %};">{{ seq_item.char }}</span>
-                </div>
+          <td style="padding:4px 2px;vertical-align:middle;">
+            {% if group.aligned_columns %}
+            <table class="nested-align-table">
+              <tr>
+                <td class="align-dir-cell">{% if selected_seq_type == 'SS' %}SS 5'{% else %}SS 3'{% endif %}</td>
+                {% for col in group.aligned_columns %}
+                  {% if col.col_type == 'linker' %}
+                    <td style="vertical-align:bottom;padding:0;">
+                      <div style="display:flex;flex-direction:column;align-items:center;">
+                        <span class="seq-count" style="width:auto;">&nbsp;</span>
+                        <span class="seq-delivery-placeholder">&nbsp;</span>
+                        {% if col.row0 %}<span class="seq-container seq-narrow" style="background-color:{% if col.row0.char == 's' %}rgb(253,246,61){% else %}rgb(198,196,198){% endif %};">{{ col.row0.char }}</span>{% else %}<span class="seq-container seq-narrow" style="visibility:hidden;">s</span>{% endif %}
+                      </div>
+                    </td>
+                  {% else %}
+                    <td style="vertical-align:bottom;padding:0;">
+                      <div style="display:flex;flex-direction:column;align-items:center;">
+                        {% if col.row0 %}
+                          <span class="seq-count" style="width:auto;">{% if col.row0.count %} {{ col.row0.count }} {% else %}&nbsp;{% endif %}</span>
+                          {% if col.row0.is_combo %}<span class="seq-delivery-label" style="background-color:{{ col.row0.delivery_color }};">{{ col.row0.delivery_label }}</span>{% else %}<span class="seq-delivery-placeholder">&nbsp;</span>{% endif %}
+                          <span class="seq-container seq-wide" style="background-color:{% if col.row0.type == 'normal' %}rgb(189,199,248){% elif col.row0.type == 'f' %}rgb(22,245,22){% elif col.row0.type == 'm' %}rgb(68,68,68);color:white{% elif col.row0.type == 'd' %}rgb(212,93,245){% elif col.row0.type == 's' %}rgb(253,246,61){% elif col.row0.type == 'o' %}rgb(198,196,198){% elif col.row0.type == 'ss' or col.row0.type == 'moe' or col.row0.type == 'OCF3' or col.row0.type == 'GNA' or col.row0.type == 'I' %}rgb(212,93,245){% elif col.row0.type == 'TNA' %}rgb(245,86,86);color:white{% elif col.row0.type == 'unknown' %}rgb(163,163,163){% elif col.row0.type == 'others' %}rgba(112,203,248,1){% endif %};">{{ col.row0.char }}</span>
+                        {% else %}
+                          <span class="seq-count" style="width:auto;">&nbsp;</span>
+                          <span class="seq-delivery-placeholder">&nbsp;</span>
+                          <span class="seq-container seq-wide" style="visibility:hidden;">A</span>
+                        {% endif %}
+                      </div>
+                    </td>
+                  {% endif %}
+                {% endfor %}
+                <td class="align-dir-cell">{% if selected_seq_type == 'SS' %}3'{% else %}5'{% endif %}</td>
+              </tr>
+              <tr class="ss-align-row">
+                <td class="align-dir-cell">{% if selected_seq_type == 'SS' %}AS 3'{% else %}AS 5'{% endif %}</td>
+                {% for col in group.aligned_columns %}
+                  {% if col.col_type == 'linker' %}
+                    <td style="vertical-align:top;padding:0;">
+                      <div style="display:flex;flex-direction:column;align-items:center;">
+                        <span class="seq-delivery-placeholder">&nbsp;</span>
+                        {% if col.row1 %}<span class="seq-container seq-narrow" style="background-color:{% if col.row1.char == 's' %}rgb(253,246,61){% else %}rgb(198,196,198){% endif %};">{{ col.row1.char }}</span>{% else %}<span class="seq-container seq-narrow" style="visibility:hidden;">s</span>{% endif %}
+                        <span class="seq-count" style="width:auto;">&nbsp;</span>
+                      </div>
+                    </td>
+                  {% else %}
+                    <td style="vertical-align:top;padding:0;">
+                      <div style="display:flex;flex-direction:column;align-items:center;">
+                        {% if col.row1 %}
+                          {% if col.row1.is_combo %}<span class="seq-delivery-label" style="background-color:{{ col.row1.delivery_color }};">{{ col.row1.delivery_label }}</span>{% else %}<span class="seq-delivery-placeholder">&nbsp;</span>{% endif %}
+                          <span class="seq-container seq-wide" style="background-color:{% if col.row1.type == 'normal' %}rgb(189,199,248){% elif col.row1.type == 'f' %}rgb(22,245,22){% elif col.row1.type == 'm' %}rgb(68,68,68);color:white{% elif col.row1.type == 'd' %}rgb(212,93,245){% elif col.row1.type == 's' %}rgb(253,246,61){% elif col.row1.type == 'o' %}rgb(198,196,198){% elif col.row1.type == 'ss' or col.row1.type == 'moe' or col.row1.type == 'OCF3' or col.row1.type == 'GNA' or col.row1.type == 'I' %}rgb(212,93,245){% elif col.row1.type == 'TNA' %}rgb(245,86,86);color:white{% elif col.row1.type == 'unknown' %}rgb(163,163,163){% elif col.row1.type == 'others' %}rgba(112,203,248,1){% endif %};">{{ col.row1.char }}</span>
+                          <span class="seq-count" style="width:auto;">{% if col.row1.count %} {{ col.row1.count }} {% else %}&nbsp;{% endif %}</span>
+                        {% else %}
+                          <span class="seq-delivery-placeholder">&nbsp;</span>
+                          <span class="seq-container seq-wide" style="visibility:hidden;">A</span>
+                          <span class="seq-count" style="width:auto;">&nbsp;</span>
+                        {% endif %}
+                      </div>
+                    </td>
+                  {% endif %}
+                {% endfor %}
+                <td class="align-dir-cell">{% if selected_seq_type == 'SS' %}5'{% else %}3'{% endif %}</td>
+              </tr>
+            </table>
+            {% else %}
+            <div style="display:flex;gap:0;">
+              {% for item in group.items.0.modify_seq_colored %}
+                <span class="seq-container {% if item.char == 's' or item.char == 'o' or item.char == 'ss' %}seq-narrow{% else %}seq-wide{% endif %}" style="background-color:{% if item.type == 'normal' %}rgb(189,199,248){% elif item.type == 'f' %}rgb(22,245,22){% elif item.type == 'm' %}rgb(68,68,68);color:white{% elif item.type == 'd' or item.type == 'ss' or item.type == 'moe' or item.type == 'OCF3' or item.type == 'GNA' or item.type == 'I' %}rgb(212,93,245){% elif item.type == 's' %}rgb(253,246,61){% elif item.type == 'o' %}rgb(198,196,198){% elif item.type == 'TNA' %}rgb(245,86,86);color:white{% elif item.type == 'unknown' %}rgb(163,163,163){% elif item.type == 'others' %}rgba(112,203,248,1){% endif %};">{{ item.char }}</span>
               {% endfor %}
             </div>
+            {% endif %}
           </td>
           <td>
             <div class="delivery-container" style="justify-content:flex-start;">
@@ -329,6 +369,7 @@
               {{ d.Seq_type|default_if_none:'' }}_{{ d.delivery_id|default_if_none:'' }}<br>
             {% endfor %}
           </td>
+          <td style="padding:0;border:none;"></td>
           <td>
             <div class="delivery-container" style="justify-content:flex-end;">
               {% for d in group.items.1.deliveries %}
@@ -341,36 +382,6 @@
                   {% include "char_block_AS.html" %}
                   {% endwith %}
                 {% endif %}
-              {% endfor %}
-            </div>
-          </td>
-          <td>
-            <div data-modify-seq="{% if selected_seq_type == 'SS' %}{{ group.items.1.seq|join:'' }}{% else %}{{ group.items.1.seq|join:''|slice:'::-1' }}{% endif %}"
-                 style="display:flex;justify-content:flex-start;">
-              {% for seq_item in group.items.1.modify_seq_colored %}
-                <div style="display:flex;flex-direction:column;align-items:center;">
-                  {% if seq_item.is_combo %}<span class="seq-delivery-label" style="background-color:{{ seq_item.delivery_color }};">{{ seq_item.delivery_label }}</span>{% else %}<span class="seq-delivery-placeholder">&nbsp;</span>{% endif %}
-                  <span class="seq-container {% if seq_item.char == 's' or seq_item.char == 'o' %}seq-narrow{% else %}seq-wide{% endif %}"
-                    style="background-color:
-                      {% if seq_item.type == 'normal' %}rgb(189,199,248);
-                      {% elif seq_item.type == 'f' %}rgb(22,245,22);
-                      {% elif seq_item.type == 'm' %}rgb(68,68,68);color:white;
-                      {% elif seq_item.type == 'd' %}rgb(212,93,245);
-                      {% elif seq_item.type == 's' %}rgb(253,246,61);
-                      {% elif seq_item.type == 'o' %}rgb(198,196,198);
-                      {% elif seq_item.type == 'ss' %}rgb(212,93,245);
-                      {% elif seq_item.type == 'moe' %}rgb(212,93,245);
-                      {% elif seq_item.type == 'OCF3' %}rgb(212,93,245);
-                      {% elif seq_item.type == 'GNA' %}rgb(212,93,245);
-                      {% elif seq_item.type == 'TNA' %}rgb(245,86,86);color:white;
-                      {% elif seq_item.type == 'I' %}rgb(212,93,245);
-                      {% elif seq_item.type == 'others' %}rgba(112,203,248,1);
-                      {% elif seq_item.type == 'unknown' %}rgb(163,163,163);
-                      {% endif %};">{{ seq_item.char }}</span>
-                  <span class="seq-count" style="width:auto;">
-                    {% if seq_item.count %} {{ seq_item.count }} {% else %}&nbsp;{% endif %}
-                  </span>
-                </div>
               {% endfor %}
             </div>
           </td>

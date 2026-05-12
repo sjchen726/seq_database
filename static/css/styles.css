@@ -1194,6 +1194,41 @@ table tbody tr:hover {
     min-width: max-content;
 }
 
+/* ========= AS/SS 双链对齐 ========= */
+.nested-align-table {
+    border-collapse: collapse;
+    table-layout: auto;
+    box-shadow: none;
+    border-radius: 0;
+    background-color: transparent;
+    width: auto;
+}
+.nested-align-table td {
+    padding: 0;
+    text-align: center;
+    vertical-align: bottom;
+    border: none;
+}
+.nested-align-table .ss-align-row td { vertical-align: top; }
+.align-dir-cell {
+    font-size: 10px;
+    color: #aaa;
+    padding: 0 4px !important;
+    white-space: nowrap;
+    vertical-align: middle !important;
+}
+/* 嵌套 table 内压掉 placeholder 高度，只保留有内容的 combo label */
+.nested-align-table .seq-delivery-placeholder {
+    line-height: 0;
+    font-size: 0;
+    min-width: 0;
+}
+.nested-align-table .seq-count {
+    line-height: 1.3;
+    font-size: 10px;
+}
+
+
 
 /* ========= 基础表格 ========= */
 

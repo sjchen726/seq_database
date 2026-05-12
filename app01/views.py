@@ -297,6 +297,38 @@ def get_modify_seq_colored(seq, selected_seq_type, seq_type, dm_modules=None, co
     return result
 
 
+def align_duplex_tokens(row0_tokens, row1_tokens):
+    """
+    把两条链的 token 列表按碱基位置配对，返回列列表供嵌套 table 逐列渲染。
+    每列: {'col_type': 'linker'|'nuc', 'row0': token|None, 'row1': token|None}
+    linker (s/o/ss) 附属在下一个碱基前，作为独立列插入。
+    """
+    LINKERS = {'s', 'o', 'ss'}
+
+    def to_positions(tokens):
+        positions = []
+        pending = None
+        for t in (tokens or []):
+            if t['char'] in LINKERS:
+                pending = t
+            else:
+                positions.append((pending, t))
+                pending = None
+        return positions
+
+    pos0 = to_positions(row0_tokens)
+    pos1 = to_positions(row1_tokens)
+
+    columns = []
+    for i in range(max(len(pos0), len(pos1))):
+        lk0, nuc0 = pos0[i] if i < len(pos0) else (None, None)
+        lk1, nuc1 = pos1[i] if i < len(pos1) else (None, None)
+        if lk0 or lk1:
+            columns.append({'col_type': 'linker', 'row0': lk0, 'row1': lk1})
+        columns.append({'col_type': 'nuc', 'row0': nuc0, 'row1': nuc1})
+    return columns
+
+
 # 用户登录视图
 def login_view(request):
     if request.method == 'POST' and request.POST:
@@ -1795,7 +1827,7 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq, sele
         'Remark': remark,
         'formatted_update_time': formatted_update_time,
         'linker_seq': linker_seq,
-        'modify_seq_colored': get_modify_seq_colored(linker_seq, selected_seq_type, seq_type_authoritative, dm_modules=dm_modules, color_map=color_map) if linker_seq and selected_seq_type else None,
+        'modify_seq_colored': get_modify_seq_colored(linker_seq, selected_seq_type, seq_type_authoritative, dm_modules=dm_modules, color_map=color_map) if linker_seq and selected_seq_type else [],
         'selected_seq_type': selected_seq_type,
         'deliveries': [
             {
@@ -1906,10 +1938,17 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
             items,
             key=lambda x: x.get('seq_type') != 'SS',
         )
+        aligned = None
+        if len(sorted_items) >= 2:
+            aligned = align_duplex_tokens(
+                sorted_items[0].get('modify_seq_colored') or [],
+                sorted_items[1].get('modify_seq_colored') or [],
+            )
         sequence_groups.append({
             'project': project,
             'duplex_id': duplex_id,
             'items': sorted_items,
+            'aligned_columns': aligned,
         })
 
     return sequence_groups
