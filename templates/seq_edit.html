@@ -12,6 +12,16 @@
 {% block content %}
 <div class="ds-form-page">
   <div class="ds-form-card">
+
+    {% if delivery_projects|length > 1 %}
+    <div style="background:{% if can_edit %}#f0f9ff{% else %}#fff7ed{% endif %};border:1px solid {% if can_edit %}#bae6fd{% else %}#fed7aa{% endif %};border-radius:6px;padding:8px 14px;margin-bottom:14px;font-size:12px;color:{% if can_edit %}#0369a1{% else %}#c2410c{% endif %};">
+      所属项目：<strong>{{ delivery_projects|join:", " }}</strong>
+      {% if not can_edit %}
+        &nbsp;—&nbsp;你只有部分项目权限，仅可查看，无法编辑。
+      {% endif %}
+    </div>
+    {% endif %}
+
     <div class="ds-form-card-title">序列信息编辑</div>
 
     <form method="post" action="/edit_seq/?id={{ delivery.id }}&strand_MWs={{ delivery.Strand_MWs }}&next={{ request.GET.next|urlencode }}">
