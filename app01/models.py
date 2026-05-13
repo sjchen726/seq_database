@@ -106,6 +106,26 @@ class Delivery(models.Model):
         return f"Delivery for {self.sequence.rm_code}"
 
 
+class DeliveryProject(models.Model):
+    delivery = models.ForeignKey(
+        Delivery,
+        on_delete=models.CASCADE,
+        related_name='project_links',
+    )
+    project_code = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('delivery', 'project_code')
+        indexes = [
+            models.Index(fields=['project_code']),
+            models.Index(fields=['delivery']),
+        ]
+
+    def __str__(self):
+        return f"{self.delivery_id} → {self.project_code}"
+
+
 class LmsUser(AbstractUser):
     # 用户类别常量
     PROJECT_MANAGEMENT = 'project'

@@ -644,6 +644,9 @@ def edit_seq(request):
     seqinfo = get_object_or_404(SeqInfo, sequence_id=delivery_sequence_id)
 
     if request.method == 'POST':
+        if not user_can_edit_delivery(request.user, delivery):
+            from django.http import HttpResponseForbidden
+            return HttpResponseForbidden("权限不足：你只有部分项目权限，无法编辑跨项目样品。")
         # 获取表单数据
         edit_project = request.POST.get('edit_project')
         edit_delivery5 = request.POST.get('edit_delivery5')
@@ -788,11 +791,12 @@ def edit_seq(request):
 
         return redirect(next_url)
         
-    context ={
+    context = {
         'seqinfo': seqinfo,
-        'delivery': delivery
-        
-    } 
+        'delivery': delivery,
+        'delivery_projects': list(delivery.project_links.values_list('project_code', flat=True)),
+        'can_edit': user_can_edit_delivery(request.user, delivery),
+    }
 
     return render(request, 'seq_edit.html', context)
 
@@ -1177,11 +1181,11 @@ def group_sequences(df):
 
 
 # 同一组SS+AS算重复
-def check_duplicates(df, ss_groups):
+def check_duplicates(df, ss_groups, target_project=None):
     repeated_ids = set()
     duplicate_meg = []
+    cross_project_duplicates = []
 
-    # 
     seen_combinations = set()
 
     for _, _, group in ss_groups:
@@ -1224,29 +1228,46 @@ def check_duplicates(df, ss_groups):
                     continue
                 seen_combinations.add(combo_key)
 
-                # 2️⃣ 与数据库查重（完全不看 project、target、batch）
-                dup_id_list = Delivery.objects.filter(
+                # 2️⃣ 与数据库查重
+                ss_deliveries = Delivery.objects.filter(
                     modify_seq=ss_clean_seq,
                     delivery5=ss_d5,
                     delivery3=ss_d3
-                ).values_list('duplex_id', flat=True)
+                ).prefetch_related('project_links')
 
-                for dup_id in dup_id_list:
+                for ss_del in ss_deliveries:
                     exists_as = Delivery.objects.filter(
                         modify_seq=as_clean_seq,
                         delivery5=as_d5,
                         delivery3=as_d3,
-                        duplex_id=dup_id
+                        duplex_id=ss_del.duplex_id
                     ).exists()
 
                     if exists_as:
-                        duplicate_meg.append(
-                            f"重复SS+AS组：{ss_full_seq} + {as_full_seq} 与数据库中已有记录重复（duplex_id: {dup_id}）"
+                        existing_projects = list(
+                            ss_del.project_links.values_list('project_code', flat=True)
                         )
-                        repeated_ids.update([row_ids[i], row_ids[i + 1]])
+                        # 同项目重复 → 跳过
+                        if target_project and target_project in existing_projects:
+                            duplicate_meg.append(
+                                f"重复SS+AS组：{ss_full_seq} + {as_full_seq} 与数据库中已有记录重复（duplex_id: {ss_del.duplex_id}）"
+                            )
+                            repeated_ids.update([row_ids[i], row_ids[i + 1]])
+                        else:
+                            # 跨项目重复 → 收集待确认，不跳过
+                            cross_project_duplicates.append({
+                                'row_ids': [row_ids[i], row_ids[i + 1]],
+                                'existing_duplex_id': ss_del.duplex_id,
+                                'existing_delivery_id': ss_del.id,
+                                'existing_projects': existing_projects,
+                                'target_project': target_project or '',
+                                'sequence_info': ss_full_seq[:40],
+                                'delivery5': ss_d5,
+                                'delivery3': ss_d3,
+                            })
                         break
 
-    return repeated_ids, duplicate_meg
+    return repeated_ids, duplicate_meg, cross_project_duplicates
 
 def assign_duplex_ids(df, ss_groups, repeated_ids):
     duplex_id_map = {}
@@ -1570,16 +1591,39 @@ def upload_delivery_info(request):
     if request.method == 'POST':
         try:
             df = parse_uploaded_csv(request)
-            ss_groups, unpaired_ss_as = group_sequences(df)  # 获取未配对的 SS 和 AS
-            repeated_ids, duplicate_meg = check_duplicates(df, ss_groups)
+            ss_groups, unpaired_ss_as = group_sequences(df)
+
+            # 从 CSV 第一行读取目标项目
+            target_project = None
+            if 'Project' in df.columns and not df.empty:
+                target_project = str(df['Project'].iloc[0]).strip()
+
+            repeated_ids, duplicate_meg, cross_project_duplicates = check_duplicates(
+                df, ss_groups, target_project=target_project
+            )
+
+            # 有跨项目重复 → 暂存数据，跳转到确认页
+            if cross_project_duplicates:
+                # 把跨项目重复行从 df 中排除，剩余行正常保存
+                cross_row_ids = set()
+                for item in cross_project_duplicates:
+                    cross_row_ids.update(item['row_ids'])
+                df_normal = df[~df.index.isin(cross_row_ids)].copy()
+
+                request.session['pending_shares'] = cross_project_duplicates
+                request.session['pending_upload_df'] = df_normal.to_json()
+                request.session['pending_repeated_ids'] = list(repeated_ids)
+                request.session['pending_unpaired'] = unpaired_ss_as or []
+                return redirect('confirm_share')
+
             duplex_id_map = assign_duplex_ids(df, ss_groups, repeated_ids)
 
             username = request.user.username
             upload_meg, upload_log, unregistered_meg, unregistered_log = save_deliveries(df, duplex_id_map, username)
 
-            write_upload_log(upload_log, username)  # 可保留原日志逻辑
+            write_upload_log(upload_log, username)
             unregistered_csv = write_unregistered_log(unregistered_log, username)
-            request.session['unregistered_csv'] = unregistered_csv  # 💥 必须添加此行！
+            request.session['unregistered_csv'] = unregistered_csv
 
             save_repeated_to_session(request, df, repeated_ids, unregistered_log, username)
 
@@ -1610,6 +1654,54 @@ def upload_delivery_info(request):
 
 
     return render(request, 'upload_delivery_info.html')
+
+
+@login_required
+def confirm_share_deliveries(request):
+    if request.method == 'GET':
+        pending = request.session.get('pending_shares', [])
+        if not pending:
+            return redirect('seq_delivery')
+        return render(request, 'confirm_share.html', {'pending_shares': pending})
+
+    if request.method == 'POST':
+        from .models import DeliveryProject
+        import pandas as pd
+
+        pending = request.session.pop('pending_shares', [])
+        pending_df_json = request.session.pop('pending_upload_df', None)
+        pending_repeated_ids = request.session.pop('pending_repeated_ids', [])
+
+        choices = request.POST.getlist('action')
+        shared_count = 0
+        for i, item in enumerate(pending):
+            action = choices[i] if i < len(choices) else 'skip'
+            if action == 'share':
+                DeliveryProject.objects.get_or_create(
+                    delivery_id=item['existing_delivery_id'],
+                    project_code=item['target_project'],
+                )
+                shared_count += 1
+
+        if pending_df_json:
+            df = pd.read_json(pending_df_json)
+            if not df.empty:
+                ss_groups, _ = group_sequences(df)
+                repeated_ids, _, _ = check_duplicates(df, ss_groups)
+                repeated_ids.update(pending_repeated_ids)
+                duplex_id_map = assign_duplex_ids(df, ss_groups, repeated_ids)
+                username = request.user.username
+                upload_meg, upload_log, unregistered_meg, unregistered_log = save_deliveries(
+                    df, duplex_id_map, username
+                )
+                write_upload_log(upload_log, username)
+                write_unregistered_log(unregistered_log, username)
+                if upload_meg:
+                    messages.success(request, f"共 {len(upload_meg)} 条序列成功上传！")
+
+        skip_count = len(pending) - shared_count
+        messages.success(request, f"成功共享 {shared_count} 条，跳过 {skip_count} 条。")
+        return redirect('seq_delivery')
 
 
 def _generate_next_bp():
@@ -1773,15 +1865,31 @@ def get_permitted_delivery_qs(user):
     """
     根据用户权限返回可见的 Delivery 查询集：
     - 超级管理员：全部
-    - 普通用户：仅限 permissions_project 包含的项目
+    - 普通用户：仅限 permissions_project 包含的项目（通过 DeliveryProject 关联表查询）
     - 无权限：空集
     """
     if user.is_superuser:
         return Delivery.objects.all()
     allowed = user.get_allowed_projects()
     if allowed:
-        return Delivery.objects.filter(project__in=allowed)
+        return Delivery.objects.filter(
+            project_links__project_code__in=allowed
+        ).distinct()
     return Delivery.objects.none()
+
+
+def user_can_edit_delivery(user, delivery):
+    """
+    用户必须同时拥有该 Delivery 所属所有项目的权限才能编辑。
+    单一项目权限的用户只能查看跨项目样品。
+    """
+    if user.is_superuser or getattr(user, 'user_type', '') in ('admin', 'superadmin', 'data_admin'):
+        return True
+    delivery_projects = set(
+        delivery.project_links.values_list('project_code', flat=True)
+    )
+    user_projects = set(user.get_allowed_projects())
+    return delivery_projects.issubset(user_projects)
 
 
 def get_attr(d, key):

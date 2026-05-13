@@ -56,6 +56,7 @@ urlpatterns = [
 
     path('search/', views.search, name='search'),                          # 搜索功能
     path('clone_delivery/', views.clone_delivery, name='clone_delivery'),
+    path('confirm_share/', views.confirm_share_deliveries, name='confirm_share'),
 
     path('download_selected/', views.download_selected, name='download_selected'),
     path('blast_seq/', views.blast_seq, name='blast_seq'),
