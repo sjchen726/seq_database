@@ -2013,6 +2013,19 @@ def detect_embedded_linker(modify_seq: str):
     return part1, linker_section, part2
 
 
+def add_o_to_all_rules_safe(modify_seq: str) -> str:
+    """
+    Dual-segment-aware wrapper for add_o_to_all_rules().
+    For sequences with an embedded linker, processes Part1 and Part2 separately
+    so the linker section keeps its own '-' connectors and is not corrupted.
+    """
+    parts = detect_embedded_linker(modify_seq or "")
+    if parts is None:
+        return add_o_to_all_rules(modify_seq)
+    part1, linker_section, part2 = parts
+    return add_o_to_all_rules(part1) + linker_section + add_o_to_all_rules(part2)
+
+
 def _filter_delivery_qs_by_term(base_qs, term):
     """Filter base_qs by a single search term and expand result to full duplex pairs (AS+SS)."""
     q_obj = (
