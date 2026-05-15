@@ -1228,6 +1228,10 @@ table tbody tr:hover {
     font-size: 10px;
 }
 
+.seq-seg-divider  { color: #94a3b8; margin: 0 4px; font-weight: bold; font-size: 14px; }
+.seq-linker-dash  { color: #94a3b8; letter-spacing: 1px; font-style: italic; padding: 0 2px; }
+.seq-segment-sep-col { background: #f8fafc; }
+
 
 
 /* ========= 基础表格 ========= */
