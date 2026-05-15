@@ -222,11 +222,6 @@
           {% for group in sequence_groups %}
             {% include "_seq_group_row.html" %}
           {% endfor %}
-          {% if has_search and not sequence_groups %}
-            <tr class="search-no-result-row">
-              <td colspan="16">未找到匹配的记录</td>
-            </tr>
-          {% endif %}
         {% endif %}
       </tbody>
     </table>

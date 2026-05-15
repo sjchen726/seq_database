@@ -2,7 +2,9 @@ $(document).ready(function() {
     // seq_list 使用 table-container 类标记，需要开启横纵向滚动
     var isScrollable = $('#example').hasClass('table-container');
 
-    // 初始化 DataTable
+    // 初始化 DataTable（多词分组搜索模式下无 #example，直接跳过）
+    if (!$('#example').length) { return; }
+
     window.table = $('#example').DataTable({
         paging: true,
         searching: true,
@@ -14,6 +16,10 @@ $(document).ready(function() {
         ],
         lengthMenu: [5, 10, 20, 50],
         dom: "t",
+        language: {
+            emptyTable: '未找到匹配的记录',
+            zeroRecords: '未找到匹配的记录',
+        },
         columnDefs: [
             { targets: 0, orderable: false },
             { targets: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], orderable: false },
