@@ -1992,8 +1992,8 @@ def detect_embedded_linker(modify_seq: str):
     Both sides of the match must be non-empty.
     """
     linker_keywords = [
-        m.keyword for m in SeqModule.objects.filter(linker_connector='-')
-        if m.keyword
+        mod.keyword for mod in SeqModule.objects.filter(linker_connector='-')
+        if mod.keyword
     ]
     patterns = []
     if linker_keywords:
