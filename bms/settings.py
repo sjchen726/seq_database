@@ -162,3 +162,6 @@ LOGGING = {
 #   'http://192.168.113.105:8080',
 #]
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+

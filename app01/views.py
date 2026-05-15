@@ -1892,6 +1892,13 @@ def user_can_edit_delivery(user, delivery):
     return delivery_projects.issubset(user_projects)
 
 
+def _user_can_access_duplex(user, duplex_id):
+    """Return True if user has permission to view/edit experiments for duplex_id."""
+    if user.is_superuser or getattr(user, 'user_type', '') in ('admin', 'superadmin', 'data_admin'):
+        return True
+    return get_permitted_delivery_qs(user).filter(duplex_id=duplex_id).exists()
+
+
 def get_attr(d, key):
     if isinstance(d, dict):
         return d.get(key, '')
@@ -2166,6 +2173,17 @@ def get_sequence_info(request):
                 delivery_qs = delivery_qs.filter(seq_type__iexact=field_filters['filterSeqType'])
 
     sequence_groups = build_duplex_groups(delivery_qs, selected_seq_type)
+
+    # Attach experiment summary to each group
+    all_duplex_ids = []
+    for group in sequence_groups:
+        did = group.get('duplex_id')
+        if did:
+            all_duplex_ids.append(did)
+    all_duplex_ids = list(set(all_duplex_ids))
+    exp_summary_map = get_experiment_summary(all_duplex_ids)
+    for group in sequence_groups:
+        group['exp_summary'] = exp_summary_map.get(group.get('duplex_id'), '')
 
     context = {
         'user_type': user_type,
@@ -3064,3 +3082,593 @@ def multi_blast(request):
         'not_found': not_found,
         'seq_ids': seq_ids,
     })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Experiment data views
+# ─────────────────────────────────────────────────────────────────────────────
+
+@login_required
+@login_required
+def download_experiment_template(request):
+    """返回实验数据 CSV 上传模板。"""
+    import csv
+    from django.http import HttpResponse
+    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = 'attachment; filename="experiment_template.csv"'
+    writer = csv.writer(response)
+    writer.writerow([
+        'duplex_id', 'exp_type', 'assay_type', 'batch', 'exp_date',
+        'cell_line', 'animal_species', 'transfection_reagent', 'route',
+        'readout_type', 'value', 'value_unit', 'conc', 'conc_unit',
+        'timepoint', 'replicate', 'notes',
+    ])
+    writer.writerow([
+        'BP000001', 'in_vitro', 'single_point', 'Batch-001', '2026-05-01',
+        'HepG2', '', 'Lipofectamine', '',
+        'mRNA_remaining', '15', '%', '10', 'nM',
+        '48h', 'n=3', '',
+    ])
+    writer.writerow([
+        'BP000001', 'in_vivo', 'in_vivo_efficacy', 'Batch-001', '2026-05-10',
+        '', 'mouse', '', 'SC',
+        'mRNA_remaining', '20', '%', '3', 'mg_kg',
+        'Day14', 'n=5', '',
+    ])
+    return response
+
+
+def get_experiment_summary(duplex_ids):
+    """
+    给定 duplex_id 列表，返回 {duplex_id: summary_str} 字典。
+    summary 规则：
+    - 体外：取最佳 mRNA_remaining（最低值），格式 "KD {100-value}%@{conc}{unit}"
+    - 体内：取最佳 mRNA_remaining，格式 "in vivo {100-value}%@{dose}{unit}"
+    - 都有：体外/体内各一行（用 " / " 分隔）
+    - 无：返回空字符串
+    """
+    from .models import Experiment, DataPoint
+    if not duplex_ids:
+        return {}
+
+    conc_labels = dict(DataPoint.CONC_UNIT_CHOICES)
+
+    experiments = (
+        Experiment.objects
+        .filter(duplex_id__in=duplex_ids)
+        .prefetch_related('datapoints')
+    )
+
+    exp_by_duplex = defaultdict(list)
+    for exp in experiments:
+        exp_by_duplex[exp.duplex_id].append(exp)
+
+    result = {}
+    for duplex_id in duplex_ids:
+        exps = exp_by_duplex.get(duplex_id, [])
+        if not exps:
+            result[duplex_id] = ''
+            continue
+
+        vitro_summary = ''
+        vivo_summary = ''
+
+        vitro_points = []
+        vivo_points = []
+        pk_points = []
+        for exp in exps:
+            for dp in exp.datapoints.all():
+                if dp.readout_type in ('knockdown_pct', 'mRNA_remaining'):
+                    if exp.exp_type == 'in_vitro':
+                        vitro_points.append(dp)
+                    elif exp.exp_type == 'in_vivo':
+                        vivo_points.append(dp)
+                elif dp.readout_type in ('plasma_conc', 'tissue_conc') and exp.assay_type == 'pk':
+                    pk_points.append((exp, dp))
+
+        if vitro_points:
+            kd_points = [dp for dp in vitro_points if dp.readout_type == 'knockdown_pct']
+            mr_points = [dp for dp in vitro_points if dp.readout_type == 'mRNA_remaining']
+            if kd_points:
+                best = max(kd_points, key=lambda dp: dp.value if dp.value is not None else -999)
+                conc_str = f"@{best.concentration_or_dose}{conc_labels.get(best.conc_unit, best.conc_unit)}" if best.concentration_or_dose is not None else ''
+                vitro_summary = f"KD {best.value:.0f}%{conc_str}"
+            elif mr_points:
+                best = min(mr_points, key=lambda dp: dp.value if dp.value is not None else 9999)
+                kd_val = 100 - best.value
+                conc_str = f"@{best.concentration_or_dose}{conc_labels.get(best.conc_unit, best.conc_unit)}" if best.concentration_or_dose is not None else ''
+                vitro_summary = f"KD {kd_val:.0f}%{conc_str}"
+
+        if vivo_points:
+            kd_points = [dp for dp in vivo_points if dp.readout_type == 'knockdown_pct']
+            mr_points = [dp for dp in vivo_points if dp.readout_type == 'mRNA_remaining']
+            if kd_points:
+                best = max(kd_points, key=lambda dp: dp.value if dp.value is not None else -999)
+                dose_str = f"@{best.concentration_or_dose}{conc_labels.get(best.conc_unit, best.conc_unit)}" if best.concentration_or_dose is not None else ''
+                vivo_summary = f"in vivo {best.value:.0f}%{dose_str}"
+            elif mr_points:
+                best = min(mr_points, key=lambda dp: dp.value if dp.value is not None else 9999)
+                kd_val = 100 - best.value
+                dose_str = f"@{best.concentration_or_dose}{conc_labels.get(best.conc_unit, best.conc_unit)}" if best.concentration_or_dose is not None else ''
+                vivo_summary = f"in vivo {kd_val:.0f}%{dose_str}"
+
+        if pk_points and not vivo_summary:
+            # Show PK summary: first available plasma or tissue concentration with timepoint
+            _, best_pk = pk_points[0]
+            pk_label = conc_labels.get(best_pk.conc_unit, best_pk.conc_unit or '')
+            tp_str = f" {best_pk.timepoint}" if best_pk.timepoint else ''
+            vivo_summary = f"PK {best_pk.value:.1f}{pk_label}{tp_str}"
+
+        parts = [s for s in [vitro_summary, vivo_summary] if s]
+        result[duplex_id] = ' / '.join(parts)
+
+    return result
+
+
+@login_required
+def experiment_detail(request, duplex_id):
+    """展示某个 duplex_id 的所有实验记录，按 exp_type 分组。"""
+    from .models import Experiment
+    from django.http import Http404
+
+    if not _user_can_access_duplex(request.user, duplex_id):
+        raise Http404
+
+    experiments = (
+        Experiment.objects
+        .filter(duplex_id=duplex_id)
+        .prefetch_related('datapoints', 'attachments')
+        .order_by('exp_type', '-created_at')
+    )
+
+    vitro_exps = [e for e in experiments if e.exp_type == 'in_vitro']
+    vivo_exps  = [e for e in experiments if e.exp_type == 'in_vivo']
+
+    can_edit = (
+        request.user.is_superuser or
+        getattr(request.user, 'user_type', '') in ('data_admin', 'admin', 'superadmin')
+    )
+
+    return render(request, 'experiment_detail.html', {
+        'duplex_id':  duplex_id,
+        'vitro_exps': vitro_exps,
+        'vivo_exps':  vivo_exps,
+        'can_edit':   can_edit,
+    })
+
+
+@login_required
+def add_experiment(request):
+    """手动录入实验记录 + 数据点 + 附件。"""
+    from .models import Experiment, DataPoint, ExperimentAttachment
+    from datetime import date
+    import json as _json
+
+    if request.method == 'GET':
+        duplex_id = request.GET.get('duplex_id', '')
+        edit_id = request.GET.get('edit', '').strip()
+        prefill = {}
+        dp_rows_json_init = '[]'
+
+        if edit_id:
+            try:
+                editing_exp = Experiment.objects.prefetch_related('datapoints').get(pk=edit_id)
+            except Experiment.DoesNotExist:
+                messages.error(request, '实验记录不存在。')
+                return redirect('seq_list')
+            if not _user_can_access_duplex(request.user, editing_exp.duplex_id):
+                messages.error(request, '您没有权限编辑该实验记录。')
+                return redirect('seq_list')
+            duplex_id = editing_exp.duplex_id
+            prefill = {
+                'duplex_id': editing_exp.duplex_id,
+                'exp_type': editing_exp.exp_type,
+                'assay_type': editing_exp.assay_type,
+                'batch': editing_exp.batch,
+                'exp_date': str(editing_exp.exp_date) if editing_exp.exp_date else '',
+                'cell_line': editing_exp.cell_line or '',
+                'animal_species': editing_exp.animal_species or '',
+                'transfection_reagent': editing_exp.transfection_reagent or '',
+                'route': editing_exp.route or '',
+                'notes': editing_exp.notes or '',
+            }
+            dp_rows_json_init = _json.dumps([
+                {
+                    'conc': str(dp.concentration_or_dose) if dp.concentration_or_dose is not None else '',
+                    'conc_unit': dp.conc_unit or '',
+                    'timepoint': dp.timepoint or '',
+                    'readout_type': dp.readout_type or '',
+                    'value': str(dp.value),
+                    'value_unit': dp.value_unit or '',
+                    'replicate': dp.replicate or '',
+                }
+                for dp in editing_exp.datapoints.all()
+            ])
+
+        return render(request, 'add_experiment.html', {
+            'duplex_id': duplex_id,
+            'editing_exp_id': edit_id,
+            'form_data': prefill,
+            'dp_rows_json': dp_rows_json_init,
+            'exp_type_choices':   Experiment.EXP_TYPE_CHOICES,
+            'assay_type_choices': Experiment.ASSAY_TYPE_CHOICES,
+            'conc_unit_choices':  DataPoint.CONC_UNIT_CHOICES,
+            'readout_type_choices': DataPoint.READOUT_TYPE_CHOICES,
+        })
+
+    # Parse all POST fields up front so they can be re-populated on error
+    editing_exp_id = request.POST.get('exp_id', '').strip()
+    duplex_id  = request.POST.get('duplex_id', '').strip()
+    exp_type   = request.POST.get('exp_type', '')
+    assay_type = request.POST.get('assay_type', '')
+    cell_line  = request.POST.get('cell_line', '').strip() or None
+    animal_species = request.POST.get('animal_species', '').strip() or None
+    batch      = request.POST.get('batch', '').strip()
+    exp_date_str = request.POST.get('exp_date', '').strip()
+    transfection_reagent = request.POST.get('transfection_reagent', '').strip() or None
+    route      = request.POST.get('route', '').strip() or None
+    notes      = request.POST.get('notes', '').strip() or None
+
+    exp_date = None
+    if exp_date_str:
+        try:
+            exp_date = date.fromisoformat(exp_date_str)
+        except ValueError:
+            pass
+
+    concs         = request.POST.getlist('dp_conc')
+    conc_units    = request.POST.getlist('dp_conc_unit')
+    timepoints    = request.POST.getlist('dp_timepoint')
+    readout_types = request.POST.getlist('dp_readout_type')
+    values        = request.POST.getlist('dp_value')
+    value_units   = request.POST.getlist('dp_value_unit')
+    replicates    = request.POST.getlist('dp_replicate')
+
+    def _render_form():
+        dp_rows = [
+            {
+                'conc': concs[i] if i < len(concs) else '',
+                'conc_unit': conc_units[i] if i < len(conc_units) else '',
+                'timepoint': timepoints[i] if i < len(timepoints) else '',
+                'readout_type': readout_types[i] if i < len(readout_types) else '',
+                'value': values[i] if i < len(values) else '',
+                'value_unit': value_units[i] if i < len(value_units) else '',
+                'replicate': replicates[i] if i < len(replicates) else '',
+            }
+            for i in range(len(values))
+            if (values[i].strip() if i < len(values) else False)
+        ]
+        return render(request, 'add_experiment.html', {
+            'duplex_id': duplex_id,
+            'editing_exp_id': editing_exp_id,
+            'exp_type_choices':   Experiment.EXP_TYPE_CHOICES,
+            'assay_type_choices': Experiment.ASSAY_TYPE_CHOICES,
+            'conc_unit_choices':  DataPoint.CONC_UNIT_CHOICES,
+            'readout_type_choices': DataPoint.READOUT_TYPE_CHOICES,
+            'form_data': request.POST,
+            'dp_rows_json': _json.dumps(dp_rows),
+        })
+
+    if not duplex_id or not exp_type or not assay_type or not batch:
+        messages.error(request, '请填写必填字段：Duplex ID、实验类型、检测类型、批次号。')
+        return _render_form()
+
+    if not Delivery.objects.filter(duplex_id=duplex_id).exists():
+        messages.error(request, f'Duplex ID "{duplex_id}" 不存在，请确认后重试。')
+        return _render_form()
+
+    if not _user_can_access_duplex(request.user, duplex_id):
+        messages.error(request, '您没有权限录入该 Duplex ID 的实验数据。')
+        return _render_form()
+
+    valid_dp_indices = [
+        i for i in range(len(values))
+        if i < len(values) and values[i].strip()
+    ]
+    if not valid_dp_indices:
+        messages.error(request, '请至少录入一个有效的数据点。')
+        return _render_form()
+
+    # Edit mode: load and verify existing record
+    exp_to_edit = None
+    if editing_exp_id:
+        try:
+            exp_to_edit = Experiment.objects.get(pk=editing_exp_id)
+        except Experiment.DoesNotExist:
+            messages.error(request, '要编辑的实验记录不存在。')
+            return _render_form()
+        if not _user_can_access_duplex(request.user, exp_to_edit.duplex_id):
+            messages.error(request, '您没有权限编辑该实验记录。')
+            return _render_form()
+
+    with transaction.atomic():
+        if exp_to_edit:
+            exp_to_edit.duplex_id = duplex_id
+            exp_to_edit.exp_type = exp_type
+            exp_to_edit.assay_type = assay_type
+            exp_to_edit.cell_line = cell_line
+            exp_to_edit.animal_species = animal_species
+            exp_to_edit.batch = batch
+            exp_to_edit.exp_date = exp_date
+            exp_to_edit.transfection_reagent = transfection_reagent
+            exp_to_edit.route = route
+            exp_to_edit.notes = notes
+            exp_to_edit.save()
+            exp_to_edit.datapoints.all().delete()
+            exp = exp_to_edit
+        else:
+            exp = Experiment.objects.create(
+                duplex_id=duplex_id,
+                exp_type=exp_type,
+                assay_type=assay_type,
+                cell_line=cell_line,
+                animal_species=animal_species,
+                batch=batch,
+                exp_date=exp_date,
+                transfection_reagent=transfection_reagent,
+                route=route,
+                notes=notes,
+                created_by=request.user.username,
+            )
+
+        for i in valid_dp_indices:
+            try:
+                val = float(values[i].strip())
+            except ValueError:
+                continue
+            raw_conc = concs[i].strip() if i < len(concs) else ''
+            conc_val = None
+            if raw_conc:
+                try:
+                    conc_val = float(raw_conc)
+                except ValueError:
+                    pass
+            DataPoint.objects.create(
+                experiment=exp,
+                concentration_or_dose=conc_val,
+                conc_unit=conc_units[i] if i < len(conc_units) else '',
+                timepoint=timepoints[i].strip() if i < len(timepoints) else None,
+                readout_type=readout_types[i] if i < len(readout_types) else '',
+                value=val,
+                value_unit=value_units[i].strip() if i < len(value_units) else None,
+                replicate=replicates[i].strip() if i < len(replicates) else None,
+            )
+
+        att_labels = request.POST.getlist('att_label')
+        att_urls   = request.POST.getlist('att_url')
+        att_files  = request.FILES.getlist('att_file')
+
+        max_att = max(len(att_labels), len(att_urls), len(att_files), default=0)
+        for i in range(max_att):
+            label = att_labels[i].strip() if i < len(att_labels) else ''
+            url   = att_urls[i].strip() if i < len(att_urls) else ''
+            f     = att_files[i] if i < len(att_files) else None
+            if not label and not url and not f:
+                continue
+            ExperimentAttachment.objects.create(
+                experiment=exp,
+                file=f,
+                external_url=url or None,
+                label=label or (f.name if f else url),
+            )
+
+    action = '已更新' if exp_to_edit else '已保存'
+    messages.success(request, f'实验记录{action}（ID={exp.id}）。')
+    return redirect(f'/experiment/{duplex_id}/')
+
+
+@login_required
+def delete_experiment(request, exp_id):
+    """删除实验记录（仅 data_admin 及以上，且需有项目权限）。POST only。"""
+    from .models import Experiment
+    from django.http import HttpResponseNotAllowed
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+    if not (request.user.is_superuser or
+            getattr(request.user, 'user_type', '') in ('data_admin', 'admin', 'superadmin')):
+        messages.error(request, '您没有权限删除实验记录。')
+        return redirect('seq_list')
+    try:
+        exp = Experiment.objects.get(pk=exp_id)
+    except Experiment.DoesNotExist:
+        messages.error(request, '实验记录不存在。')
+        return redirect('seq_list')
+    if not _user_can_access_duplex(request.user, exp.duplex_id):
+        messages.error(request, '您没有权限删除该项目的实验记录。')
+        return redirect(f'/experiment/{exp.duplex_id}/')
+    duplex_id = exp.duplex_id
+    exp.delete()
+    messages.success(request, '实验记录已删除。')
+    return redirect(f'/experiment/{duplex_id}/')
+
+
+@login_required
+def upload_experiment(request):
+    """批量上传实验数据 CSV。
+    支持两种格式：
+    1. duplex_id 列直接指定
+    2. modify_seq 列（AS+SS 上下两行为一组），系统匹配 duplex_id
+    """
+    from collections import defaultdict as _dd
+
+    if not (request.method == 'POST' and request.FILES.get('csv_file')):
+        return render(request, 'upload_experiment.html')
+
+    try:
+        df = pd.read_csv(request.FILES['csv_file'], dtype=str).fillna('')
+        df.columns = [c.strip() for c in df.columns]
+    except Exception as e:
+        messages.error(request, f"CSV 解析失败：{e}")
+        return render(request, 'upload_experiment.html')
+
+    errors = []
+    created_exp = 0
+    created_dp = 0
+
+    has_duplex_col = 'duplex_id' in df.columns
+    has_modify_col = 'modify_seq' in df.columns
+
+    if not has_duplex_col and not has_modify_col:
+        messages.error(request, "CSV 必须包含 duplex_id 或 modify_seq 列")
+        return render(request, 'upload_experiment.html')
+
+    if has_modify_col and not has_duplex_col:
+        df = df.reset_index(drop=True)
+        if len(df) % 2 != 0:
+            messages.error(request, "modify_seq 格式要求 AS+SS 上下两行配对，行数必须为偶数")
+            return render(request, 'upload_experiment.html')
+
+        # Batch-query all unique sequences in one DB call
+        all_seqs = set()
+        for i in range(0, len(df), 2):
+            all_seqs.add(df.iloc[i]['modify_seq'].strip())
+            all_seqs.add(df.iloc[i + 1]['modify_seq'].strip())
+
+        seq_to_duplexes = _dd(set)
+        for row in Delivery.objects.filter(modify_seq__in=all_seqs).values('modify_seq', 'duplex_id'):
+            if row['duplex_id']:
+                seq_to_duplexes[row['modify_seq']].add(row['duplex_id'])
+
+        resolved_rows = []
+        for i in range(0, len(df), 2):
+            r1 = df.iloc[i]
+            r2 = df.iloc[i + 1]
+            seq1 = r1['modify_seq'].strip()
+            seq2 = r2['modify_seq'].strip()
+            d1 = seq_to_duplexes[seq1]
+            d2 = seq_to_duplexes[seq2]
+            common = d1 & d2
+            if not common:
+                errors.append(f"行 {i+2}-{i+3}：未找到 AS+SS 匹配的 duplex_id")
+                continue
+            if len(common) > 1:
+                errors.append(f"行 {i+2}-{i+3}：匹配到多个 duplex_id ({', '.join(sorted(common))})，请改用 duplex_id 列")
+                continue
+            duplex_id = common.pop()
+            merged = {col: r1.get(col, '') or r2.get(col, '') for col in df.columns}
+            merged['duplex_id'] = duplex_id
+            resolved_rows.append(merged)
+
+        if not resolved_rows:
+            messages.error(request, "没有可处理的行：" + " | ".join(errors[:5]))
+            return render(request, 'upload_experiment.html')
+
+        df = pd.DataFrame(resolved_rows)
+
+    # exp_type is now included in grouping so in_vitro/in_vivo are not merged
+    grouping_keys = ['duplex_id', 'exp_type', 'batch', 'assay_type', 'cell_line', 'animal_species', 'exp_date']
+    for key in grouping_keys:
+        if key not in df.columns:
+            df[key] = ''
+
+    groups = _dd(list)
+    for idx, row in df.iterrows():
+        key = tuple(str(row.get(k, '') or '') for k in grouping_keys)
+        groups[key].append(row)
+
+    from datetime import date as _date
+    skipped_dup = 0
+    with transaction.atomic():
+        for key, rows in groups.items():
+            first = rows[0]
+            duplex_id_val  = str(first.get('duplex_id', '')).strip()
+            exp_type_val   = str(first.get('exp_type', 'in_vitro')).strip() or 'in_vitro'
+            assay_type_val = str(first.get('assay_type', 'single_point')).strip() or 'single_point'
+            batch_val      = str(first.get('batch', '')).strip()
+
+            # Duplicate detection: skip if same (duplex, exp_type, assay_type, batch) already exists
+            if Experiment.objects.filter(
+                duplex_id=duplex_id_val,
+                exp_type=exp_type_val,
+                assay_type=assay_type_val,
+                batch=batch_val,
+            ).exists():
+                skipped_dup += 1
+                continue
+
+            # Parse date with strict ISO format validation
+            raw_date = str(first.get('exp_date', '')).strip()
+            exp_date = None
+            if raw_date:
+                try:
+                    exp_date = _date.fromisoformat(raw_date)
+                except ValueError:
+                    errors.append(
+                        f"日期格式错误（duplex={duplex_id_val}）：{raw_date!r}，"
+                        f"请使用 YYYY-MM-DD 格式，该组已跳过"
+                    )
+                    continue
+
+            # Collect notes from all rows in group (deduplicated)
+            seen_notes: set = set()
+            unique_notes = []
+            for r in rows:
+                n = str(r.get('notes', '')).strip()
+                if n and n not in seen_notes:
+                    seen_notes.add(n)
+                    unique_notes.append(n)
+            notes_val = '; '.join(unique_notes) or None
+
+            try:
+                with transaction.atomic():
+                    exp = Experiment.objects.create(
+                        duplex_id=duplex_id_val,
+                        exp_type=exp_type_val,
+                        assay_type=assay_type_val,
+                        cell_line=str(first.get('cell_line', '')).strip() or None,
+                        animal_species=str(first.get('animal_species', '')).strip() or None,
+                        batch=batch_val,
+                        exp_date=exp_date,
+                        transfection_reagent=str(first.get('transfection_reagent', '')).strip() or None,
+                        route=str(first.get('route', '')).strip() or None,
+                        notes=notes_val,
+                        created_by=request.user.username,
+                    )
+                created_exp += 1
+            except Exception as e:
+                errors.append(f"创建实验失败（{duplex_id_val}）：{e}")
+                continue
+
+            for row in rows:
+                val_str = str(row.get('value', '')).strip()
+                if not val_str:
+                    continue
+                try:
+                    v = float(val_str)
+                except ValueError:
+                    errors.append(f"数值格式错误（duplex={duplex_id_val}）：{val_str!r} 不是数字")
+                    continue
+                conc = str(row.get('conc', '') or row.get('dose', '')).strip()
+                conc_val = None
+                if conc:
+                    try:
+                        conc_val = float(conc)
+                    except ValueError:
+                        pass
+                try:
+                    with transaction.atomic():
+                        DataPoint.objects.create(
+                            experiment=exp,
+                            concentration_or_dose=conc_val,
+                            conc_unit=str(row.get('conc_unit', '')).strip(),
+                            timepoint=str(row.get('timepoint', '')).strip() or None,
+                            readout_type=str(row.get('readout_type', 'mRNA_remaining')).strip() or 'mRNA_remaining',
+                            value=v,
+                            value_unit=str(row.get('value_unit', '')).strip() or None,
+                            replicate=str(row.get('replicate', '')).strip() or None,
+                        )
+                    created_dp += 1
+                except Exception as e:
+                    errors.append(f"创建数据点失败（duplex={duplex_id_val}）：{e}")
+
+    success_msg = f"成功创建 {created_exp} 条实验记录，{created_dp} 个数据点。"
+    if skipped_dup:
+        success_msg += f" 跳过 {skipped_dup} 条重复记录（相同 duplex/exp_type/assay/batch 已存在）。"
+    messages.success(request, success_msg)
+    if errors:
+        messages.warning(request, "部分行处理失败：" + " | ".join(errors[:10]))
+    return redirect('upload_experiment')
+
+
+
+

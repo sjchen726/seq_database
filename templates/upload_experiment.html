@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block page_title %} — 批量上传实验数据{% endblock %}
+
+{% block topbar_content %}
+  <span class="ds-topbar-title">批量上传实验数据</span>
+  <span class="ds-topbar-spacer"></span>
+  <a href="/seq_list/" class="ds-btn ds-btn-ghost">← 返回</a>
+{% endblock %}
+
+{% block content %}
+<div class="ds-form-page">
+  <div class="ds-form-card">
+    <div class="ds-form-card-title">CSV 文件上传</div>
+
+    {% if messages %}
+      {% for m in messages %}
+        <div style="padding:8px 12px;margin-bottom:8px;border-radius:6px;font-size:13px;
+                    background:{% if m.level_tag == 'success' %}#dcfce7{% elif m.level_tag == 'warning' %}#fef9c3{% else %}#fee2e2{% endif %};
+                    color:{% if m.level_tag == 'success' %}#15803d{% elif m.level_tag == 'warning' %}#854d0e{% else %}#b91c1c{% endif %};">
+          {{ m }}
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    <div style="font-size:12px;color:#475569;margin-bottom:14px;line-height:1.6;">
+      <strong>支持两种格式：</strong>
+      <br>1. <strong>duplex_id 格式</strong>：CSV 含 <code>duplex_id</code> 列，直接指定。
+      <br>2. <strong>modify_seq 格式</strong>：CSV 含 <code>modify_seq</code> 列，AS 和 SS 上下两行为一组，系统自动匹配 <code>duplex_id</code>。
+      <br>必填列：<code>exp_type</code>（in_vitro/in_vivo）、<code>assay_type</code>（single_point/dose_response/in_vivo_efficacy/pk）、<code>batch</code>、<code>readout_type</code>、<code>value</code>。
+      <br>可选列：<code>cell_line</code>、<code>animal_species</code>、<code>exp_date</code>、<code>transfection_reagent</code>、<code>route</code>、<code>conc</code>、<code>conc_unit</code>、<code>timepoint</code>、<code>value_unit</code>、<code>replicate</code>、<code>notes</code>。
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <a href="{% url 'download_experiment_template' %}" class="ds-btn ds-btn-ghost" style="font-size:12px;">↓ 下载 CSV 模板</a>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div style="margin-bottom:14px;">
+        <input type="file" name="csv_file" class="ds-form-control" accept=".csv" required>
+      </div>
+      <button type="submit" class="ds-btn ds-btn-primary">上传</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

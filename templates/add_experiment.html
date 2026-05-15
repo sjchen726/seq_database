@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+
+{% block page_title %} — {% if editing_exp_id %}编辑{% else %}添加{% endif %}实验数据{% endblock %}
+
+{% block topbar_content %}
+  <span class="ds-topbar-title">{% if editing_exp_id %}编辑实验数据{% else %}添加实验数据{% endif %}</span>
+  <span style="font-family:'DM Mono',monospace;font-size:12px;color:#94a3b8;margin-left:6px;">{{ duplex_id }}</span>
+  <span class="ds-topbar-spacer"></span>
+  {% if duplex_id %}
+    <a href="/experiment/{{ duplex_id }}/" class="ds-btn ds-btn-ghost">← 取消</a>
+  {% else %}
+    <a href="/seq_list/" class="ds-btn ds-btn-ghost">← 取消</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="ds-form-page">
+  <div class="ds-form-card">
+    <div class="ds-form-card-title">实验信息</div>
+
+    <form method="POST" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="hidden" name="exp_id" value="{{ editing_exp_id|default:'' }}">
+
+      <div class="ds-form-2col">
+        <div>
+          <label class="ds-form-label">Duplex ID *</label>
+          <input type="text" name="duplex_id" class="ds-form-control" value="{{ form_data.duplex_id|default:duplex_id }}" required>
+        </div>
+
+        <div>
+          <label class="ds-form-label">批次号 *</label>
+          <input type="text" name="batch" class="ds-form-control" value="{{ form_data.batch|default:'' }}" required>
+        </div>
+
+        <div>
+          <label class="ds-form-label">实验类型 *</label>
+          <select name="exp_type" id="exp_type_select" class="ds-form-control" required>
+            {% for v, label in exp_type_choices %}
+              <option value="{{ v }}" {% if form_data.exp_type == v %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="ds-form-label">检测类型 *</label>
+          <select name="assay_type" class="ds-form-control" required>
+            {% for v, label in assay_type_choices %}
+              <option value="{{ v }}" {% if form_data.assay_type == v %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div id="cell_line_wrap">
+          <label class="ds-form-label">细胞系</label>
+          <input type="text" name="cell_line" class="ds-form-control" placeholder="如 HepG2" value="{{ form_data.cell_line|default:'' }}">
+        </div>
+
+        <div id="animal_wrap" style="display:none;">
+          <label class="ds-form-label">动物种属</label>
+          <input type="text" name="animal_species" class="ds-form-control" placeholder="如 mouse" value="{{ form_data.animal_species|default:'' }}">
+        </div>
+        <div id="reagent_wrap">
+          <label class="ds-form-label">转染试剂</label>
+          <input type="text" name="transfection_reagent" class="ds-form-control" placeholder="如 Lipofectamine" value="{{ form_data.transfection_reagent|default:'' }}">
+        </div>
+
+        <div id="route_wrap" style="display:none;">
+          <label class="ds-form-label">给药途径</label>
+          <select name="route" class="ds-form-control">
+            <option value="" {% if not form_data.route %}selected{% endif %}>--</option>
+            <option value="SC" {% if form_data.route == 'SC' %}selected{% endif %}>SC（皮下）</option>
+            <option value="IV" {% if form_data.route == 'IV' %}selected{% endif %}>IV（静脉）</option>
+            <option value="PO" {% if form_data.route == 'PO' %}selected{% endif %}>PO（口服）</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="ds-form-label">实验日期</label>
+          <input type="date" name="exp_date" class="ds-form-control" value="{{ form_data.exp_date|default:'' }}">
+        </div>
+
+        <div class="ds-form-span-2">
+          <label class="ds-form-label">备注</label>
+          <textarea name="notes" class="ds-form-control" rows="2">{{ form_data.notes|default:'' }}</textarea>
+        </div>
+      </div>
+
+      <div class="ds-form-card-title" style="margin-top:24px;">数据点</div>
+      <div style="overflow-x:auto; margin-bottom:8px;">
+        <table class="ds-table" id="datapoints_table" style="font-size:12px; table-layout:fixed; min-width:680px; width:100%;">
+          <colgroup>
+            <col style="width:90px"><col style="width:85px"><col style="width:85px">
+            <col style="width:155px"><col style="width:80px"><col style="width:80px">
+            <col style="width:80px"><col style="width:40px">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>浓度/剂量</th><th>单位</th><th>时间点</th><th>读数类型 *</th><th>数值 *</th><th>数值单位</th><th>重复</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="datapoints_body"></tbody>
+        </table>
+      </div>
+      <button type="button" id="addDataPointBtn" class="ds-btn ds-btn-ghost" style="height:30px;font-size:12px;">+ 添加数据点</button>
+
+      <script type="application/json" id="conc_unit_choices">
+        [{% for v, label in conc_unit_choices %}{"v":"{{ v }}","l":"{{ label }}"}{% if not forloop.last %},{% endif %}{% endfor %}]
+      </script>
+      <script type="application/json" id="readout_type_choices">
+        [{% for v, label in readout_type_choices %}{"v":"{{ v }}","l":"{{ label }}"}{% if not forloop.last %},{% endif %}{% endfor %}]
+      </script>
+      <script type="application/json" id="dp_rows_json">{{ dp_rows_json|default:"[]" }}</script>
+
+      <div class="ds-form-card-title" style="margin-top:24px;">附件</div>
+      <div id="attachments_wrap">
+        <div class="attach-row" style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">
+          <input type="file" name="att_file" class="ds-form-control" style="flex:1;min-width:0;">
+          <input type="text" name="att_url" class="ds-form-control" placeholder="或填外部链接" style="flex:1;min-width:0;">
+          <input type="text" name="att_label" class="ds-form-control" placeholder="描述" style="flex:2;min-width:0;">
+        </div>
+      </div>
+      <button type="button" id="addAttachBtn" class="ds-btn ds-btn-ghost" style="height:30px;font-size:12px;">+ 添加附件</button>
+
+      <div style="margin-top:24px;display:flex;gap:10px;">
+        <button type="submit" class="ds-btn ds-btn-primary">{% if editing_exp_id %}更新{% else %}保存{% endif %}</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/js/add_experiment.js"></script>
+{% endblock %}

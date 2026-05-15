@@ -204,3 +204,82 @@ class SeqModule(models.Model):
 
     def __str__(self):
         return self.keyword
+
+
+class Experiment(models.Model):
+    EXP_TYPE_CHOICES = [
+        ('in_vitro', '体外'),
+        ('in_vivo', '体内'),
+    ]
+    ASSAY_TYPE_CHOICES = [
+        ('single_point', '单点活性'),
+        ('dose_response', '剂量-效应'),
+        ('in_vivo_efficacy', '体内药效'),
+        ('pk', 'PK'),
+    ]
+
+    duplex_id = models.CharField('duplex_id', max_length=24)
+    exp_type = models.CharField('实验类型', max_length=10, choices=EXP_TYPE_CHOICES)
+    assay_type = models.CharField('检测类型', max_length=20, choices=ASSAY_TYPE_CHOICES)
+    cell_line = models.CharField('细胞系', max_length=100, null=True, blank=True)
+    animal_species = models.CharField('动物种属', max_length=100, null=True, blank=True)
+    batch = models.CharField('批次', max_length=64)
+    exp_date = models.DateField('实验日期', null=True, blank=True)
+    transfection_reagent = models.CharField('转染试剂', max_length=100, null=True, blank=True)
+    route = models.CharField('给药途径', max_length=20, null=True, blank=True)
+    notes = models.TextField('备注', null=True, blank=True)
+    created_by = models.CharField('录入人', max_length=64)
+    created_at = models.DateTimeField('创建时间', auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['duplex_id'], name='idx_exp_duplex'),
+            models.Index(fields=['duplex_id', 'exp_type'], name='idx_exp_duplex_type'),
+        ]
+
+    def __str__(self):
+        return f"{self.duplex_id} {self.exp_type} {self.batch}"
+
+
+class DataPoint(models.Model):
+    CONC_UNIT_CHOICES = [
+        ('nM', 'nM'),
+        ('uM', 'µM'),
+        ('mg_kg', 'mg/kg'),
+        ('ug_kg', 'µg/kg'),
+    ]
+    READOUT_TYPE_CHOICES = [
+        ('mRNA_remaining', 'mRNA 残余 %'),
+        ('protein_remaining', '蛋白残余 %'),
+        ('knockdown_pct', 'Knockdown %'),
+        ('plasma_conc', '血浆浓度'),
+        ('tissue_conc', '组织浓度'),
+    ]
+
+    experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE, related_name='datapoints')
+    concentration_or_dose = models.FloatField('浓度/剂量', null=True, blank=True)
+    conc_unit = models.CharField('单位', max_length=20, choices=CONC_UNIT_CHOICES, null=True, blank=True)
+    timepoint = models.CharField('时间点', max_length=32, null=True, blank=True)
+    readout_type = models.CharField('终点类型', max_length=32, choices=READOUT_TYPE_CHOICES)
+    value = models.FloatField('数值')
+    value_unit = models.CharField('数值单位', max_length=20, null=True, blank=True)
+    replicate = models.CharField('重复', max_length=32, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.readout_type}={self.value}"
+
+
+class ExperimentAttachment(models.Model):
+    experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE, related_name='attachments')
+    file = models.FileField('文件', upload_to='exp_attachments/', null=True, blank=True)
+    external_url = models.URLField('外部链接', max_length=500, null=True, blank=True)
+    label = models.CharField('描述', max_length=200)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if not self.file and not self.external_url:
+            raise ValidationError('文件或外部链接至少填一个')
+
+    def __str__(self):
+        return self.label

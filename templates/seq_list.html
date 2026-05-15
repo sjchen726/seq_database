@@ -121,8 +121,7 @@
 
 <!-- Toolbar -->
 <div class="ds-toolbar">
-  <button id="toggleCollapseBtn" class="ds-tb-btn ds-tb-green">▤ 组合/展开</button>
-  <button id="show-selected" type="button" class="ds-tb-btn ds-tb-blue">☑ 显示选中</button>
+<button id="show-selected" type="button" class="ds-tb-btn ds-tb-blue">☑ 显示选中</button>
   <a id="download-selected" class="ds-tb-btn ds-tb-violet" href="#">↓ 下载选中</a>
   <button id="toggleProjectPanel" type="button" class="ds-tb-btn ds-tb-orange {% if selected_projects %}ds-active-filter{% endif %}">
     ▼ 项目筛选 {% if selected_projects %}<span class="ds-tb-badge">{{ selected_projects|length }}</span>{% endif %}
@@ -167,7 +166,8 @@
     <label><input type="checkbox" class="toggle-vis export-field" data-column="11" value="parents" checked> Parents</label>
     <label><input type="checkbox" class="toggle-vis export-field" data-column="12" value="remarks" checked> Remarks</label>
     <label><input type="checkbox" class="toggle-vis export-field" data-column="13" value="created_at" checked> Update Time</label>
-    <label><input type="checkbox" class="toggle-vis export-field" data-column="14" value="操作" checked> 操作</label>
+    <label><input type="checkbox" class="toggle-vis export-field" data-column="14" value="exp_data" checked> 实验数据</label>
+    <label><input type="checkbox" class="toggle-vis export-field" data-column="15" value="操作" checked> 操作</label>
   </div>
 </div>
 
@@ -197,6 +197,7 @@
           <th class="ds-th-sort">Parents</th>
           <th class="ds-th-sort">Remarks</th>
           <th class="ds-th-sort">Update Time</th>
+          <th>实验数据</th>
           <th>操作</th>
         </tr>
       </thead>
@@ -223,6 +224,11 @@
             {% for d in group.items.0.deliveries %}
               {{ d.Seq_type|default_if_none:'' }}_{{ d.delivery_id|default_if_none:'' }}<br>
             {% endfor %}
+            {% if group.items.1 %}
+              {% for d in group.items.1.deliveries %}
+                {{ d.Seq_type|default_if_none:'' }}_{{ d.delivery_id|default_if_none:'' }}<br>
+              {% endfor %}
+            {% endif %}
           </td>
           <td>
             <div class="delivery-container" style="justify-content:flex-end;">
@@ -238,12 +244,27 @@
                 {% endif %}
               {% endfor %}
             </div>
+            {% if group.items.1 %}
+            <div class="delivery-container" style="justify-content:flex-end;">
+              {% for d in group.items.1.deliveries %}
+                {% if selected_seq_type == "SS" %}
+                  {% with d.delivery5_colored as delivery_colored %}
+                  {% include "char_block_AS.html" %}
+                  {% endwith %}
+                {% else %}
+                  {% with d.delivery3_colored as delivery_colored %}
+                  {% include "char_block_AS.html" %}
+                  {% endwith %}
+                {% endif %}
+              {% endfor %}
+            </div>
+            {% endif %}
           </td>
           <td style="padding:4px 2px;vertical-align:middle;">
             {% if group.aligned_columns %}
             <table class="nested-align-table">
               <tr>
-                <td class="align-dir-cell">{% if selected_seq_type == 'SS' %}SS 5'{% else %}SS 3'{% endif %}</td>
+                <td class="align-dir-cell">{% if selected_seq_type == 'SS' %}SS 3'{% else %}SS 5'{% endif %}</td>
                 {% for col in group.aligned_columns %}
                   {% if col.col_type == 'linker' %}
                     <td style="vertical-align:bottom;padding:0;">
@@ -269,10 +290,10 @@
                     </td>
                   {% endif %}
                 {% endfor %}
-                <td class="align-dir-cell">{% if selected_seq_type == 'SS' %}3'{% else %}5'{% endif %}</td>
+                <td class="align-dir-cell">{% if selected_seq_type == 'SS' %}5'{% else %}3'{% endif %}</td>
               </tr>
               <tr class="ss-align-row">
-                <td class="align-dir-cell">{% if selected_seq_type == 'SS' %}AS 3'{% else %}AS 5'{% endif %}</td>
+                <td class="align-dir-cell">{% if selected_seq_type == 'SS' %}AS 5'{% else %}AS 3'{% endif %}</td>
                 {% for col in group.aligned_columns %}
                   {% if col.col_type == 'linker' %}
                     <td style="vertical-align:top;padding:0;">
@@ -298,7 +319,7 @@
                     </td>
                   {% endif %}
                 {% endfor %}
-                <td class="align-dir-cell">{% if selected_seq_type == 'SS' %}5'{% else %}3'{% endif %}</td>
+                <td class="align-dir-cell">{% if selected_seq_type == 'SS' %}3'{% else %}5'{% endif %}</td>
               </tr>
             </table>
             {% else %}
@@ -323,69 +344,7 @@
                 {% endif %}
               {% endfor %}
             </div>
-          </td>
-          <td>{{ group.items.0.Transcript|default_if_none:'' }}</td>
-          <td>{{ group.items.0.Pos|default_if_none:'' }}</td>
-          <td>
-            {% for d in group.items.0.deliveries %}
-              {{ d.Strand_MWs|default_if_none:'' }}
-            {% endfor %}
-          </td>
-          <td>
-            {% for d in group.items.0.deliveries %}
-              {{ d.Parents|default_if_none:'' }}
-            {% endfor %}
-          </td>
-          <td>{{ group.items.0.Remark|linebreaksbr|default_if_none:'' }}</td>
-          <td>{{ group.items.0.formatted_update_time|default_if_none:'' }}</td>
-          <td>
-            <div class="ds-actions">
-              <a class="ds-act ds-act-edit" href="/edit_seq/?id={{ group.items.0.rm_code }}&strand_MWs={{ group.items.0.deliveries.0.Strand_MWs }}&next={{ request.get_full_path|urlencode }}">编辑</a>
-              <button class="ds-act ds-act-clone clone-seq-btn" data-strand-id="{{ group.duplex_id }}">克隆序列</button>
-            </div>
-          </td>
-        </tr>
-
-        {# ── Second row (SS for duplex) ── #}
-        {% if group.items.1 %}
-        <tr data-rm-code="{{ group.items.1.rm_code }}"
-            data-delivery-id="{{ group.items.1.deliveries.0.id }}"
-            data-strand-mws="{{ group.items.1.deliveries.0.Strand_MWs }}"
-            data-seq-type="{{ group.items.1.deliveries.0.Seq_type }}">
-          <td><input type="checkbox" class="row-checkbox"></td>
-          <td>
-            {% for d in group.items.1.deliveries %}
-              {{ d.duplex_id|default_if_none:'' }}
-            {% endfor %}
-          </td>
-          <td>{{ group.items.1.Project }}</td>
-          <td>
-            {% for d in group.items.1.deliveries %}
-              {{ d.Target|default_if_none:'' }}
-            {% endfor %}
-          </td>
-          <td>
-            {% for d in group.items.1.deliveries %}
-              {{ d.Seq_type|default_if_none:'' }}_{{ d.delivery_id|default_if_none:'' }}<br>
-            {% endfor %}
-          </td>
-          <td style="padding:0;border:none;"></td>
-          <td>
-            <div class="delivery-container" style="justify-content:flex-end;">
-              {% for d in group.items.1.deliveries %}
-                {% if selected_seq_type == "SS" %}
-                  {% with d.delivery5_colored as delivery_colored %}
-                  {% include "char_block_AS.html" %}
-                  {% endwith %}
-                {% else %}
-                  {% with d.delivery3_colored as delivery_colored %}
-                  {% include "char_block_AS.html" %}
-                  {% endwith %}
-                {% endif %}
-              {% endfor %}
-            </div>
-          </td>
-          <td>
+            {% if group.items.1 %}
             <div class="delivery-container" style="justify-content:flex-start;">
               {% for d in group.items.1.deliveries %}
                 {% if selected_seq_type == "SS" %}
@@ -399,29 +358,63 @@
                 {% endif %}
               {% endfor %}
             </div>
+            {% endif %}
           </td>
-          <td>{{ group.items.1.Transcript|default_if_none:'' }}</td>
-          <td>{{ group.items.1.Pos|default_if_none:'' }}</td>
+          <td>{{ group.items.0.Transcript|default_if_none:'' }}</td>
+          <td>{{ group.items.0.Pos|default_if_none:'' }}</td>
           <td>
-            {% for d in group.items.1.deliveries %}
+            {% for d in group.items.0.deliveries %}
               {{ d.Strand_MWs|default_if_none:'' }}
             {% endfor %}
+            {% if group.items.1 %}
+              {% for d in group.items.1.deliveries %}
+                <br>{{ d.Strand_MWs|default_if_none:'' }}
+              {% endfor %}
+            {% endif %}
           </td>
           <td>
-            {% for d in group.items.1.deliveries %}
+            {% for d in group.items.0.deliveries %}
               {{ d.Parents|default_if_none:'' }}
             {% endfor %}
+            {% if group.items.1 %}
+              {% for d in group.items.1.deliveries %}
+                <br>{{ d.Parents|default_if_none:'' }}
+              {% endfor %}
+            {% endif %}
           </td>
-          <td>{{ group.items.1.Remark|linebreaksbr|default_if_none:'' }}</td>
-          <td>{{ group.items.1.formatted_update_time|default_if_none:'' }}</td>
+          <td>
+            {{ group.items.0.Remark|linebreaksbr|default_if_none:'' }}
+            {% if group.items.1 and group.items.1.Remark %}
+              <br>{{ group.items.1.Remark|linebreaksbr }}
+            {% endif %}
+          </td>
+          <td>
+            {{ group.items.0.formatted_update_time|default_if_none:'' }}
+            {% if group.items.1 and group.items.1.formatted_update_time %}
+              <br>{{ group.items.1.formatted_update_time }}
+            {% endif %}
+          </td>
+          <td>
+            {% if group.exp_summary %}
+              <a href="{% url 'experiment_detail' duplex_id=group.duplex_id %}" style="font-size:11px;line-height:1.4;color:#0369a1;text-decoration:none;">{{ group.exp_summary }}</a>
+            {% else %}
+              {% if user_type == 'modify' or user_type == 'project' or user_type == 'data_admin' or user_type == 'admin' or user_type == 'superadmin' or request.user.is_superuser %}
+              <a href="{% url 'add_experiment' %}?duplex_id={{ group.duplex_id }}" style="font-size:11px;color:#94a3b8;">+ 添加</a>
+              {% else %}
+              <span style="color:#e2e8f0;">—</span>
+              {% endif %}
+            {% endif %}
+          </td>
           <td>
             <div class="ds-actions">
-              <a class="ds-act ds-act-edit" href="/edit_seq/?id={{ group.items.1.rm_code }}&strand_MWs={{ group.items.1.deliveries.0.Strand_MWs }}&next={{ request.get_full_path|urlencode }}">编辑</a>
+              <a class="ds-act ds-act-edit" href="/edit_seq/?id={{ group.items.0.rm_code }}&strand_MWs={{ group.items.0.deliveries.0.Strand_MWs }}&next={{ request.get_full_path|urlencode }}">编辑SS</a>
+              {% if group.items.1 %}
+              <a class="ds-act ds-act-edit" href="/edit_seq/?id={{ group.items.1.rm_code }}&strand_MWs={{ group.items.1.deliveries.0.Strand_MWs }}&next={{ request.get_full_path|urlencode }}">编辑AS</a>
+              {% endif %}
               <button class="ds-act ds-act-clone clone-seq-btn" data-strand-id="{{ group.duplex_id }}">克隆序列</button>
             </div>
           </td>
         </tr>
-        {% endif %}
         {% endfor %}
       </tbody>
     </table>

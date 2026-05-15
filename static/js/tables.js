@@ -14,10 +14,10 @@ $(document).ready(function() {
         ],
         lengthMenu: [5, 10, 20, 50],
         dom: "t",
-        columnDefs: [{
-            targets: 0,
-            orderable: false,
-        }],
+        columnDefs: [
+            { targets: 0, orderable: false },
+            { targets: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], orderable: false },
+        ],
         createdRow: function(row, data) {
             // 强制初始化选中状态
             if (typeof data._selected === 'undefined') {
@@ -109,42 +109,8 @@ $(document).ready(function() {
         column.visible($(this).prop('checked'));
     });
 
-    // 折叠功能
-    let isCollapsed = false;
-    $('#toggleCollapseBtn').on('click', function() {
-        isCollapsed = !isCollapsed;
-        table.draw();
-    });
-
-    // 每次重绘时处理：折叠 + 复选框同步
+    // 每次重绘时处理复选框同步
     table.on('draw', function() {
-        let prev = null;
-        let groupIndex = 0;
-        const colorClasses = ['group-bg-1', 'group-bg-2'];
-
-        $('#example tbody tr')
-            .removeClass('group-bg-1 group-bg-2')
-            .removeAttr('style');
-
-        // 处理折叠逻辑
-        table.column(1, { page: 'current' }).nodes().each(function(cell, i) {
-            const $cell = $(cell);
-            const $row = $cell.closest('tr');
-            const originalText = $cell.data('original-text') || $cell.text().trim();
-
-            $cell.data('original-text', originalText);
-
-            if (isCollapsed && originalText === prev) {
-                $cell.text('');
-            } else {
-                $cell.text(originalText);
-                prev = originalText;
-                groupIndex++;
-            }
-
-            $row.addClass(colorClasses[groupIndex % colorClasses.length]);
-        });
-
         // 同步复选框状态
         table.rows().every(function() {
             let data = this.data();

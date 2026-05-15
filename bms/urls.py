@@ -15,6 +15,8 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from django.conf import settings
+from django.conf.urls.static import static
 
 from app01 import views
 
@@ -62,5 +64,13 @@ urlpatterns = [
     path('blast_seq/', views.blast_seq, name='blast_seq'),
     path('multi_blast/', views.multi_blast, name='multi_blast'),
 
+    # Experiment data
+    path('experiment/add/', views.add_experiment, name='add_experiment'),
+    path('experiment/delete/<int:exp_id>/', views.delete_experiment, name='delete_experiment'),
+    path('upload_experiment/', views.upload_experiment, name='upload_experiment'),
+    path('download_experiment_template/', views.download_experiment_template, name='download_experiment_template'),
+    path('experiment/<str:duplex_id>/', views.experiment_detail, name='experiment_detail'),
+
     #path('test_log/', views.test_log, name='test_log'),
 ]
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
