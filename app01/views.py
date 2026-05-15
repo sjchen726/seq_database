@@ -160,7 +160,32 @@ def get_delivery_colored(seq: str, selected_seq_type: str, seq_type: str,
 
 
 
+_SEP_TOKEN = {
+    'char': '|', 'type': 'SEP', 'count': '',
+    'is_combo': False, 'delivery_label': None, 'delivery_color': None,
+}
+
+
 def get_modify_seq_colored(seq, selected_seq_type, seq_type, dm_modules=None, color_map=None):
+    parts = detect_embedded_linker(seq or "")
+    if parts is not None:
+        part1, linker_section, part2 = parts
+        if dm_modules is None:
+            dm_modules = list(DeliveryModule.objects.all())
+        if color_map is None:
+            color_map = get_color_map(modules=dm_modules)
+        tokens1 = get_modify_seq_colored(part1, selected_seq_type, seq_type, dm_modules, color_map)
+        tokens2 = get_modify_seq_colored(part2, selected_seq_type, seq_type, dm_modules, color_map)
+        if re.fullmatch(r'-+', linker_section):
+            linker_tokens = [{'char': '···', 'type': 'LINKER_DASH', 'count': '',
+                              'is_combo': False, 'delivery_label': None, 'delivery_color': None}]
+        else:
+            linker_tokens = get_modify_seq_colored(
+                linker_section.strip('-'), selected_seq_type, seq_type, dm_modules, color_map
+            )
+        return tokens1 + [_SEP_TOKEN] + linker_tokens + [_SEP_TOKEN] + tokens2
+
+    # existing logic below unchanged
     # === 1) 准备输入 ===
     seq = seq or ""
 
