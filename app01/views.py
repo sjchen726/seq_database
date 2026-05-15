@@ -2021,7 +2021,7 @@ def add_o_to_all_rules_safe(modify_seq: str) -> str:
     """
     parts = detect_embedded_linker(modify_seq or "")
     if parts is None:
-        return add_o_to_all_rules(modify_seq)
+        return add_o_to_all_rules(modify_seq or "")
     part1, linker_section, part2 = parts
     return add_o_to_all_rules(part1) + linker_section + add_o_to_all_rules(part2)
 
