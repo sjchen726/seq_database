@@ -1,3 +1,8 @@
+<style>
+.seq-seg-divider  { color: #94a3b8; margin: 0 4px; font-weight: bold; font-size: 14px; }
+.seq-linker-dash  { color: #94a3b8; letter-spacing: 1px; font-style: italic; padding: 0 2px; }
+.seq-segment-sep-col { background: #f8fafc; }
+</style>
 {# Renders one duplex-group row. Requires: group, selected_seq_type, user_type, request #}
         <tr data-rm-code="{{ group.items.0.rm_code }}"
             data-delivery-id="{{ group.items.0.deliveries.0.id }}"
@@ -61,7 +66,13 @@
               <tr>
                 <td class="align-dir-cell">{% if selected_seq_type == 'SS' %}SS 3'{% else %}SS 5'{% endif %}</td>
                 {% for col in group.aligned_columns %}
-                  {% if col.col_type == 'linker' %}
+                  {% if col.col_type == 'segment_sep' %}
+                    <td class="seq-segment-sep-col" rowspan="2" style="vertical-align:middle;padding:0 6px;border-left:2px dashed #cbd5e1;border-right:2px dashed #cbd5e1;background:#f8fafc;">
+                      {% for lk in col.linker_tokens %}
+                        <span class="seq-container seq-wide" style="background-color:rgba(112,203,248,1);">{{ lk.char }}</span>
+                      {% endfor %}
+                    </td>
+                  {% elif col.col_type == 'linker' %}
                     <td style="vertical-align:bottom;padding:0;">
                       <div style="display:flex;flex-direction:column;align-items:center;">
                         <span class="seq-count" style="width:auto;">&nbsp;</span>
@@ -90,7 +101,9 @@
               <tr class="ss-align-row">
                 <td class="align-dir-cell">{% if selected_seq_type == 'SS' %}AS 5'{% else %}AS 3'{% endif %}</td>
                 {% for col in group.aligned_columns %}
-                  {% if col.col_type == 'linker' %}
+                  {% if col.col_type == 'segment_sep' %}
+                    {# rowspan=2 td rendered in SS row above — skip #}
+                  {% elif col.col_type == 'linker' %}
                     <td style="vertical-align:top;padding:0;">
                       <div style="display:flex;flex-direction:column;align-items:center;">
                         <span class="seq-delivery-placeholder">&nbsp;</span>
@@ -118,9 +131,15 @@
               </tr>
             </table>
             {% else %}
-            <div style="display:flex;gap:0;">
+            <div style="display:flex;gap:0;align-items:center;">
               {% for item in group.items.0.modify_seq_colored %}
-                <span class="seq-container {% if item.char == 's' or item.char == 'o' or item.char == 'ss' %}seq-narrow{% else %}seq-wide{% endif %}" style="background-color:{% if item.type == 'normal' %}rgb(189,199,248){% elif item.type == 'f' %}rgb(22,245,22){% elif item.type == 'm' %}rgb(68,68,68);color:white{% elif item.type == 'd' or item.type == 'ss' or item.type == 'moe' or item.type == 'OCF3' or item.type == 'GNA' or item.type == 'I' %}rgb(212,93,245){% elif item.type == 's' %}rgb(253,246,61){% elif item.type == 'o' %}rgb(198,196,198){% elif item.type == 'TNA' %}rgb(245,86,86);color:white{% elif item.type == 'unknown' %}rgb(163,163,163){% elif item.type == 'others' %}rgba(112,203,248,1){% endif %};">{{ item.char }}</span>
+                {% if item.type == 'SEP' %}
+                  <span class="seq-seg-divider">&#124;</span>
+                {% elif item.type == 'LINKER_DASH' %}
+                  <span class="seq-linker-dash">{{ item.char }}</span>
+                {% else %}
+                  <span class="seq-container {% if item.char == 's' or item.char == 'o' or item.char == 'ss' %}seq-narrow{% else %}seq-wide{% endif %}" style="background-color:{% if item.type == 'normal' %}rgb(189,199,248){% elif item.type == 'f' %}rgb(22,245,22){% elif item.type == 'm' %}rgb(68,68,68);color:white{% elif item.type == 'd' or item.type == 'ss' or item.type == 'moe' or item.type == 'OCF3' or item.type == 'GNA' or item.type == 'I' %}rgb(212,93,245){% elif item.type == 's' %}rgb(253,246,61){% elif item.type == 'o' %}rgb(198,196,198){% elif item.type == 'TNA' %}rgb(245,86,86);color:white{% elif item.type == 'unknown' %}rgb(163,163,163){% elif item.type == 'others' %}rgba(112,203,248,1){% endif %};">{{ item.char }}</span>
+                {% endif %}
               {% endfor %}
             </div>
             {% endif %}
