@@ -101,14 +101,14 @@ Why this works:
 - `linker_section` = `-LK1-L96-LK1-` provides its own leading `-`
 - Junction: `UmsUm` + `-LK1-L96-LK1-` = `UmsUm-LK1-L96-LK1-` ✓
 
-**Caller change:** In `save_deliveries()`, replace:
+**Caller changes:** In `save_deliveries()`, replace **both** calls (lines ~1435 and ~1469):
 ```python
+# line ~1435
 current_linker_seq = add_o_to_all_rules(item['modify_seq'])
+# line ~1469
+linker_seq=add_o_to_all_rules(item['modify_seq']),
 ```
-with:
-```python
-current_linker_seq = add_o_to_all_rules_safe(item['modify_seq'])
-```
+with `add_o_to_all_rules_safe(...)` in each case. These two are the only callers; fixing `save_deliveries()` covers both `register_seq` and `upload_delivery_info`.
 
 ## Section 3: `get_modify_seq_colored()` — Dual-Segment Display
 
