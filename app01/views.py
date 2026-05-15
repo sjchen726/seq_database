@@ -2180,14 +2180,17 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
             as_split = split_tokens_at_sep(as_tokens)
             if ss_split and as_split:
                 ss_p1, ss_lk, ss_p2 = ss_split
-                as_p1, as_lk, as_p2 = as_split
+                as_p1, _as_lk, as_p2 = as_split  # AS linker (···) rendered by template; discard here
                 aligned = (
                     align_duplex_tokens(ss_p1, as_p1)
                     + [{'col_type': 'segment_sep', 'linker_tokens': ss_lk}]
                     + align_duplex_tokens(ss_p2, as_p2)
                 )
             else:
-                aligned = align_duplex_tokens(ss_tokens, as_tokens)
+                # Strip any SEP tokens before flat alignment to avoid | appearing as a nucleotide column
+                ss_flat = [t for t in ss_tokens if t.get('type') != 'SEP']
+                as_flat = [t for t in as_tokens if t.get('type') != 'SEP']
+                aligned = align_duplex_tokens(ss_flat, as_flat)
         sequence_groups.append({
             'project': project,
             'duplex_id': duplex_id,
