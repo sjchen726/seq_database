@@ -322,6 +322,19 @@ def get_modify_seq_colored(seq, selected_seq_type, seq_type, dm_modules=None, co
     return result
 
 
+def split_tokens_at_sep(tokens):
+    """
+    Split a token list at two SEP markers (inserted by get_modify_seq_colored for
+    dual-segment sequences).  Returns (part1, linker_tokens, part2) or None if fewer
+    than two SEP markers are present.
+    """
+    indices = [i for i, t in enumerate(tokens) if t.get('type') == 'SEP']
+    if len(indices) < 2:
+        return None
+    i1, i2 = indices[0], indices[1]
+    return tokens[:i1], tokens[i1+1:i2], tokens[i2+1:]
+
+
 def align_duplex_tokens(row0_tokens, row1_tokens):
     """
     把两条链的 token 列表按碱基位置配对，返回列列表供嵌套 table 逐列渲染。
@@ -2161,10 +2174,20 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
         )
         aligned = None
         if len(sorted_items) >= 2:
-            aligned = align_duplex_tokens(
-                sorted_items[0].get('modify_seq_colored') or [],
-                sorted_items[1].get('modify_seq_colored') or [],
-            )
+            ss_tokens = sorted_items[0].get('modify_seq_colored') or []
+            as_tokens = sorted_items[1].get('modify_seq_colored') or []
+            ss_split = split_tokens_at_sep(ss_tokens)
+            as_split = split_tokens_at_sep(as_tokens)
+            if ss_split and as_split:
+                ss_p1, ss_lk, ss_p2 = ss_split
+                as_p1, as_lk, as_p2 = as_split
+                aligned = (
+                    align_duplex_tokens(ss_p1, as_p1)
+                    + [{'col_type': 'segment_sep', 'linker_tokens': ss_lk}]
+                    + align_duplex_tokens(ss_p2, as_p2)
+                )
+            else:
+                aligned = align_duplex_tokens(ss_tokens, as_tokens)
         sequence_groups.append({
             'project': project,
             'duplex_id': duplex_id,
