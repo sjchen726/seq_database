@@ -1965,6 +1965,54 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq, sele
         ]
     }
 
+def _suggest_duplex_id(term, base_qs):
+    """
+    For a no-result search term, try to suggest a correctly zero-padded duplex_id.
+    e.g. "BP0002" → "BP000002" (same prefix + same numeric value, 6-digit padded).
+    Returns the suggested ID string, or None if no match found.
+    """
+    m = re.match(r'^([A-Za-z]{1,4})(\d+)$', term.strip())
+    if not m:
+        return None
+    prefix, digits = m.groups()
+    padded = prefix.upper() + str(int(digits)).zfill(6)
+    if padded.lower() != term.lower() and base_qs.filter(duplex_id__iexact=padded).exists():
+        return padded
+    return None
+
+
+def detect_embedded_linker(modify_seq: str):
+    """
+    Returns (part1, linker_section, part2) if modify_seq contains an embedded linker,
+    or None for normal single-segment sequences.
+
+    Detects:
+    - 2+ consecutive SeqModule tokens with linker_connector='-' (e.g. -LK1-L96-LK1-)
+    - 4+ consecutive dashes (AS placeholder, e.g. ------------)
+    Both sides of the match must be non-empty.
+    """
+    linker_keywords = [
+        m.keyword for m in SeqModule.objects.filter(linker_connector='-')
+        if m.keyword
+    ]
+    patterns = []
+    if linker_keywords:
+        kw_pat = '|'.join(re.escape(k) for k in sorted(linker_keywords, key=len, reverse=True))
+        # Require ≥2 consecutive linker tokens to avoid matching single Um-LK1 combos
+        patterns.append(rf'-(?:{kw_pat})(?:-(?:{kw_pat}))+-')
+    patterns.append(r'-{4,}')
+
+    m = re.search('|'.join(patterns), modify_seq)
+    if not m:
+        return None
+    part1 = modify_seq[:m.start()]
+    linker_section = m.group(0)
+    part2 = modify_seq[m.end():]
+    if not part1.strip() or not part2.strip():
+        return None
+    return part1, linker_section, part2
+
+
 def _filter_delivery_qs_by_term(base_qs, term):
     """Filter base_qs by a single search term and expand result to full duplex pairs (AS+SS)."""
     q_obj = (
@@ -2148,6 +2196,10 @@ def get_sequence_info(request):
     field_filters['filterSeq'] = filter_seq_list
     has_search = bool(q) or any(field_filters.get(k) for k in SEARCH_FIELD_MAP) or bool(filter_seq_list)
 
+    # filterSequence 多词分组支持（仅当 q 为空时触发）
+    filter_seq_terms = split_terms(field_filters.get('filterSequence', ''))[:5]
+    is_filter_seq_multi = len(filter_seq_terms) > 1 and not q
+
     if has_search:
         search_qs = delivery_qs
 
@@ -2179,7 +2231,7 @@ def get_sequence_info(request):
                     Q(modify_seq__iregex=pattern) | Q(linker_seq__iregex=pattern)
                 )
 
-        if not is_multi_term:
+        if not is_multi_term and not is_filter_seq_multi:
             if not search_qs.exists():
                 messages.warning(request, '没有搜索到指定内容')
                 delivery_qs = Delivery.objects.none()
@@ -2204,12 +2256,42 @@ def get_sequence_info(request):
             term_exp_map = get_experiment_summary(duplex_ids)
             for g in term_seq_groups:
                 g['exp_summary'] = term_exp_map.get(g.get('duplex_id'), '')
+            suggestion = _suggest_duplex_id(term, base_qs) if not term_seq_groups else None
             search_term_groups.append({
                 'term': term,
                 'sequence_groups': term_seq_groups,
                 'color_idx': i,
+                'suggestion': suggestion,
             })
         sequence_groups = []
+        is_multi_term = True
+    elif is_filter_seq_multi:
+        # Strand ID 多词分组：每个词单独按 duplex_id 过滤，展开完整 duplex 对后建组
+        search_term_groups = []
+        for i, term in enumerate(filter_seq_terms):
+            term_matched = search_qs.filter(duplex_id__icontains=term)
+            if term_matched.exists():
+                matched_pairs = term_matched.values_list('project', 'duplex_id').distinct()
+                q_objects = Q()
+                for proj, dup_id in matched_pairs:
+                    q_objects |= Q(project=proj, duplex_id=dup_id)
+                term_qs = delivery_qs.filter(q_objects)
+            else:
+                term_qs = delivery_qs.none()
+            term_seq_groups = build_duplex_groups(term_qs, selected_seq_type)
+            duplex_ids = list({g['duplex_id'] for g in term_seq_groups if g.get('duplex_id')})
+            term_exp_map = get_experiment_summary(duplex_ids)
+            for g in term_seq_groups:
+                g['exp_summary'] = term_exp_map.get(g.get('duplex_id'), '')
+            suggestion = _suggest_duplex_id(term, delivery_qs) if not term_seq_groups else None
+            search_term_groups.append({
+                'term': term,
+                'sequence_groups': term_seq_groups,
+                'color_idx': i,
+                'suggestion': suggestion,
+            })
+        sequence_groups = []
+        is_multi_term = True
     else:
         search_term_groups = []
         sequence_groups = build_duplex_groups(delivery_qs, selected_seq_type)
