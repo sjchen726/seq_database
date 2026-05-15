@@ -1432,7 +1432,7 @@ def save_deliveries(df, duplex_id_map, username):
             base_id = sequence_obj.rm_code
             current_delivery5 = item['delivery5']
             current_delivery3 = item['delivery3']
-            current_linker_seq = add_o_to_all_rules(item['modify_seq'])
+            current_linker_seq = add_o_to_all_rules_safe(item['modify_seq'])
 
 
             key = (base_id, current_delivery5, current_linker_seq, current_delivery3)
@@ -1466,7 +1466,7 @@ def save_deliveries(df, duplex_id_map, username):
                 delivery_id=delivery_id,
                 sequence=sequence_obj,
                 modify_seq=item['modify_seq'],
-                linker_seq=add_o_to_all_rules(item['modify_seq']),
+                linker_seq=add_o_to_all_rules_safe(item['modify_seq']),
                 naked_length=item['naked_length'],
                 project=row['Project'],
                 parents=row['Parents'],
