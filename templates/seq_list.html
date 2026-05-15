@@ -276,7 +276,7 @@ document.getElementById('seq_type_selector').addEventListener('change', function
 </script>
 
 <script>
-// Panel toggle utility
+// Panel toggle for project filter and column visibility panels (search panel handled by search.js)
 (function() {
     function setupPanelToggle(btnId, panelId) {
         var btn = document.getElementById(btnId);
@@ -290,16 +290,7 @@ document.getElementById('seq_type_selector').addEventListener('change', function
     }
     setupPanelToggle('toggleProjectPanel', 'projectFilterPanel');
     setupPanelToggle('toggleColumnPanel', 'columnFilterPanel');
-    setupPanelToggle('advancedSearchBtn', 'advancedSearchPanel');
 })();
-
-// Close advanced search panel
-var closeBtn = document.getElementById('closeSearchPanel');
-if (closeBtn) {
-    closeBtn.addEventListener('click', function() {
-        document.getElementById('advancedSearchPanel').style.display = 'none';
-    });
-}
 
 // Projects filter behavior
 document.getElementById('projects-select-toggle').addEventListener('click', function() {
@@ -320,43 +311,6 @@ document.getElementById('projects-clear').addEventListener('click', function() {
     var url = new URL(window.location.href);
     url.searchParams.delete('projects');
     window.location.href = url.toString();
-});
-
-// Add modify seq input
-document.getElementById('addModifySeq').addEventListener('click', function() {
-    var container = document.getElementById('modifySeqInputs');
-    var div = document.createElement('div');
-    div.className = 'modify-seq-item';
-    div.style.cssText = 'display:flex;gap:6px;margin-bottom:4px;';
-    div.innerHTML = '<input type="text" name="filterSeq" value="" placeholder="如 CmAmUm 或 UmUfUm（5\'-3\'方向）" class="ds-form-control modify-seq-input">' +
-                    '<button type="button" class="ds-btn ds-btn-ghost modify-seq-remove" title="删除" style="height:32px;padding:0 8px;">×</button>';
-    container.appendChild(div);
-});
-
-// Remove modify seq input (delegated)
-document.getElementById('modifySeqInputs').addEventListener('click', function(e) {
-    if (e.target.classList.contains('modify-seq-remove')) {
-        var items = document.querySelectorAll('#modifySeqInputs .modify-seq-item');
-        if (items.length > 1) {
-            e.target.closest('.modify-seq-item').remove();
-        } else {
-            e.target.closest('.modify-seq-item').querySelector('input').value = '';
-        }
-    }
-});
-
-// Clear filters button
-document.getElementById('clearFilters').addEventListener('click', function() {
-    var form = document.getElementById('advancedSearchForm');
-    form.querySelectorAll('input[type=text]').forEach(function(inp) { inp.value = ''; });
-    var items = document.querySelectorAll('#modifySeqInputs .modify-seq-item');
-    items.forEach(function(item, idx) {
-        if (idx === 0) {
-            item.querySelector('input').value = '';
-        } else {
-            item.remove();
-        }
-    });
 });
 </script>
 
