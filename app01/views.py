@@ -1965,6 +1965,26 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq, sele
         ]
     }
 
+def _filter_delivery_qs_by_term(base_qs, term):
+    """Filter base_qs by a single search term and expand result to full duplex pairs (AS+SS)."""
+    q_obj = (
+        Q(duplex_id__icontains=term) |
+        Q(Target__icontains=term) |
+        Q(project__icontains=term) |
+        Q(modify_seq__icontains=term) |
+        Q(parents__icontains=term) |
+        Q(delivery_id__icontains=term) |
+        Q(linker_seq__icontains=term)
+    )
+    matched_qs = base_qs.filter(q_obj)
+    if not matched_qs.exists():
+        return base_qs.none()
+    matched_pairs = matched_qs.values_list('project', 'duplex_id').distinct()
+    q_objects = Q()
+    for proj, dup_id in matched_pairs:
+        q_objects |= Q(project=proj, duplex_id=dup_id)
+    return base_qs.filter(q_objects)
+
 def build_duplex_groups(delivery_qs, selected_seq_type):
     """
     给定一个 Delivery 查询集，构建按 (project, duplex_id) 分组的展示数据。
@@ -2106,6 +2126,8 @@ def get_sequence_info(request):
     # === 搜索过滤 ===
     # 全局快速搜索（单框搜索多字段）
     q = request.GET.get('q', '').strip()
+    terms = split_terms(q)[:5] if q else []
+    is_multi_term = len(terms) > 1
 
     # 高级字段搜索
     SEARCH_FIELD_MAP = {
@@ -2129,8 +2151,7 @@ def get_sequence_info(request):
     if has_search:
         search_qs = delivery_qs
 
-        if q:
-            terms = split_terms(q)
+        if q and not is_multi_term:
             if terms:
                 q_obj = Q()
                 for term in terms:
@@ -2158,36 +2179,50 @@ def get_sequence_info(request):
                     Q(modify_seq__iregex=pattern) | Q(linker_seq__iregex=pattern)
                 )
 
-        if not search_qs.exists():
-            messages.warning(request, '没有搜索到指定内容')
-            delivery_qs = Delivery.objects.none()
-        else:
-            # 展开到完整的 duplex 对（保证 AS+SS 同时显示）
-            matched_pairs = search_qs.values_list('project', 'duplex_id').distinct()
-            q_objects = Q()
-            for proj, dup_id in matched_pairs:
-                q_objects |= Q(project=proj, duplex_id=dup_id)
-            delivery_qs = delivery_qs.filter(q_objects)
-            # 若用户指定了 Seq Type，展开后重新收窄，只显示匹配的链型
-            if field_filters.get('filterSeqType'):
-                delivery_qs = delivery_qs.filter(seq_type__iexact=field_filters['filterSeqType'])
+        if not is_multi_term:
+            if not search_qs.exists():
+                messages.warning(request, '没有搜索到指定内容')
+                delivery_qs = Delivery.objects.none()
+            else:
+                # 展开到完整的 duplex 对（保证 AS+SS 同时显示）
+                matched_pairs = search_qs.values_list('project', 'duplex_id').distinct()
+                q_objects = Q()
+                for proj, dup_id in matched_pairs:
+                    q_objects |= Q(project=proj, duplex_id=dup_id)
+                delivery_qs = delivery_qs.filter(q_objects)
+                # 若用户指定了 Seq Type，展开后重新收窄，只显示匹配的链型
+                if field_filters.get('filterSeqType'):
+                    delivery_qs = delivery_qs.filter(seq_type__iexact=field_filters['filterSeqType'])
 
-    sequence_groups = build_duplex_groups(delivery_qs, selected_seq_type)
-
-    # Attach experiment summary to each group
-    all_duplex_ids = []
-    for group in sequence_groups:
-        did = group.get('duplex_id')
-        if did:
-            all_duplex_ids.append(did)
-    all_duplex_ids = list(set(all_duplex_ids))
-    exp_summary_map = get_experiment_summary(all_duplex_ids)
-    for group in sequence_groups:
-        group['exp_summary'] = exp_summary_map.get(group.get('duplex_id'), '')
+    if is_multi_term:
+        search_term_groups = []
+        base_qs = search_qs  # field-filtered base; q-filter applied per term below
+        for i, term in enumerate(terms):
+            term_qs = _filter_delivery_qs_by_term(base_qs, term)
+            term_seq_groups = build_duplex_groups(term_qs, selected_seq_type)
+            duplex_ids = list({g['duplex_id'] for g in term_seq_groups if g.get('duplex_id')})
+            term_exp_map = get_experiment_summary(duplex_ids)
+            for g in term_seq_groups:
+                g['exp_summary'] = term_exp_map.get(g.get('duplex_id'), '')
+            search_term_groups.append({
+                'term': term,
+                'sequence_groups': term_seq_groups,
+                'color_idx': i,
+            })
+        sequence_groups = []
+    else:
+        search_term_groups = []
+        sequence_groups = build_duplex_groups(delivery_qs, selected_seq_type)
+        all_duplex_ids = list({g['duplex_id'] for g in sequence_groups if g.get('duplex_id')})
+        exp_summary_map = get_experiment_summary(all_duplex_ids)
+        for group in sequence_groups:
+            group['exp_summary'] = exp_summary_map.get(group.get('duplex_id'), '')
 
     context = {
         'user_type': user_type,
         'sequence_groups': sequence_groups,
+        'search_term_groups': search_term_groups,
+        'is_multi_term': is_multi_term,
         'selected_seq_type': selected_seq_type,
         'allowed_projects': allowed_projects,
         'selected_projects': selected_projects,
