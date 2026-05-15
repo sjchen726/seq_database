@@ -183,7 +183,7 @@ def get_modify_seq_colored(seq, selected_seq_type, seq_type, dm_modules=None, co
             linker_tokens = get_modify_seq_colored(
                 linker_section.strip('-'), selected_seq_type, seq_type, dm_modules, color_map
             )
-        return tokens1 + [_SEP_TOKEN] + linker_tokens + [_SEP_TOKEN] + tokens2
+        return tokens1 + [_SEP_TOKEN.copy()] + linker_tokens + [_SEP_TOKEN.copy()] + tokens2
 
     # existing logic below unchanged
     # === 1) 准备输入 ===
