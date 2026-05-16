@@ -166,6 +166,39 @@ _SEP_TOKEN = {
 }
 
 
+def _reverse_tokens(tokens):
+    """Group-based reversal: nucleotides are grouped with their preceding linkers (s/o/ss),
+    then the group order is reversed. Used for alignment of AS Part2 with SS Part2."""
+    LINKERS = {'ss', 's', 'o'}
+    groups = []
+    current_group = None
+    for item in tokens:
+        if item['char'] in LINKERS:
+            if current_group is not None:
+                current_group['subs'].append(item)
+            else:
+                groups.append({'main': item, 'subs': []})
+        else:
+            if current_group is not None:
+                groups.append(current_group)
+            current_group = {'main': item, 'subs': []}
+    if current_group is not None:
+        groups.append(current_group)
+
+    new_result = []
+    prev_main = None
+    for group in reversed(groups):
+        if prev_main is not None:
+            new_result.append(prev_main)
+            new_result.extend(group['subs'])
+        else:
+            new_result.extend(group['subs'])
+        prev_main = group['main']
+    if prev_main:
+        new_result.append(prev_main)
+    return new_result
+
+
 def get_modify_seq_colored(seq, selected_seq_type, seq_type, dm_modules=None, color_map=None):
     parts = detect_embedded_linker(seq or "")
     if parts is not None:
@@ -284,40 +317,7 @@ def get_modify_seq_colored(seq, selected_seq_type, seq_type, dm_modules=None, co
 
     # === 7) 保留你原来的 SS 分组反转逻辑 ===
     if seq_type == reversed_seq_type:
-        groups = []
-        current_group = None
-
-        for item in result:
-            if item['char'] in ['ss', 's', 'o']:
-                if current_group is not None:
-                    current_group['subs'].append(item)
-                else:
-                    groups.append({'main': item, 'subs': []})
-            else:
-                if current_group is not None:
-                    groups.append(current_group)
-                current_group = {'main': item, 'subs': []}
-
-        if current_group is not None:
-            groups.append(current_group)
-
-        # 反转组并组合成新结果（subs + 上一组 main）
-        new_result = []
-        prev_main = None
-
-        for group in reversed(groups):
-            if prev_main is not None:
-                new_result.append(prev_main)
-                new_result.extend(group['subs'])
-            else:
-                # 第一组只有 subs，先插入
-                new_result.extend(group['subs'])
-            prev_main = group['main']
-
-        if prev_main:
-            new_result.append(prev_main)
-
-        result = new_result
+        result = _reverse_tokens(result)
 
     return result
 
@@ -2185,7 +2185,7 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
                 aligned = (
                     align_duplex_tokens(ss_p1, as_p1)
                     + [{'col_type': 'segment_sep', 'linker_tokens': ss_lk}]
-                    + align_duplex_tokens(ss_p2, as_p2)
+                    + align_duplex_tokens(ss_p2, _reverse_tokens(as_p2))
                 )
             else:
                 # Strip any SEP tokens before flat alignment to avoid | appearing as a nucleotide column
