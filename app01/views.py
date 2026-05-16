@@ -2615,26 +2615,18 @@ def edit_reg_seq(request):
 def download_selected(request):
     download_time = datetime.now().strftime('%Y-%m-%d %H:%M')
     selected_ids = request.POST.get('selected_ids')
-    selected_seq_types = request.POST.get('selected_seq_types')
     selected_columns = request.POST.get('selected_columns')
 
-    if not selected_ids or not selected_columns or not selected_seq_types:
+    if not selected_ids or not selected_columns:
         return HttpResponse("参数缺失", status=400)
 
     try:
         ids = json.loads(selected_ids)
-        types = json.loads(selected_seq_types)
-        seq_ids = [t.split('_', 1)[-1] if '_' in t else t for t in types]
         columns = json.loads(selected_columns)
     except json.JSONDecodeError:
         return HttpResponse("参数格式错误", status=400)
 
-    query = Q()
-    for duplex_id, seq_ids in zip(ids, seq_ids):
-        query |= Q(duplex_id=duplex_id, delivery_id=seq_ids)
-     #   print(duplex_id, seq_ids)
-
-    deliveries = Delivery.objects.filter(query)\
+    deliveries = Delivery.objects.filter(duplex_id__in=ids)\
         .select_related('sequence')\
         .prefetch_related('sequence__target_info')
 

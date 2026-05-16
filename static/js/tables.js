@@ -255,7 +255,10 @@ $(document).ready(function() {
     })();
 });
 
-//下载选中项
+function getCsrfFromCookie() {
+    const match = document.cookie.match(/csrftoken=([^;]+)/);
+    return match ? match[1] : '';
+}
 
 // 下载选中项
 document.getElementById('download-selected').addEventListener('click', function() {
@@ -275,19 +278,14 @@ document.getElementById('download-selected').addEventListener('click', function(
         return;
     }
 
-    // ✅ 获取选中行中的 duplex_id 和 seq_type
     const selectedIds = [];
-    const selectedSeqTypes = [];
 
     table.rows().every(function() {
         const row = this.node();
         if ($(row).find('input.row-checkbox').prop('checked')) {
             const duplexId = $(row).find('td:nth-child(2)').text().trim();
-            const seqType = $(row).find('td:nth-child(5)').text().trim();
-
-            if (duplexId && seqType) {
+            if (duplexId) {
                 selectedIds.push(duplexId);
-                selectedSeqTypes.push(seqType);
             }
         }
     });
@@ -303,7 +301,7 @@ document.getElementById('download-selected').addEventListener('click', function(
     form.action = '/download_selected/';
     form.style.display = 'none';
 
-    const csrfToken = document.querySelector('input[name=csrfmiddlewaretoken]').value;
+    const csrfToken = getCsrfFromCookie();
 
     // ✅ CSRF Token
     form.appendChild(Object.assign(document.createElement('input'), {
@@ -324,13 +322,6 @@ document.getElementById('download-selected').addEventListener('click', function(
         type: 'hidden',
         name: 'selected_ids',
         value: JSON.stringify(selectedIds)
-    }));
-
-    // ✅ seq_type 列表
-    form.appendChild(Object.assign(document.createElement('input'), {
-        type: 'hidden',
-        name: 'selected_seq_types',
-        value: JSON.stringify(selectedSeqTypes)
     }));
 
     document.body.appendChild(form);
