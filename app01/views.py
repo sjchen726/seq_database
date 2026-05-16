@@ -1144,7 +1144,7 @@ def add_o_to_all_rules(modify_seq):
             token = sm.group(0)
             end = i + len(token)
             connector = connector_map.get(token.upper(), '')
-            if connector and end < len(modify_seq) and modify_seq[end] != 's':
+            if connector and end < len(modify_seq) and modify_seq[end] not in ('s', 'o', '-'):
                 linker_seq += token + connector
             else:
                 linker_seq += token
