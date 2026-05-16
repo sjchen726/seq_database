@@ -1131,7 +1131,7 @@ def add_o_to_all_rules(modify_seq):
         if cm:
             combo = cm.group(0)
             end = i + len(combo)
-            if end < len(modify_seq) and modify_seq[end] != 's':
+            if end < len(modify_seq) and modify_seq[end] not in ('s', 'o', '-'):
                 linker_seq += combo + 'o'
             else:
                 linker_seq += combo
@@ -1318,9 +1318,9 @@ def check_duplicates(df, ss_groups, target_project=None):
                     delivery5=ss_d5,
                     delivery3=ss_d3
                 ).prefetch_related('project_links')
+                as_linker_seq = add_o_to_all_rules_safe(as_clean_seq)
 
                 for ss_del in ss_deliveries:
-                    as_linker_seq = add_o_to_all_rules_safe(as_clean_seq)
                     exists_as = Delivery.objects.filter(
                         linker_seq=as_linker_seq,
                         delivery5=as_d5,
@@ -2651,7 +2651,7 @@ def download_selected(request):
             if col_lc == 'remarks':
                 val = ''
                 part1 = getattr(d, 'Remark', '') or ''
-                part2 = getattr(seqinfo, 'Remark', '') if seqinfo else ''
+                part2 = (getattr(seqinfo, 'Remark', '') or '') if seqinfo else ''
                 val = f"{part1}\n{part2}".strip("\n") if (part1 or part2) else ''
 
             elif col_lc == 'id':
