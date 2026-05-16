@@ -1953,12 +1953,11 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq, sele
     update_time = get_attr(deliveries[0], 'created_at') if deliveries else None
     formatted_update_time = update_time.strftime('%Y-%m-%d %H:%M') if update_time else None
 
-    remark = (
-        f"{seqinfo.Remark}\n{get_attr(deliveries[0], 'Remark')}"
-        if seqinfo and deliveries else
-        seqinfo.Remark if seqinfo else
-        get_attr(deliveries[0], 'Remark') if deliveries else None
-    )
+    _remark_parts = [
+        seqinfo.Remark if seqinfo and seqinfo.Remark else None,
+        get_attr(deliveries[0], 'Remark') if deliveries else None,
+    ]
+    remark = '\n'.join(p for p in _remark_parts if p) or None
 
     # sequence.seq_type 是权威来源（来自 Sequence 注册），
     # Delivery.seq_type 可能因历史 CSV 上传标签错误而不可靠，不应用于排序/着色。
