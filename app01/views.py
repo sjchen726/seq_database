@@ -1158,6 +1158,51 @@ def add_o_to_all_rules(modify_seq):
     return linker_seq
 
 
+def detect_embedded_linker(modify_seq: str):
+    """
+    Returns (part1, linker_section, part2) if modify_seq contains an embedded linker,
+    or None for normal single-segment sequences.
+
+    Detects:
+    - 2+ consecutive SeqModule tokens with linker_connector='-' (e.g. -LK1-L96-LK1-)
+    - 4+ consecutive dashes (AS placeholder, e.g. ------------)
+    Both sides of the match must be non-empty.
+    """
+    linker_keywords = [
+        mod.keyword for mod in SeqModule.objects.filter(linker_connector='-')
+        if mod.keyword
+    ]
+    patterns = []
+    if linker_keywords:
+        kw_pat = '|'.join(re.escape(k) for k in sorted(linker_keywords, key=len, reverse=True))
+        # Require ≥2 consecutive linker tokens to avoid matching single Um-LK1 combos
+        patterns.append(rf'-(?:{kw_pat})(?:-(?:{kw_pat}))+-')
+    patterns.append(r'-{4,}')
+
+    m = re.search('|'.join(patterns), modify_seq)
+    if not m:
+        return None
+    part1 = modify_seq[:m.start()]
+    linker_section = m.group(0)
+    part2 = modify_seq[m.end():]
+    if not part1.strip() or not part2.strip():
+        return None
+    return part1, linker_section, part2
+
+
+def add_o_to_all_rules_safe(modify_seq: str) -> str:
+    """
+    Dual-segment-aware wrapper for add_o_to_all_rules().
+    For sequences with an embedded linker, processes Part1 and Part2 separately
+    so the linker section keeps its own '-' connectors and is not corrupted.
+    """
+    parts = detect_embedded_linker(modify_seq or "")
+    if parts is None:
+        return add_o_to_all_rules(modify_seq or "")
+    part1, linker_section, part2 = parts
+    return add_o_to_all_rules(part1) + linker_section + add_o_to_all_rules(part2)
+
+
 # 上传递送信息 （分块函数)
 def parse_uploaded_csv(request):
     uploaded_file = request.FILES.get('file')
@@ -1267,15 +1312,17 @@ def check_duplicates(df, ss_groups, target_project=None):
                 seen_combinations.add(combo_key)
 
                 # 2️⃣ 与数据库查重
+                ss_linker_seq = add_o_to_all_rules_safe(ss_clean_seq)
                 ss_deliveries = Delivery.objects.filter(
-                    modify_seq=ss_clean_seq,
+                    linker_seq=ss_linker_seq,
                     delivery5=ss_d5,
                     delivery3=ss_d3
                 ).prefetch_related('project_links')
 
                 for ss_del in ss_deliveries:
+                    as_linker_seq = add_o_to_all_rules_safe(as_clean_seq)
                     exists_as = Delivery.objects.filter(
-                        modify_seq=as_clean_seq,
+                        linker_seq=as_linker_seq,
                         delivery5=as_d5,
                         delivery3=as_d3,
                         duplex_id=ss_del.duplex_id
@@ -2016,51 +2063,6 @@ def _suggest_duplex_id(term, base_qs):
     if padded.lower() != term.lower() and base_qs.filter(duplex_id__iexact=padded).exists():
         return padded
     return None
-
-
-def detect_embedded_linker(modify_seq: str):
-    """
-    Returns (part1, linker_section, part2) if modify_seq contains an embedded linker,
-    or None for normal single-segment sequences.
-
-    Detects:
-    - 2+ consecutive SeqModule tokens with linker_connector='-' (e.g. -LK1-L96-LK1-)
-    - 4+ consecutive dashes (AS placeholder, e.g. ------------)
-    Both sides of the match must be non-empty.
-    """
-    linker_keywords = [
-        mod.keyword for mod in SeqModule.objects.filter(linker_connector='-')
-        if mod.keyword
-    ]
-    patterns = []
-    if linker_keywords:
-        kw_pat = '|'.join(re.escape(k) for k in sorted(linker_keywords, key=len, reverse=True))
-        # Require ≥2 consecutive linker tokens to avoid matching single Um-LK1 combos
-        patterns.append(rf'-(?:{kw_pat})(?:-(?:{kw_pat}))+-')
-    patterns.append(r'-{4,}')
-
-    m = re.search('|'.join(patterns), modify_seq)
-    if not m:
-        return None
-    part1 = modify_seq[:m.start()]
-    linker_section = m.group(0)
-    part2 = modify_seq[m.end():]
-    if not part1.strip() or not part2.strip():
-        return None
-    return part1, linker_section, part2
-
-
-def add_o_to_all_rules_safe(modify_seq: str) -> str:
-    """
-    Dual-segment-aware wrapper for add_o_to_all_rules().
-    For sequences with an embedded linker, processes Part1 and Part2 separately
-    so the linker section keeps its own '-' connectors and is not corrupted.
-    """
-    parts = detect_embedded_linker(modify_seq or "")
-    if parts is None:
-        return add_o_to_all_rules(modify_seq or "")
-    part1, linker_section, part2 = parts
-    return add_o_to_all_rules(part1) + linker_section + add_o_to_all_rules(part2)
 
 
 def _filter_delivery_qs_by_term(base_qs, term):
