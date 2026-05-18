@@ -41,6 +41,9 @@
     <a href="{% url 'seq_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'seq_list' %}active{% endif %}">
       <i class="bi bi-table ds-nav-icon"></i> 序列列表
     </a>
+    <a href="{% url 'reg_seq_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'reg_seq_list' %}active{% endif %}">
+      <i class="bi bi-list-ul ds-nav-icon"></i> 裸序列列表
+    </a>
 
     <div class="ds-nav-divider"></div>
     <div class="ds-nav-section">功能模块</div>
