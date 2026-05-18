@@ -38,7 +38,7 @@
     <div class="ds-form-3col">
       <div>
         <label class="ds-form-label">Strand ID</label>
-        <input type="text" name="filterSequence" class="ds-form-control" value="{{ field_filters.filterSequence }}">
+        <input type="text" name="filterSequence" class="ds-form-control" value="{{ field_filters.filterSequence }}" placeholder="如 BP000001，多词用逗号分隔">
       </div>
       <div>
         <label class="ds-form-label">Naked Sequence</label>
@@ -180,10 +180,10 @@
       <thead>
         <tr>
           <th><input type="checkbox" id="select-all"></th>
-          <th class="ds-th-sort">Strand ID</th>
-          <th class="ds-th-sort">Project</th>
-          <th class="ds-th-sort">Target</th>
-          <th class="ds-th-sort">Sequence ID</th>
+          <th {% if not is_multi_term %}class="ds-th-sort"{% endif %}>Strand ID</th>
+          <th {% if not is_multi_term %}class="ds-th-sort"{% endif %}>Project</th>
+          <th {% if not is_multi_term %}class="ds-th-sort"{% endif %}>Target</th>
+          <th {% if not is_multi_term %}class="ds-th-sort"{% endif %}>Sequence ID</th>
           <th>Ligand 1</th>
           <th style="text-align:center;">
             Sequences<br>
@@ -193,12 +193,12 @@
             </select>
           </th>
           <th>Ligand 2</th>
-          <th class="ds-th-sort">Transcript</th>
-          <th class="ds-th-sort">Position</th>
-          <th class="ds-th-sort">Strand_MWs</th>
-          <th class="ds-th-sort">Parents</th>
-          <th class="ds-th-sort">Remarks</th>
-          <th class="ds-th-sort">Update Time</th>
+          <th {% if not is_multi_term %}class="ds-th-sort"{% endif %}>Transcript</th>
+          <th {% if not is_multi_term %}class="ds-th-sort"{% endif %}>Position</th>
+          <th {% if not is_multi_term %}class="ds-th-sort"{% endif %}>Strand_MWs</th>
+          <th {% if not is_multi_term %}class="ds-th-sort"{% endif %}>Parents</th>
+          <th {% if not is_multi_term %}class="ds-th-sort"{% endif %}>Remarks</th>
+          <th {% if not is_multi_term %}class="ds-th-sort"{% endif %}>Update Time</th>
           <th>实验数据</th>
           <th>操作</th>
         </tr>
@@ -214,7 +214,13 @@
             {% endfor %}
             {% if not term_group.sequence_groups %}
               <tr class="search-no-result-row">
-                <td colspan="16">未找到与 "{{ term_group.term }}" 匹配的记录</td>
+                <td colspan="16">
+                  未找到与 "{{ term_group.term }}" 匹配的记录
+                  {% if term_group.suggestion %}
+                  — Strand ID 格式为字母前缀 + 6 位数字，您可能想输入
+                  <strong>"{{ term_group.suggestion }}"</strong>？
+                  {% endif %}
+                </td>
               </tr>
             {% endif %}
           {% endfor %}
