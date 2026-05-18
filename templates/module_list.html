@@ -60,7 +60,7 @@
   <div class="ds-table-footer">
     <div class="ds-pagesize-wrap">
       每页显示
-      <select class="ds-pagesize-select" onchange="window.location.href='?page=1&page_size='+this.value+'{% if q %}&q={{ q }}{% endif %}'">
+      <select class="ds-pagesize-select" onchange="window.location.href='?page=1&page_size='+this.value+'{% if q %}&q={{ q|urlencode }}{% endif %}'">
         <option value="10" {% if page_size == 10 %}selected{% endif %}>10</option>
         <option value="20" {% if page_size == 20 %}selected{% endif %}>20</option>
         <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
