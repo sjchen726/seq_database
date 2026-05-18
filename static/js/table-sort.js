@@ -1,5 +1,6 @@
 (function () {
   document.querySelectorAll('table').forEach(function (table) {
+    if (table.id === 'example') return;
     var headers = table.querySelectorAll('th.ds-th-sort');
     if (!headers.length) return;
     var state = { col: -1, dir: 'asc' };
