@@ -2192,11 +2192,14 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
                 ss_flat = [t for t in ss_tokens if t.get('type') != 'SEP']
                 as_flat = [t for t in as_tokens if t.get('type') != 'SEP']
                 aligned = align_duplex_tokens(ss_flat, as_flat)
+        times = [item.get('formatted_update_time') for item in sorted_items
+                 if item.get('formatted_update_time')]
         sequence_groups.append({
             'project': project,
             'duplex_id': duplex_id,
             'items': sorted_items,
             'aligned_columns': aligned,
+            'latest_update_time': max(times) if times else None,
         })
 
     return sequence_groups

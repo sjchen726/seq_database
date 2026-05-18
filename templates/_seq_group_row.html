@@ -197,12 +197,7 @@
               <br>{{ group.items.1.Remark|linebreaksbr }}
             {% endif %}
           </td>
-          <td>
-            {{ group.items.0.formatted_update_time|default_if_none:'' }}
-            {% if group.items.1 and group.items.1.formatted_update_time %}
-              <br>{{ group.items.1.formatted_update_time }}
-            {% endif %}
-          </td>
+          <td>{{ group.latest_update_time|default_if_none:'' }}</td>
           <td>
             {% if group.exp_summary %}
               <a href="{% url 'experiment_detail' duplex_id=group.duplex_id %}" style="font-size:11px;line-height:1.4;color:#0369a1;text-decoration:none;">{{ group.exp_summary }}</a>
