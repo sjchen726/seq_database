@@ -2684,8 +2684,11 @@ def download_selected(request):
 def module_list(request):
     page_size = int(request.GET.get('page_size', 20))
     page = int(request.GET.get('page', 1))
+    q = request.GET.get('q', '').strip()
 
     queryset = DeliveryModule.objects.all().values('id', 'keyword', 'type_code', 'Strand_MWs')
+    if q:
+        queryset = queryset.filter(keyword__icontains=q)
     paginator = Paginator(queryset, page_size)
     page_obj = paginator.get_page(page)
 
@@ -2693,6 +2696,7 @@ def module_list(request):
         'module_list': page_obj.object_list,
         'page_obj': page_obj,
         'page_size': page_size,
+        'q': q,
     })
 
 
@@ -2826,8 +2830,11 @@ def delete_module(request):
 def seqmodule_list(request):
     page_size = int(request.GET.get('page_size', 20))
     page = int(request.GET.get('page', 1))
+    q = request.GET.get('q', '').strip()
 
     queryset = SeqModule.objects.all().values('id', 'keyword', 'base_char', 'linker_connector')
+    if q:
+        queryset = queryset.filter(keyword__icontains=q)
     paginator = Paginator(queryset, page_size)
     page_obj = paginator.get_page(page)
 
@@ -2835,6 +2842,7 @@ def seqmodule_list(request):
         'seqmodule_list': page_obj.object_list,
         'page_obj': page_obj,
         'page_size': page_size,
+        'q': q,
     })
 
 
