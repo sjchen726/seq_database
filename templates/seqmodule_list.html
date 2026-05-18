@@ -82,17 +82,17 @@
     <span class="ds-record-info">共 {{ page_obj.paginator.count }} 条</span>
     <div class="ds-pagination">
       {% if page_obj.has_previous %}
-      <a href="?page={{ page_obj.previous_page_number }}&page_size={{ page_size }}{% if q %}&q={{ q }}{% endif %}" class="ds-pg">‹</a>
+      <a href="?page={{ page_obj.previous_page_number }}&page_size={{ page_size }}{% if q %}&q={{ q|urlencode }}{% endif %}" class="ds-pg">‹</a>
       {% endif %}
       {% for num in page_obj.paginator.page_range %}
         {% if page_obj.number == num %}
         <span class="ds-pg active">{{ num }}</span>
         {% else %}
-        <a href="?page={{ num }}&page_size={{ page_size }}{% if q %}&q={{ q }}{% endif %}" class="ds-pg">{{ num }}</a>
+        <a href="?page={{ num }}&page_size={{ page_size }}{% if q %}&q={{ q|urlencode }}{% endif %}" class="ds-pg">{{ num }}</a>
         {% endif %}
       {% endfor %}
       {% if page_obj.has_next %}
-      <a href="?page={{ page_obj.next_page_number }}&page_size={{ page_size }}{% if q %}&q={{ q }}{% endif %}" class="ds-pg">›</a>
+      <a href="?page={{ page_obj.next_page_number }}&page_size={{ page_size }}{% if q %}&q={{ q|urlencode }}{% endif %}" class="ds-pg">›</a>
       {% endif %}
     </div>
   </div>
