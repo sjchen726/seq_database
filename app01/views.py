@@ -3855,5 +3855,76 @@ def upload_experiment(request):
     return redirect('upload_experiment')
 
 
+def linkermodule_list(request):
+    page_size = int(request.GET.get('page_size', 20))
+    page = int(request.GET.get('page', 1))
+    q = request.GET.get('q', '').strip()
 
+    queryset = LinkerModule.objects.all().values('id', 'keyword', 'description')
+    if q:
+        queryset = queryset.filter(keyword__icontains=q)
+    paginator = Paginator(queryset, page_size)
+    page_obj = paginator.get_page(page)
+
+    return render(request, 'linkermodule_list.html', {
+        'linkermodule_list': page_obj.object_list,
+        'page_obj': page_obj,
+        'page_size': page_size,
+        'q': q,
+    })
+
+
+@login_required
+def edit_linkermodule(request):
+    if not request.user.can_manage_modules():
+        messages.error(request, '您没有操作权限！')
+        return redirect('/linkermodule_list/')
+
+    module_id = request.GET.get('id')
+    module = None
+    if module_id:
+        module = get_object_or_404(LinkerModule, id=module_id)
+
+    if request.method == 'POST':
+        keyword = request.POST.get('keyword', '').strip()
+        description = request.POST.get('description', '').strip()
+
+        if module is None:
+            if LinkerModule.objects.filter(keyword=keyword).exists():
+                messages.warning(request, f'Linker 模块"{keyword}"已存在，请勿重复添加。')
+                return render(request, 'edit_linkermodule.html', {
+                    'module': None,
+                    'form_data': {'keyword': keyword, 'description': description},
+                })
+            LinkerModule.objects.create(keyword=keyword, description=description or None)
+            return redirect('/linkermodule_list/')
+        else:
+            if keyword != module.keyword and LinkerModule.objects.filter(keyword=keyword).exists():
+                messages.warning(request, f'Linker 模块"{keyword}"已存在，请换一个名称。')
+                return render(request, 'edit_linkermodule.html', {
+                    'module': module,
+                    'form_data': {'keyword': keyword, 'description': description},
+                })
+            module.keyword = keyword
+            module.description = description or None
+            module.save()
+            return redirect('/linkermodule_list/')
+
+    return render(request, 'edit_linkermodule.html', {'module': module})
+
+
+@login_required
+@require_POST
+def delete_linkermodule(request):
+    if not request.user.can_manage_modules():
+        messages.error(request, '您没有权限删除 Linker 模块！')
+        return redirect('/linkermodule_list/')
+
+    module_id = request.POST.get('id')
+    try:
+        module = LinkerModule.objects.get(id=module_id)
+        module.delete()
+        return redirect('/linkermodule_list/')
+    except LinkerModule.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Linker 模块不存在'})
 
