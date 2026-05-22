@@ -1230,7 +1230,7 @@ table tbody tr:hover {
 
 .seq-seg-divider  { color: #94a3b8; margin: 0 4px; font-weight: bold; font-size: 14px; }
 .seq-linker-dash  { color: #94a3b8; letter-spacing: 1px; font-style: italic; padding: 0 2px; }
-.seq-segment-sep-col {
+.nested-align-table .seq-segment-sep-col {
     background: #f8fafc;
     border-left: 2px dashed #cbd5e1;
     border-right: 2px dashed #cbd5e1;
