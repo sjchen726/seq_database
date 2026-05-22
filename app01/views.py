@@ -1176,7 +1176,7 @@ def detect_embedded_linker(modify_seq: str):
     if linker_keywords:
         kw_pat = '|'.join(re.escape(k) for k in sorted(linker_keywords, key=len, reverse=True))
         # Require ≥2 consecutive linker tokens to avoid matching single Um-LK1 combos
-        patterns.append(rf'-(?:{kw_pat})(?:-(?:{kw_pat}))+-')
+        patterns.append(rf'-(?:{kw_pat})(?:-(?:[A-Za-z0-9()]+))+-')
     patterns.append(r'-{4,}')
 
     m = re.search('|'.join(patterns), modify_seq)
