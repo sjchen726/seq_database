@@ -1175,7 +1175,7 @@ def detect_embedded_linker(modify_seq: str):
     patterns = []
     if linker_keywords:
         kw_pat = '|'.join(re.escape(k) for k in sorted(linker_keywords, key=len, reverse=True))
-        # Anchor both first and last tokens as SeqModule linker keywords; middle tokens (0+) can be any other keyword
+        # Anchor first and last tokens to SeqModule linker keywords; middle tokens (0+) can be any alphanumeric token
         patterns.append(rf'-(?:{kw_pat})(?:-(?:[A-Za-z0-9()]+))*-(?:{kw_pat})-')
     patterns.append(r'-{4,}')
 
