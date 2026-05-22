@@ -63,7 +63,7 @@
                 {% for col in group.aligned_columns %}
                   {% if col.col_type == 'segment_sep' %}
                     <td class="seq-segment-sep-col" style="vertical-align:bottom;">
-                      <div style="display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:0;">
+                      <div style="display:flex;flex-direction:row;flex-wrap:nowrap;gap:0;">
                         {% for lk in col.linker_tokens %}
                           <span class="seq-container seq-wide" style="background-color:rgba(112,203,248,1);">{{ lk.char }}</span>
                         {% endfor %}
