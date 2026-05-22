@@ -199,7 +199,7 @@ def _reverse_tokens(tokens):
     return new_result
 
 
-def get_modify_seq_colored(seq, selected_seq_type, seq_type, dm_modules=None, color_map=None):
+def get_modify_seq_colored(seq, selected_seq_type, seq_type, dm_modules=None, color_map=None, lk_modules=None):
     parts = detect_embedded_linker(seq or "")
     if parts is not None:
         part1, linker_section, part2 = parts
@@ -207,14 +207,14 @@ def get_modify_seq_colored(seq, selected_seq_type, seq_type, dm_modules=None, co
             dm_modules = list(DeliveryModule.objects.all())
         if color_map is None:
             color_map = get_color_map(modules=dm_modules)
-        tokens1 = get_modify_seq_colored(part1, selected_seq_type, seq_type, dm_modules, color_map)
-        tokens2 = get_modify_seq_colored(part2, selected_seq_type, seq_type, dm_modules, color_map)
+        tokens1 = get_modify_seq_colored(part1, selected_seq_type, seq_type, dm_modules, color_map, lk_modules)
+        tokens2 = get_modify_seq_colored(part2, selected_seq_type, seq_type, dm_modules, color_map, lk_modules)
         if re.fullmatch(r'-+', linker_section):
             linker_tokens = [{'char': '···', 'type': 'LINKER_DASH', 'count': '',
                               'is_combo': False, 'delivery_label': None, 'delivery_color': None}]
         else:
             linker_tokens = get_modify_seq_colored(
-                linker_section.strip('-'), selected_seq_type, seq_type, dm_modules, color_map
+                linker_section.strip('-'), selected_seq_type, seq_type, dm_modules, color_map, lk_modules
             )
         return tokens1 + [_SEP_TOKEN.copy()] + linker_tokens + [_SEP_TOKEN.copy()] + tokens2
 
@@ -315,7 +315,23 @@ def get_modify_seq_colored(seq, selected_seq_type, seq_type, dm_modules=None, co
             "delivery_color": delivery_color,
         })
 
-    # === 7) 保留你原来的 SS 分组反转逻辑 ===
+    # === 7) 展开 LinkerModule combo token（e.g. LK1-L96 → LK1 + L96），过滤裸 - 分隔符 ===
+    if lk_modules is not None:
+        lk_kw_set = {m.keyword.strip() for m in lk_modules if m.keyword and m.keyword.strip()}
+        if lk_kw_set:
+            expanded = []
+            for tok in result:
+                if tok['is_combo'] and tok['char'] in lk_kw_set:
+                    expanded.append({**tok, 'is_combo': False, 'delivery_label': None, 'delivery_color': None})
+                    expanded.append({'char': tok['delivery_label'], 'type': 'others', 'count': '',
+                                     'is_combo': False, 'delivery_label': None, 'delivery_color': None})
+                elif tok['char'] == '-' and tok['type'] == 'unknown':
+                    pass  # linker section separator, not a nucleotide
+                else:
+                    expanded.append(tok)
+            result = expanded
+
+    # === 8) 保留你原来的 SS 分组反转逻辑 ===
     if seq_type == reversed_seq_type:
         result = _reverse_tokens(result)
 
@@ -1992,8 +2008,8 @@ def get_attr(d, key):
     return ''
 
 def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq, selected_seq_type,
-                        dm_modules=None, color_map=None):
-    """dm_modules / color_map 可由调用方预加载传入，避免循环内重复查询 DB。"""
+                        dm_modules=None, color_map=None, lk_modules=None):
+    """dm_modules / color_map / lk_modules 可由调用方预加载传入，避免循环内重复查询 DB。"""
     if not deliveries:
         deliveries = [{'delivery5': None, 'delivery3': None, 'date': None}]
 
@@ -2026,7 +2042,7 @@ def build_sequence_data(rm_code, seqinfo, sequence, deliveries, linker_seq, sele
         'Remark': remark,
         'formatted_update_time': formatted_update_time,
         'linker_seq': linker_seq,
-        'modify_seq_colored': get_modify_seq_colored(linker_seq, selected_seq_type, seq_type_authoritative, dm_modules=dm_modules, color_map=color_map) if linker_seq and selected_seq_type else [],
+        'modify_seq_colored': get_modify_seq_colored(linker_seq, selected_seq_type, seq_type_authoritative, dm_modules=dm_modules, color_map=color_map, lk_modules=lk_modules) if linker_seq and selected_seq_type else [],
         'selected_seq_type': selected_seq_type,
         'deliveries': [
             {
@@ -2104,9 +2120,10 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
         value 是 Sequence.rm_code（6 位字符串）。
         此处命名保留原逻辑，避免影响 build_sequence_data 及模板。
     """
-    # 预加载 DeliveryModule（一次查询，供所有 build_sequence_data 调用复用）
+    # 预加载 DeliveryModule 和 LinkerModule（一次查询，供所有 build_sequence_data 调用复用）
     _dm_modules = list(DeliveryModule.objects.all())
     _color_map = get_color_map(modules=_dm_modules)
+    _lk_modules = list(LinkerModule.objects.all())
 
     delivery_id_to_seq_id = {}
     delivery_map = defaultdict(list)
@@ -2152,6 +2169,7 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
                         selected_seq_type=selected_seq_type,
                         dm_modules=_dm_modules,
                         color_map=_color_map,
+                        lk_modules=_lk_modules,
                     )
                     duplex_group_map[(project, duplex_id)].append(item)
             else:
@@ -2164,6 +2182,7 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
                     selected_seq_type=selected_seq_type,
                     dm_modules=_dm_modules,
                     color_map=_color_map,
+                    lk_modules=_lk_modules,
                 )
                 duplex_group_map[(project, duplex_id)].append(item)
 
