@@ -1164,7 +1164,7 @@ def detect_embedded_linker(modify_seq: str):
     or None for normal single-segment sequences.
 
     Detects:
-    - 2+ consecutive SeqModule tokens with linker_connector='-' (e.g. -LK1-L96-LK1-)
+    - SeqModule linker sandwich: first and last tokens are SeqModule keywords with linker_connector='-' (e.g. -LK1-L96-LK1-)
     - 4+ consecutive dashes (AS placeholder, e.g. ------------)
     Both sides of the match must be non-empty.
     """
@@ -1175,8 +1175,8 @@ def detect_embedded_linker(modify_seq: str):
     patterns = []
     if linker_keywords:
         kw_pat = '|'.join(re.escape(k) for k in sorted(linker_keywords, key=len, reverse=True))
-        # Require ≥2 consecutive linker tokens to avoid matching single Um-LK1 combos
-        patterns.append(rf'-(?:{kw_pat})(?:-(?:[A-Za-z0-9()]+))+-')
+        # Anchor both first and last tokens as SeqModule linker keywords; middle tokens (0+) can be any other keyword
+        patterns.append(rf'-(?:{kw_pat})(?:-(?:[A-Za-z0-9()]+))*-(?:{kw_pat})-')
     patterns.append(r'-{4,}')
 
     m = re.search('|'.join(patterns), modify_seq)
