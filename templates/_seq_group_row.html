@@ -62,7 +62,7 @@
                 <td class="align-dir-cell">{% if selected_seq_type == 'SS' %}SS 3'{% else %}SS 5'{% endif %}</td>
                 {% for col in group.aligned_columns %}
                   {% if col.col_type == 'segment_sep' %}
-                    <td class="seq-segment-sep-col" style="vertical-align:bottom;padding:0 6px;border-left:2px dashed #cbd5e1;border-right:2px dashed #cbd5e1;background:#f8fafc;">
+                    <td class="seq-segment-sep-col" style="vertical-align:bottom;">
                       <div style="display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:0;">
                         {% for lk in col.linker_tokens %}
                           <span class="seq-container seq-wide" style="background-color:rgba(112,203,248,1);">{{ lk.char }}</span>
@@ -99,7 +99,8 @@
                 <td class="align-dir-cell">{% if selected_seq_type == 'SS' %}AS 5'{% else %}AS 3'{% endif %}</td>
                 {% for col in group.aligned_columns %}
                   {% if col.col_type == 'segment_sep' %}
-                    <td class="seq-segment-sep-col" style="vertical-align:top;padding:0 6px;border-left:2px dashed #cbd5e1;border-right:2px dashed #cbd5e1;background:#f8fafc;"></td>
+                    {# equal-width spacer — content rendered in SS row above; table-layout:auto ensures same column width #}
+                    <td class="seq-segment-sep-col" style="vertical-align:top;"></td>
                   {% elif col.col_type == 'linker' %}
                     <td style="vertical-align:top;padding:0;">
                       <div style="display:flex;flex-direction:column;align-items:center;">
