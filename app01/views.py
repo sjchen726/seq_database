@@ -1708,10 +1708,20 @@ def upload_delivery_info(request):
                     response['Content-Disposition'] = f'attachment; filename="{os.path.basename(unpaired_ss_as_path)}"'
                     return response
 
+        elif request.GET.get('download') == 'template':
+            template_path = os.path.join(settings.BASE_DIR, 'static', 'templates', 'upload_seq_template.csv')
+            if os.path.exists(template_path):
+                with open(template_path, 'rb') as f:
+                    response = HttpResponse(f.read(), content_type='text/csv; charset=utf-8-sig')
+                    response['Content-Disposition'] = 'attachment; filename="upload_seq_template.csv"'
+                    return response
+
 
     if request.method == 'POST':
         try:
             df = parse_uploaded_csv(request)
+            # 标准化 Modify_seq 中的中间 linker 括号：[LK1-L96-LK1] → -LK1-L96-LK1-
+            df['Modify_seq'] = df['Modify_seq'].apply(normalize_middle_brackets)
             ss_groups, unpaired_ss_as = group_sequences(df)
 
             # 从 CSV 第一行读取目标项目
