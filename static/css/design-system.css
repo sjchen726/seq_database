@@ -716,6 +716,13 @@ tr.group-bg-2:hover { background-color: #eef3f8 !important; border-left-color: #
   min-width: 4px;
 }
 
+/* ── segment_sep 列（双段 linker 分隔列，如 LK1-L96-LK1）── */
+.nested-align-table .seq-segment-sep-col {
+  border-left: 2px dashed #93c5fd !important;
+  border-right: 2px dashed #93c5fd !important;
+  background: rgba(186,230,255,0.15) !important;
+}
+
 /* ── Form 2-column grid (replaces Bootstrap row/col) ── */
 .ds-form-2col {
   display: grid;
