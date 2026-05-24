@@ -1,4 +1,4 @@
-Project,Target,Seq_type,Modify_seq,Strand_MWs,Parents,Remarks
+﻿Project,Target,Seq_type,Modify_seq,Strand_MWs,Parents,Remarks
 BPR-XXXX,GENE,SS,[invAb]AmUmGmCmAmUmGmCmAmUm[Vp],,,A类-单段-单delivery
 BPR-XXXX,GENE,AS,[Vp]AmGmCmAmUmGmAmCmGmUm[invAb],,,A类-单段-单delivery
 BPR-XXXX,GENE,SS,[invAb]AmUmGmCmAmUmGmCmAmUm[Vp-invAb],,,A类-单段-复合delivery
