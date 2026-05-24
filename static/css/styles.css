@@ -3575,3 +3575,42 @@ code {
 #addModifySeq:hover {
   background: rgba(11,123,106,0.08);
 }
+
+/* ══════════════════════════════════════════════════════════
+   seq-list 展示美化 2026-05-24
+   ══════════════════════════════════════════════════════════ */
+
+/* ① delivery-item 统一化：覆盖旧 inline-block 残留规则 */
+.delivery-item {
+  display: inline-flex !important;
+  vertical-align: baseline !important;
+  min-width: 22px !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* ② nested 嵌套表内 seq-count 行高固定为 1.3（设计意图），覆盖全局 1.4 */
+.nested-align-table .seq-count {
+  line-height: 1.3 !important;
+}
+
+/* ③ Ligand 列：在统一嵌套表中的内列样式 */
+.ligand-col-l,
+.ligand-col-r {
+  white-space: nowrap;
+  padding: 0 4px !important;
+}
+
+/* ④ Ligand 列之间的视觉分隔线 */
+.ligand-seq-sep {
+  width: 4px;
+  min-width: 4px;
+  padding: 0 !important;
+  border-left: 1px dashed #e2e8f0;
+}
+
+/* ⑤ 列切换 CSS class — body 上挂 hide-ligand-l / hide-ligand-r */
+.hide-ligand-l .ligand-col-l { display: none !important; }
+.hide-ligand-r .ligand-col-r { display: none !important; }
+.hide-ligand-l .ligand-seq-sep:first-of-type { display: none !important; }
+.hide-ligand-r .ligand-seq-sep:last-of-type  { display: none !important; }
