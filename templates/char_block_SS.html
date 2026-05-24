@@ -1,18 +1,6 @@
 {% for char_item in delivery_colored %}
-  <div style="display: flex; flex-direction: column; justify-content: flex-end;">
-    <span class="seq-count" style="visibility: hidden;">X</span>
-    <span class="delivery-item" 
-         style="
-          {% if char_item.type == 'unknown' %}
-              color: black; background-color: transparent;
-          {% else %}
-              background-color: {{ char_item.color }};
-            {% if char_item.type == 's' %}
-                color:black
-              {% endif %}
-              
-          {% endif %}">
-        {{ char_item.char }}
-    </span>
-  </div>
+  <span class="delivery-item"
+        style="{% if char_item.type == 'unknown' %}color:black;background-color:transparent;{% else %}background-color:{{ char_item.color }};{% if char_item.type == 's' %}color:black;{% endif %}{% endif %}">
+    {{ char_item.char }}
+  </span>
 {% endfor %}

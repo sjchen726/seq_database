@@ -25,82 +25,133 @@
               {% endfor %}
             {% endif %}
           </td>
-          <td>
-            <div class="delivery-container" style="justify-content:flex-end;">
-              {% for d in group.items.0.deliveries %}
-                {% if selected_seq_type == "SS" %}
-                  {% with d.delivery3_colored as delivery_colored %}
-                  {% include "char_block_SS.html" %}
-                  {% endwith %}
-                {% else %}
-                  {% with d.delivery5_colored as delivery_colored %}
-                  {% include "char_block_SS.html" %}
-                  {% endwith %}
-                {% endif %}
-              {% endfor %}
-            </div>
-            {% if group.items.1 %}
-            <div class="delivery-container" style="justify-content:flex-end;">
-              {% for d in group.items.1.deliveries %}
-                {% if selected_seq_type == "SS" %}
-                  {% with d.delivery5_colored as delivery_colored %}
-                  {% include "char_block_AS.html" %}
-                  {% endwith %}
-                {% else %}
-                  {% with d.delivery3_colored as delivery_colored %}
-                  {% include "char_block_AS.html" %}
-                  {% endwith %}
-                {% endif %}
-              {% endfor %}
-            </div>
-            {% endif %}
-          </td>
+
+          {# ── Unified display: Ligand 1 + Sequences + Ligand 2 in single td ── #}
           <td style="padding:4px 2px;vertical-align:middle;">
-            {% if group.aligned_columns %}
             <table class="nested-align-table">
+
+              {# ── SS row ── #}
               <tr>
                 <td class="align-dir-cell">{% if selected_seq_type == 'SS' %}SS 3'{% else %}SS 5'{% endif %}</td>
-                {% for col in group.aligned_columns %}
-                  {% if col.col_type == 'segment_sep' %}
-                    <td class="seq-segment-sep-col" style="vertical-align:bottom;">
-                      <div style="display:flex;flex-direction:row;flex-wrap:nowrap;gap:0;">
-                        {% for lk in col.linker_tokens %}
-                          <span class="seq-container seq-wide" style="background-color:rgba(112,203,248,1);">{{ lk.char }}</span>
-                        {% endfor %}
-                      </div>
-                    </td>
-                  {% elif col.col_type == 'linker' %}
-                    <td style="vertical-align:bottom;padding:0;">
-                      <div style="display:flex;flex-direction:column;align-items:center;">
-                        <span class="seq-count" style="width:auto;">&nbsp;</span>
-                        <span class="seq-delivery-placeholder">&nbsp;</span>
-                        {% if col.row0 %}<span class="seq-container seq-narrow" style="background-color:{% if col.row0.char == 's' %}rgb(253,246,61){% else %}rgb(198,196,198){% endif %};">{{ col.row0.char }}</span>{% else %}<span class="seq-container seq-narrow" style="visibility:hidden;">s</span>{% endif %}
-                      </div>
-                    </td>
-                  {% else %}
-                    <td style="vertical-align:bottom;padding:0;">
-                      <div style="display:flex;flex-direction:column;align-items:center;">
-                        {% if col.row0 %}
-                          <span class="seq-count" style="width:auto;">{% if col.row0.count %} {{ col.row0.count }} {% else %}&nbsp;{% endif %}</span>
-                          {% if col.row0.is_combo %}<span class="seq-delivery-label" style="background-color:{{ col.row0.delivery_color }};">{{ col.row0.delivery_label }}</span>{% else %}<span class="seq-delivery-placeholder">&nbsp;</span>{% endif %}
-                          <span class="seq-container seq-wide" style="background-color:{% if col.row0.type == 'normal' %}rgb(189,199,248){% elif col.row0.type == 'f' %}rgb(22,245,22){% elif col.row0.type == 'm' %}rgb(68,68,68);color:white{% elif col.row0.type == 'd' %}rgb(212,93,245){% elif col.row0.type == 's' %}rgb(253,246,61){% elif col.row0.type == 'o' %}rgb(198,196,198){% elif col.row0.type == 'ss' or col.row0.type == 'moe' or col.row0.type == 'OCF3' or col.row0.type == 'GNA' or col.row0.type == 'I' %}rgb(212,93,245){% elif col.row0.type == 'TNA' %}rgb(245,86,86);color:white{% elif col.row0.type == 'unknown' %}rgb(163,163,163){% elif col.row0.type == 'others' %}rgba(112,203,248,1){% endif %};">{{ col.row0.char }}</span>
-                        {% else %}
+
+                {# Ligand 1 SS #}
+                <td class="ligand-col-l" style="vertical-align:bottom;">
+                  <div class="delivery-container" style="justify-content:flex-end;">
+                    {% for d in group.items.0.deliveries %}
+                      {% if selected_seq_type == "SS" %}
+                        {% with d.delivery3_colored as delivery_colored %}{% include "char_block_SS.html" %}{% endwith %}
+                      {% else %}
+                        {% with d.delivery5_colored as delivery_colored %}{% include "char_block_SS.html" %}{% endwith %}
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                </td>
+
+                <td class="ligand-seq-sep"></td>
+
+                {# Sequence columns #}
+                {% if group.aligned_columns %}
+                  {% for col in group.aligned_columns %}
+                    {% if col.col_type == 'segment_sep' %}
+                      <td class="seq-segment-sep-col" style="vertical-align:bottom;">
+                        <div style="display:flex;flex-direction:column;align-items:center;">
+                          <span class="seq-count" style="visibility:hidden;">0</span>
+                          <div style="display:flex;flex-direction:row;flex-wrap:nowrap;gap:0;">
+                            {% for lk in col.linker_tokens %}
+                              <span class="seq-container seq-wide" style="background-color:rgba(112,203,248,1);">{{ lk.char }}</span>
+                            {% endfor %}
+                          </div>
+                        </div>
+                      </td>
+                    {% elif col.col_type == 'linker' %}
+                      <td style="vertical-align:bottom;padding:0;">
+                        <div style="display:flex;flex-direction:column;align-items:center;">
                           <span class="seq-count" style="width:auto;">&nbsp;</span>
                           <span class="seq-delivery-placeholder">&nbsp;</span>
-                          <span class="seq-container seq-wide" style="visibility:hidden;">A</span>
+                          {% if col.row0 %}<span class="seq-container seq-narrow" style="background-color:{% if col.row0.char == 's' %}rgb(253,246,61){% else %}rgb(198,196,198){% endif %};">{{ col.row0.char }}</span>{% else %}<span class="seq-container seq-narrow" style="visibility:hidden;">s</span>{% endif %}
+                        </div>
+                      </td>
+                    {% else %}
+                      <td style="vertical-align:bottom;padding:0;">
+                        <div style="display:flex;flex-direction:column;align-items:center;">
+                          {% if col.row0 %}
+                            <span class="seq-count" style="width:auto;">{% if col.row0.count %} {{ col.row0.count }} {% else %}&nbsp;{% endif %}</span>
+                            {% if col.row0.is_combo %}<span class="seq-delivery-label" style="background-color:{{ col.row0.delivery_color }};">{{ col.row0.delivery_label }}</span>{% else %}<span class="seq-delivery-placeholder">&nbsp;</span>{% endif %}
+                            <span class="seq-container seq-wide" style="background-color:{% if col.row0.type == 'normal' %}rgb(189,199,248){% elif col.row0.type == 'f' %}rgb(22,245,22){% elif col.row0.type == 'm' %}rgb(68,68,68);color:white{% elif col.row0.type == 'd' %}rgb(212,93,245){% elif col.row0.type == 's' %}rgb(253,246,61){% elif col.row0.type == 'o' %}rgb(198,196,198){% elif col.row0.type == 'ss' or col.row0.type == 'moe' or col.row0.type == 'OCF3' or col.row0.type == 'GNA' or col.row0.type == 'I' %}rgb(212,93,245){% elif col.row0.type == 'TNA' %}rgb(245,86,86);color:white{% elif col.row0.type == 'unknown' %}rgb(163,163,163){% elif col.row0.type == 'others' %}rgba(112,203,248,1){% endif %};">{{ col.row0.char }}</span>
+                          {% else %}
+                            <span class="seq-count" style="width:auto;">&nbsp;</span>
+                            <span class="seq-delivery-placeholder">&nbsp;</span>
+                            <span class="seq-container seq-wide" style="visibility:hidden;">A</span>
+                          {% endif %}
+                        </div>
+                      </td>
+                    {% endif %}
+                  {% endfor %}
+                {% else %}
+                  {# Single-strand fallback: no aligned_columns, render modify_seq_colored flat #}
+                  <td style="vertical-align:middle;padding:0;">
+                    <div style="display:flex;gap:0;align-items:center;">
+                      {% for item in group.items.0.modify_seq_colored %}
+                        {% if item.type == 'SEP' %}
+                          <span class="seq-seg-divider">&#124;</span>
+                        {% elif item.type == 'LINKER_DASH' %}
+                          <span class="seq-linker-dash">{{ item.char }}</span>
+                        {% else %}
+                          <span class="seq-container {% if item.char == 's' or item.char == 'o' or item.char == 'ss' %}seq-narrow{% else %}seq-wide{% endif %}" style="background-color:{% if item.type == 'normal' %}rgb(189,199,248){% elif item.type == 'f' %}rgb(22,245,22){% elif item.type == 'm' %}rgb(68,68,68);color:white{% elif item.type == 'd' or item.type == 'ss' or item.type == 'moe' or item.type == 'OCF3' or item.type == 'GNA' or item.type == 'I' %}rgb(212,93,245){% elif item.type == 's' %}rgb(253,246,61){% elif item.type == 'o' %}rgb(198,196,198){% elif item.type == 'TNA' %}rgb(245,86,86);color:white{% elif item.type == 'unknown' %}rgb(163,163,163){% elif item.type == 'others' %}rgba(112,203,248,1){% endif %};">{{ item.char }}</span>
                         {% endif %}
-                      </div>
-                    </td>
-                  {% endif %}
-                {% endfor %}
+                      {% endfor %}
+                    </div>
+                  </td>
+                {% endif %}
+
+                <td class="ligand-seq-sep ligand-seq-sep-r"></td>
+
+                {# Ligand 2 SS #}
+                <td class="ligand-col-r" style="vertical-align:bottom;">
+                  <div class="delivery-container" style="justify-content:flex-start;">
+                    {% for d in group.items.0.deliveries %}
+                      {% if selected_seq_type == "SS" %}
+                        {% with d.delivery5_colored as delivery_colored %}{% include "char_block_SS.html" %}{% endwith %}
+                      {% else %}
+                        {% with d.delivery3_colored as delivery_colored %}{% include "char_block_SS.html" %}{% endwith %}
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                </td>
+
                 <td class="align-dir-cell">{% if selected_seq_type == 'SS' %}5'{% else %}3'{% endif %}</td>
               </tr>
+
+              {# ── AS row (only for duplex pairs) ── #}
+              {% if group.items.1 %}
               <tr class="ss-align-row">
                 <td class="align-dir-cell">{% if selected_seq_type == 'SS' %}AS 5'{% else %}AS 3'{% endif %}</td>
+
+                {# Ligand 1 AS #}
+                <td class="ligand-col-l" style="vertical-align:top;">
+                  <div class="delivery-container" style="justify-content:flex-end;">
+                    {% for d in group.items.1.deliveries %}
+                      {% if selected_seq_type == "SS" %}
+                        {% with d.delivery5_colored as delivery_colored %}{% include "char_block_AS.html" %}{% endwith %}
+                      {% else %}
+                        {% with d.delivery3_colored as delivery_colored %}{% include "char_block_AS.html" %}{% endwith %}
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                </td>
+
+                <td class="ligand-seq-sep"></td>
+
+                {# Sequence columns AS row #}
                 {% for col in group.aligned_columns %}
                   {% if col.col_type == 'segment_sep' %}
-                    {# equal-width spacer — content rendered in SS row above; table-layout:auto ensures same column width #}
-                    <td class="seq-segment-sep-col" style="vertical-align:top;"></td>
+                    {# Equal-width spacer; hidden seq-count below acts as bottom height anchor #}
+                    <td class="seq-segment-sep-col" style="vertical-align:top;">
+                      <div style="display:flex;flex-direction:column;align-items:center;">
+                        <span style="visibility:hidden;display:block;height:1px;"></span>
+                        <span class="seq-count" style="visibility:hidden;">0</span>
+                      </div>
+                    </td>
                   {% elif col.col_type == 'linker' %}
                     <td style="vertical-align:top;padding:0;">
                       <div style="display:flex;flex-direction:column;align-items:center;">
@@ -125,53 +176,30 @@
                     </td>
                   {% endif %}
                 {% endfor %}
+
+                <td class="ligand-seq-sep ligand-seq-sep-r"></td>
+
+                {# Ligand 2 AS #}
+                <td class="ligand-col-r" style="vertical-align:top;">
+                  <div class="delivery-container" style="justify-content:flex-start;">
+                    {% for d in group.items.1.deliveries %}
+                      {% if selected_seq_type == "SS" %}
+                        {% with d.delivery3_colored as delivery_colored %}{% include "char_block_AS.html" %}{% endwith %}
+                      {% else %}
+                        {% with d.delivery5_colored as delivery_colored %}{% include "char_block_AS.html" %}{% endwith %}
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                </td>
+
                 <td class="align-dir-cell">{% if selected_seq_type == 'SS' %}3'{% else %}5'{% endif %}</td>
               </tr>
+              {% endif %}{# end group.items.1 #}
+
             </table>
-            {% else %}
-            <div style="display:flex;gap:0;align-items:center;">
-              {% for item in group.items.0.modify_seq_colored %}
-                {% if item.type == 'SEP' %}
-                  <span class="seq-seg-divider">&#124;</span>
-                {% elif item.type == 'LINKER_DASH' %}
-                  <span class="seq-linker-dash">{{ item.char }}</span>
-                {% else %}
-                  <span class="seq-container {% if item.char == 's' or item.char == 'o' or item.char == 'ss' %}seq-narrow{% else %}seq-wide{% endif %}" style="background-color:{% if item.type == 'normal' %}rgb(189,199,248){% elif item.type == 'f' %}rgb(22,245,22){% elif item.type == 'm' %}rgb(68,68,68);color:white{% elif item.type == 'd' or item.type == 'ss' or item.type == 'moe' or item.type == 'OCF3' or item.type == 'GNA' or item.type == 'I' %}rgb(212,93,245){% elif item.type == 's' %}rgb(253,246,61){% elif item.type == 'o' %}rgb(198,196,198){% elif item.type == 'TNA' %}rgb(245,86,86);color:white{% elif item.type == 'unknown' %}rgb(163,163,163){% elif item.type == 'others' %}rgba(112,203,248,1){% endif %};">{{ item.char }}</span>
-                {% endif %}
-              {% endfor %}
-            </div>
-            {% endif %}
           </td>
-          <td>
-            <div class="delivery-container" style="justify-content:flex-start;">
-              {% for d in group.items.0.deliveries %}
-                {% if selected_seq_type == "SS" %}
-                  {% with d.delivery5_colored as delivery_colored %}
-                  {% include "char_block_SS.html" %}
-                  {% endwith %}
-                {% else %}
-                  {% with d.delivery3_colored as delivery_colored %}
-                  {% include "char_block_SS.html" %}
-                  {% endwith %}
-                {% endif %}
-              {% endfor %}
-            </div>
-            {% if group.items.1 %}
-            <div class="delivery-container" style="justify-content:flex-start;">
-              {% for d in group.items.1.deliveries %}
-                {% if selected_seq_type == "SS" %}
-                  {% with d.delivery3_colored as delivery_colored %}
-                  {% include "char_block_AS.html" %}
-                  {% endwith %}
-                {% else %}
-                  {% with d.delivery5_colored as delivery_colored %}
-                  {% include "char_block_AS.html" %}
-                  {% endwith %}
-                {% endif %}
-              {% endfor %}
-            </div>
-            {% endif %}
-          </td>
+          {# ── End unified display td ── #}
+
           <td>{{ group.items.0.Transcript|default_if_none:'' }}</td>
           <td>{{ group.items.0.Pos|default_if_none:'' }}</td>
           <td>
