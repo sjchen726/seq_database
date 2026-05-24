@@ -55,7 +55,8 @@
                     {% if col.col_type == 'segment_sep' %}
                       <td class="seq-segment-sep-col" style="vertical-align:bottom;">
                         <div style="display:flex;flex-direction:column;align-items:center;">
-                          <span class="seq-count" style="visibility:hidden;">0</span>
+                          <span class="seq-count" style="visibility:hidden;width:auto;">&nbsp;</span>
+                          <span class="seq-delivery-placeholder" style="visibility:hidden;">&nbsp;</span>
                           <div style="display:flex;flex-direction:row;flex-wrap:nowrap;gap:0;">
                             {% for lk in col.linker_tokens %}
                               <span class="seq-container seq-wide" style="background-color:rgba(112,203,248,1);">{{ lk.char }}</span>
@@ -145,11 +146,12 @@
                 {# Sequence columns AS row #}
                 {% for col in group.aligned_columns %}
                   {% if col.col_type == 'segment_sep' %}
-                    {# Equal-width spacer; hidden seq-count below acts as bottom height anchor #}
+                    {# AS spacer: mirror 3-row structure of adjacent columns (placeholder+container+count) so heights match #}
                     <td class="seq-segment-sep-col" style="vertical-align:top;">
                       <div style="display:flex;flex-direction:column;align-items:center;">
-                        <span style="visibility:hidden;display:block;height:1px;"></span>
-                        <span class="seq-count" style="visibility:hidden;">0</span>
+                        <span class="seq-delivery-placeholder" style="visibility:hidden;">&nbsp;</span>
+                        <span class="seq-container seq-wide" style="visibility:hidden;">X</span>
+                        <span class="seq-count" style="visibility:hidden;width:auto;">&nbsp;</span>
                       </div>
                     </td>
                   {% elif col.col_type == 'linker' %}
