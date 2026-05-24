@@ -1,0 +1,9 @@
+Project,Target,Seq_type,Modify_seq,Strand_MWs,Parents,Remarks
+BPR-XXXX,GENE,SS,[invAb]AmUmGmCmAmUmGmCmAmUm[Vp],,,A类-单段-单delivery
+BPR-XXXX,GENE,AS,[Vp]AmGmCmAmUmGmAmCmGmUm[invAb],,,A类-单段-单delivery
+BPR-XXXX,GENE,SS,[invAb]AmUmGmCmAmUmGmCmAmUm[Vp-invAb],,,A类-单段-复合delivery
+BPR-XXXX,GENE,AS,[Vp-invAb]AmGmCmAmUmGmAmCmGmUm[invAb],,,A类-单段-复合delivery
+BPR-XXXX,GENE,SS,[invAb]AmUmGmCmAmUmGm[LK1-L96-LK1]CmAmUmGmCmAmUm[Vp],,,B类-双段-linker括号
+BPR-XXXX,GENE,AS,[Vp]GmAmUmGmCmAmUm[LK1-L96-LK1]CmGmAmUmGmCmAm[invAb],,,B类-双段-linker括号
+BPR-XXXX,GENE,SS,AmUmGmCmAmUmGmCmAmUm,,,C类-无delivery括号
+BPR-XXXX,GENE,AS,AmGmCmAmUmGmAmCmGmUm,,,C类-无delivery括号
