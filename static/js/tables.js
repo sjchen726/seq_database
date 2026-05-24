@@ -21,7 +21,7 @@ $(document).ready(function() {
             zeroRecords: '未找到匹配的记录',
         },
         columnDefs: [
-            { targets: [0, 5, 6, 7, 14, 15], orderable: false },
+            { targets: [0, 5, 12, 13], orderable: false },
         ],
         createdRow: function(row, data) {
             // 强制初始化选中状态
@@ -112,6 +112,14 @@ $(document).ready(function() {
     $('.toggle-vis').on('change', function() {
         let column = table.column($(this).attr('data-column'));
         column.visible($(this).prop('checked'));
+    });
+
+    // Ligand 列内部显隐（CSS class 切换，不走 DataTables column API）
+    $('.toggle-ligand').on('change', function() {
+        const toggleClass = $(this).data('toggle-class');
+        if (toggleClass) {
+            $('body').toggleClass(toggleClass, !$(this).prop('checked'));
+        }
     });
 
     // 每次重绘时处理复选框同步
