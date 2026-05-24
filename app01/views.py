@@ -888,10 +888,10 @@ def register_seq(request):
 
         try:
             # Read the file, decode bytes to string if necessary
-            file_content = uploaded_file.read().decode('utf-8', errors='replace')  # Decode the file content
+            file_content = uploaded_file.read().decode('utf-8-sig', errors='replace')  # Decode the file content
 
             # Automatically detect the delimiter (space or tab or comma)
-            
+
             df = pd.read_csv(StringIO(file_content), sep=None, engine='python', encoding='utf-8')  # Auto-detect delimiter
             df = df.fillna('')  # Handle empty values by replacing them with an empty string
         #    print(df.columns.to_list())  # Print the columns to check
@@ -1247,7 +1247,7 @@ def parse_uploaded_csv(request):
     if not uploaded_file.name.endswith('.csv'):
         raise ValueError("请上传 CSV 文件！")
 
-    file_content = uploaded_file.read().decode('utf-8', errors='replace')
+    file_content = uploaded_file.read().decode('utf-8-sig', errors='replace')
     df = pd.read_csv(StringIO(file_content), sep=None, engine='python', encoding='utf-8')
     df = df.fillna('')
     df['__row_id'] = df.index
