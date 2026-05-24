@@ -3597,7 +3597,7 @@ code {
 /* ③ Ligand 列：在统一嵌套表中的内列样式 */
 .ligand-col-l,
 .ligand-col-r {
-  white-space: nowrap;
+  white-space: nowrap !important;
   padding: 0 4px !important;
 }
 
@@ -3612,5 +3612,5 @@ code {
 /* ⑤ 列切换 CSS class — body 上挂 hide-ligand-l / hide-ligand-r */
 .hide-ligand-l .ligand-col-l { display: none !important; }
 .hide-ligand-r .ligand-col-r { display: none !important; }
-.hide-ligand-l .ligand-seq-sep:first-of-type { display: none !important; }
-.hide-ligand-r .ligand-seq-sep:last-of-type  { display: none !important; }
+.hide-ligand-l .ligand-col-l + .ligand-seq-sep { display: none !important; }
+.hide-ligand-r .ligand-seq-sep-r              { display: none !important; }
