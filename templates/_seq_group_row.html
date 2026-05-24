@@ -53,15 +53,15 @@
                 {% if group.aligned_columns %}
                   {% for col in group.aligned_columns %}
                     {% if col.col_type == 'segment_sep' %}
-                      <td class="seq-segment-sep-col" style="vertical-align:bottom;">
+                      <td class="seq-segment-sep-col" style="vertical-align:bottom;padding:0 6px;">
                         <div style="display:flex;flex-direction:column;align-items:center;">
-                          <span class="seq-count" style="visibility:hidden;width:auto;">&nbsp;</span>
-                          <span class="seq-delivery-placeholder" style="visibility:hidden;">&nbsp;</span>
-                          <div style="display:flex;flex-direction:row;flex-wrap:nowrap;gap:0;">
+                          <span class="seq-count" style="width:auto;">&nbsp;</span>
+                          <span class="seq-delivery-placeholder">&nbsp;</span>
+                          <span style="display:inline-flex;flex-direction:row;flex-wrap:nowrap;gap:0;align-items:center;">
                             {% for lk in col.linker_tokens %}
                               <span class="seq-container seq-wide" style="background-color:rgba(112,203,248,1);">{{ lk.char }}</span>
                             {% endfor %}
-                          </div>
+                          </span>
                         </div>
                       </td>
                     {% elif col.col_type == 'linker' %}
