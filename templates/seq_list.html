@@ -159,17 +159,17 @@
     <label><input type="checkbox" class="toggle-vis export-field" data-column="2" value="project" checked> Project</label>
     <label><input type="checkbox" class="toggle-vis export-field" data-column="3" value="Target" checked> Target</label>
     <label><input type="checkbox" class="toggle-vis export-field" data-column="4" value="id" checked> Sequence ID</label>
-    <label><input type="checkbox" class="toggle-vis export-field" data-column="5" value="delivery5" checked> Ligand 1</label>
-    <label><input type="checkbox" class="toggle-vis export-field" data-column="6" value="modify_seq" checked> Sequences</label>
-    <label><input type="checkbox" class="toggle-vis export-field" data-column="7" value="delivery3" checked> Ligand 2</label>
-    <label><input type="checkbox" class="toggle-vis export-field" data-column="8" value="Transcript" checked> Transcript</label>
-    <label><input type="checkbox" class="toggle-vis export-field" data-column="9" value="Pos" checked> Position</label>
-    <label><input type="checkbox" class="toggle-vis export-field" data-column="10" value="Strand_MWs" checked> Strand_MWs</label>
-    <label><input type="checkbox" class="toggle-vis export-field" data-column="11" value="parents" checked> Parents</label>
-    <label><input type="checkbox" class="toggle-vis export-field" data-column="12" value="remarks" checked> Remarks</label>
-    <label><input type="checkbox" class="toggle-vis export-field" data-column="13" value="created_at" checked> Update Time</label>
-    <label><input type="checkbox" class="toggle-vis export-field" data-column="14" value="exp_data" checked> 实验数据</label>
-    <label><input type="checkbox" class="toggle-vis export-field" data-column="15" value="操作" checked> 操作</label>
+    <label><input type="checkbox" class="toggle-ligand export-field" data-toggle-class="hide-ligand-l" value="delivery5" checked> Ligand 1</label>
+    <label><input type="checkbox" class="toggle-vis export-field" data-column="5" value="modify_seq" checked> Sequences</label>
+    <label><input type="checkbox" class="toggle-ligand export-field" data-toggle-class="hide-ligand-r" value="delivery3" checked> Ligand 2</label>
+    <label><input type="checkbox" class="toggle-vis export-field" data-column="6" value="Transcript" checked> Transcript</label>
+    <label><input type="checkbox" class="toggle-vis export-field" data-column="7" value="Pos" checked> Position</label>
+    <label><input type="checkbox" class="toggle-vis export-field" data-column="8" value="Strand_MWs" checked> Strand_MWs</label>
+    <label><input type="checkbox" class="toggle-vis export-field" data-column="9" value="parents" checked> Parents</label>
+    <label><input type="checkbox" class="toggle-vis export-field" data-column="10" value="remarks" checked> Remarks</label>
+    <label><input type="checkbox" class="toggle-vis export-field" data-column="11" value="created_at" checked> Update Time</label>
+    <label><input type="checkbox" class="toggle-vis export-field" data-column="12" value="exp_data" checked> 实验数据</label>
+    <label><input type="checkbox" class="toggle-vis export-field" data-column="13" value="操作" checked> 操作</label>
   </div>
 </div>
 
@@ -184,7 +184,6 @@
           <th {% if not is_multi_term %}class="ds-th-sort"{% endif %}>Project</th>
           <th {% if not is_multi_term %}class="ds-th-sort"{% endif %}>Target</th>
           <th {% if not is_multi_term %}class="ds-th-sort"{% endif %}>Sequence ID</th>
-          <th>Ligand 1</th>
           <th style="text-align:center;">
             Sequences<br>
             <select id="seq_type_selector" class="ds-seq-type-selector">
@@ -192,7 +191,6 @@
               <option value="AS" {% if selected_seq_type == 'AS' %}selected{% endif %}>SS: 5'-3'; AS: 3'-5'</option>
             </select>
           </th>
-          <th>Ligand 2</th>
           <th {% if not is_multi_term %}class="ds-th-sort"{% endif %}>Transcript</th>
           <th {% if not is_multi_term %}class="ds-th-sort"{% endif %}>Position</th>
           <th {% if not is_multi_term %}class="ds-th-sort"{% endif %}>Strand_MWs</th>
