@@ -181,39 +181,47 @@ AS 行 segment_sep（空白占位 td）内加底部高度锚：
 
 ### 列切换 JS 更新（问题 ⑧）
 
-`seq_list.html` 的 checkbox：
+合并后，Ligand 1 / Sequences / Ligand 2 在外层表中只对应一列（index 5）。
+- **Sequences** checkbox：走正常 `toggle-vis` 路径，`data-column="5"` 控制整列显隐。
+- **Ligand 1 / Ligand 2** checkbox：**不加** `toggle-vis` class，改用独立 `toggle-ligand` class + `data-toggle-class` 属性，仅切换 CSS class，不触碰 DataTables API。
+
+`seq_list.html` checkbox 写法：
 ```html
-<!-- 原 data-column="5" 改为 data-toggle-class -->
+<!-- Ligand 1：只走 CSS class 切换，不用 DataTables column API -->
 <label>
-  <input type="checkbox" class="toggle-vis export-field toggle-ligand-l"
-         data-column="5" data-toggle-class="hide-ligand-l" value="delivery5" checked>
+  <input type="checkbox" class="toggle-ligand export-field"
+         data-toggle-class="hide-ligand-l" value="delivery5" checked>
   Ligand 1
 </label>
+
+<!-- Sequences：正常 DataTables 列切换 -->
 <label>
   <input type="checkbox" class="toggle-vis export-field"
          data-column="5" value="modify_seq" checked>
   Sequences
 </label>
+
+<!-- Ligand 2：只走 CSS class 切换 -->
 <label>
-  <input type="checkbox" class="toggle-vis export-field toggle-ligand-r"
-         data-column="5" data-toggle-class="hide-ligand-r" value="delivery3" checked>
+  <input type="checkbox" class="toggle-ligand export-field"
+         data-toggle-class="hide-ligand-r" value="delivery3" checked>
   Ligand 2
 </label>
 ```
 
-注意：合并后 Ligand 1 / Sequences / Ligand 2 共享同一外层列（index 5）。DataTables 控制整列显隐；Ligand 1/2 的单独切换用 CSS class。
-
-`tables.js` 新增处理逻辑：
+`tables.js` 新增独立 handler（与原 `.toggle-vis` 并列）：
 ```js
-// 在 .toggle-vis 的 change handler 中补充：
-const toggleClass = $(this).data('toggle-class');
-if (toggleClass) {
+// Ligand 列 CSS class 切换（独立于 DataTables column API）
+$('.toggle-ligand').on('change', function() {
+  const toggleClass = $(this).data('toggle-class');
   $('body').toggleClass(toggleClass, !$(this).prop('checked'));
-}
+});
 ```
 
-外层表头同步更新：移除独立 Ligand 1 / Ligand 2 `<th>`，Sequences `<th>` 保留。  
-后续列的 `data-column` 全部下移 2（原 8→6, 9→7, ..., 15→13）。
+外层表头同步更新：
+- 移除独立 `<th>Ligand 1</th>` 和 `<th>Ligand 2</th>`
+- Sequences `<th>` 保留（对应合并后的单一外层列）
+- 后续列 `data-column` 全部下移 2（原 8→6, 9→7, ..., 15→13）
 
 ---
 
