@@ -1219,6 +1219,26 @@ def add_o_to_all_rules_safe(modify_seq: str) -> str:
     return add_o_to_all_rules(part1) + linker_section + add_o_to_all_rules(part2)
 
 
+def normalize_middle_brackets(modify_seq: str) -> str:
+    """将 Modify_seq 中间的 [linker] 括号块替换为 -linker- dash 格式。
+    首位括号（delivery5）和末位括号（delivery3）保持不变，只处理中间块。
+
+    例：[invAb]AmUmGm[LK1-L96-LK1]CmAmUm[Vp]
+     → [invAb]AmUmGm-LK1-L96-LK1-CmAmUm[Vp]
+    """
+    if not modify_seq:
+        return modify_seq
+    blocks = list(re.finditer(r'\[([^\[\]]+)\]', modify_seq))
+    if len(blocks) <= 2:
+        return modify_seq  # 无中间块，直接返回
+    result = modify_seq
+    # 从后往前替换，避免字符位移错位；跳过首块（index 0）和末块（index -1）
+    for block in reversed(blocks[1:-1]):
+        inner = block.group(1)
+        result = result[:block.start()] + f'-{inner}-' + result[block.end():]
+    return result
+
+
 # 上传递送信息 （分块函数)
 def parse_uploaded_csv(request):
     uploaded_file = request.FILES.get('file')
