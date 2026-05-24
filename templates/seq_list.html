@@ -205,14 +205,14 @@
         {% if search_term_groups %}
           {% for term_group in search_term_groups %}
             <tr class="search-group-header search-group-color-{{ term_group.color_idx }}">
-              <td colspan="16">▸ "{{ term_group.term }}" 的结果（{{ term_group.sequence_groups|length }} 组）</td>
+              <td colspan="14">▸ "{{ term_group.term }}" 的结果（{{ term_group.sequence_groups|length }} 组）</td>
             </tr>
             {% for group in term_group.sequence_groups %}
               {% include "_seq_group_row.html" %}
             {% endfor %}
             {% if not term_group.sequence_groups %}
               <tr class="search-no-result-row">
-                <td colspan="16">
+                <td colspan="14">
                   未找到与 "{{ term_group.term }}" 匹配的记录
                   {% if term_group.suggestion %}
                   — Strand ID 格式为字母前缀 + 6 位数字，您可能想输入
