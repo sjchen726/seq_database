@@ -1299,6 +1299,152 @@ def group_sequences(df):
     return ss_groups, invalid_ss_as
 
 
+def run_preflight_check(df, ss_groups):
+    """
+    预检分析：扫描所有 SS/AS 对，返回：
+      auto_register_pairs   — naked_seq 未注册，需自动注册
+      unknown_module_pairs  — 含未知 SeqModule token，整对跳过
+      unknown_delivery_warnings — 含未知 DeliveryModule token，仅警告
+      clean_groups          — ss_groups 去掉 unknown_module_pairs 后的剩余组
+    """
+    # 预加载 SeqModule（只查一次 DB）
+    _sm_list = sorted(
+        SeqModule.objects.filter(base_char__isnull=False).exclude(base_char=''),
+        key=lambda m: len(m.keyword), reverse=True,
+    )
+    _sm_map = {m.keyword.upper(): m.base_char for m in _sm_list}
+    _sm_norm_re = (
+        re.compile('|'.join(re.escape(m.keyword) for m in _sm_list), re.IGNORECASE)
+        if _sm_list else None
+    )
+
+    # 预加载 DeliveryModule 关键词集合
+    dm_keywords = set(DeliveryModule.objects.values_list('keyword', flat=True))
+
+    has_transcript_col = 'Transcript' in df.columns
+    has_position_col = 'Position' in df.columns
+
+    auto_register_pairs = []
+    unknown_module_pairs = []
+    unknown_delivery_warnings = []
+    skip_group_indices = set()
+
+    for group_idx, (_, project, group) in enumerate(ss_groups):
+        if len(group) < 2:
+            continue
+        ss_row_id, as_row_id = group[0], group[1]
+        ss_row = df.loc[ss_row_id]
+        as_row = df.loc[as_row_id]
+
+        pair_has_unknown_module = False
+        pair_unknown_tokens = []
+        pair_original_lines = [int(ss_row['__original_line']), int(as_row['__original_line'])]
+
+        extracted = {}  # 'ss' or 'as' → {naked_seq, delivery5, delivery3, row_id, original_line}
+
+        for label, row in [('ss', ss_row), ('as', as_row)]:
+            full_seq = str(row['Modify_seq'])
+
+            # 提取 delivery5 / delivery3
+            d5_m = re.search(r'^\[([^\[\]]*)\]', full_seq)
+            d3_m = re.search(r'\[([^\[\]]*)\]$', full_seq)
+            delivery5 = d5_m.group(1) if d5_m else ''
+            delivery3 = d3_m.group(1) if d3_m else ''
+
+            # 去掉首尾括号 → clean_seq
+            clean_seq = re.sub(r'^\[.*?\]', '', full_seq)
+            clean_seq = re.sub(r'\[.*?\]$', '', clean_seq)
+
+            # 提取 naked_seq（与 save_deliveries 完全一致）
+            tmp = normalize_tmp_seq_with_combo(clean_seq)
+            if _sm_norm_re:
+                tmp = _sm_norm_re.sub(lambda m: _sm_map[m.group(0).upper()], tmp)
+            tmp = re.sub(r'\(.*?\)', '', tmp)
+            naked_seq = ''.join(re.findall(r'(INVAB|[AUGCI])', tmp))
+
+            extracted[label] = {
+                'naked_seq': naked_seq,
+                'delivery5': delivery5,
+                'delivery3': delivery3,
+                'row_id': int(row['__row_id']),
+                'original_line': int(row['__original_line']),
+            }
+
+            # ── 检测未知 SeqModule token ──
+            tmp_check = normalize_tmp_seq_with_combo(clean_seq)
+            if _sm_norm_re:
+                tmp_check = _sm_norm_re.sub(lambda m: _sm_map[m.group(0).upper()], tmp_check)
+            tmp_check = re.sub(r'[\(\)\[\]\-]', '', tmp_check)
+            unknowns = re.findall(r'[^AUGCIaugci\s]', tmp_check)
+            if unknowns:
+                pair_has_unknown_module = True
+                pair_unknown_tokens.extend(unknowns)
+
+            # ── 检测未知 DeliveryModule token（仅警告）──
+            row_dm_unknowns = []
+            for dm_str in [delivery5, delivery3]:
+                if not dm_str:
+                    continue
+                for token in dm_str.split('-'):
+                    token = token.strip()
+                    if token and token not in dm_keywords:
+                        row_dm_unknowns.append(token)
+            if row_dm_unknowns:
+                unknown_delivery_warnings.append({
+                    'row_id': extracted[label]['row_id'],
+                    'unknown_tokens': row_dm_unknowns,
+                    'original_line': extracted[label]['original_line'],
+                })
+
+        if pair_has_unknown_module:
+            skip_group_indices.add(group_idx)
+            unknown_module_pairs.append({
+                'ss_row_id': extracted['ss']['row_id'],
+                'as_row_id': extracted['as']['row_id'],
+                'unknown_tokens': list(set(pair_unknown_tokens)),
+                'original_lines': pair_original_lines,
+            })
+            continue
+
+        # ── 检查裸序列是否已注册 ──
+        ss_exists = Sequence.objects.filter(seq=extracted['ss']['naked_seq'], seq_type='SS').exists()
+        as_exists = Sequence.objects.filter(seq=extracted['as']['naked_seq'], seq_type='AS').exists()
+
+        if not ss_exists or not as_exists:
+            transcript = ''
+            position = ''
+            for r in [ss_row, as_row]:
+                if not transcript and has_transcript_col:
+                    v = str(r['Transcript']).strip()
+                    if v:
+                        transcript = v
+                if not position and has_position_col:
+                    v = str(r['Position']).strip()
+                    if v:
+                        position = v
+
+            auto_register_pairs.append({
+                'ss_row_id': extracted['ss']['row_id'],
+                'as_row_id': extracted['as']['row_id'],
+                'naked_ss': extracted['ss']['naked_seq'],
+                'naked_as': extracted['as']['naked_seq'],
+                'ss_exists': ss_exists,
+                'as_exists': as_exists,
+                'transcript': transcript,
+                'position': position,
+                'project': str(project).strip(),
+            })
+
+    clean_groups = [g for i, g in enumerate(ss_groups) if i not in skip_group_indices]
+
+    return {
+        'auto_register_pairs': auto_register_pairs,
+        'unknown_module_pairs': unknown_module_pairs,
+        'unknown_delivery_warnings': unknown_delivery_warnings,
+        'clean_groups': clean_groups,
+    }
+
+
 # 同一组SS+AS算重复
 def check_duplicates(df, ss_groups, target_project=None):
     repeated_ids = set()
