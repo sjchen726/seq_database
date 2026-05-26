@@ -1,7 +1,8 @@
 import pandas as pd
 from django.test import TestCase
 from app01.models import Sequence, SeqModule, DeliveryModule
-from app01.views import normalize_middle_brackets, run_preflight_check, group_sequences
+from app01.views import normalize_middle_brackets, run_preflight_check, group_sequences, auto_register_bare_sequences
+from app01.models import DuplexRelationship, SeqInfo
 
 
 class NormalizeMiddleBracketsTests(TestCase):
@@ -199,3 +200,76 @@ class RunPreflightCheckTests(TestCase):
         result = run_preflight_check(df, ss_groups)
         self.assertEqual(len(result['unknown_module_pairs']), 0,
                          f"Unexpected unknown tokens: {result['unknown_module_pairs']}")
+
+
+class AutoRegisterTests(TestCase):
+
+    def setUp(self):
+        self.username = 'testuser'
+
+    def _make_pair(self, naked_ss, naked_as, ss_exists=False, as_exists=False,
+                   transcript='', position='', project='P1'):
+        return {
+            'ss_row_id': 0,
+            'as_row_id': 1,
+            'naked_ss': naked_ss,
+            'naked_as': naked_as,
+            'ss_exists': ss_exists,
+            'as_exists': as_exists,
+            'transcript': transcript,
+            'position': position,
+            'project': project,
+        }
+
+    def test_both_missing_creates_all(self):
+        """Both SS and AS missing → creates SS, AS, duplex, DuplexRelationship, SeqInfo."""
+        pairs = [self._make_pair('AUGCAU', 'UGCAUG')]
+        registered_log, skipped_log = auto_register_bare_sequences(pairs, self.username)
+        self.assertEqual(skipped_log, [])
+        self.assertTrue(Sequence.objects.filter(seq='AUGCAU', seq_type='SS').exists())
+        self.assertTrue(Sequence.objects.filter(seq='UGCAUG', seq_type='AS').exists())
+        self.assertTrue(Sequence.objects.filter(seq='UGCAUG, AUGCAU', seq_type='duplex').exists())
+        ss_obj = Sequence.objects.get(seq='AUGCAU', seq_type='SS')
+        as_obj = Sequence.objects.get(seq='UGCAUG', seq_type='AS')
+        self.assertTrue(DuplexRelationship.objects.filter(ss_seq=ss_obj, as_seq=as_obj).exists())
+        self.assertTrue(SeqInfo.objects.filter(sequence=ss_obj).exists())
+
+    def test_ss_missing_as_exists(self):
+        """SS missing, AS exists → creates SS + new duplex + DuplexRelationship."""
+        as_obj = Sequence.objects.create(seq='UGCAUG', seq_type='AS')
+        pairs = [self._make_pair('AUGCAU', 'UGCAUG', ss_exists=False, as_exists=True)]
+        registered_log, skipped_log = auto_register_bare_sequences(pairs, self.username)
+        self.assertEqual(skipped_log, [])
+        self.assertTrue(Sequence.objects.filter(seq='AUGCAU', seq_type='SS').exists())
+        ss_obj = Sequence.objects.get(seq='AUGCAU', seq_type='SS')
+        self.assertTrue(DuplexRelationship.objects.filter(ss_seq=ss_obj, as_seq=as_obj).exists())
+
+    def test_both_exist_skips_registration(self):
+        """Both SS and AS exist → no new SS/AS created, duplex relationship still ensured."""
+        Sequence.objects.create(seq='AUGCAU', seq_type='SS')
+        Sequence.objects.create(seq='UGCAUG', seq_type='AS')
+        pairs = [self._make_pair('AUGCAU', 'UGCAUG', ss_exists=True, as_exists=True)]
+        registered_log, skipped_log = auto_register_bare_sequences(pairs, self.username)
+        self.assertEqual(skipped_log, [])
+        self.assertEqual(Sequence.objects.filter(seq_type='SS').count(), 1)
+        self.assertEqual(Sequence.objects.filter(seq_type='AS').count(), 1)
+
+    def test_transcript_and_position_saved_in_seqinfo(self):
+        """Transcript and Position stored in SeqInfo for SS."""
+        pairs = [self._make_pair('AAAA', 'UUUU', transcript='NM_001', position='42')]
+        auto_register_bare_sequences(pairs, self.username)
+        ss_obj = Sequence.objects.get(seq='AAAA', seq_type='SS')
+        info = SeqInfo.objects.get(sequence=ss_obj)
+        self.assertEqual(info.Transcript, 'NM_001')
+        self.assertEqual(info.Pos, '42')
+
+    def test_one_pair_failure_does_not_rollback_others(self):
+        """A failure in one pair does not prevent other pairs from registering."""
+        good_pair = self._make_pair('CCCCCC', 'GGGGGG')
+        # Force failure: naked_ss=None causes IntegrityError on create
+        bad_pair = {**self._make_pair('', 'TTTTTT'), 'naked_ss': None}
+        registered_log, skipped_log = auto_register_bare_sequences(
+            [bad_pair, good_pair], self.username
+        )
+        self.assertTrue(Sequence.objects.filter(seq='CCCCCC', seq_type='SS').exists())
+        self.assertEqual(len(skipped_log), 1)

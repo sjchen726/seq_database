@@ -1452,6 +1452,85 @@ def run_preflight_check(df, ss_groups):
     }
 
 
+def auto_register_bare_sequences(auto_register_pairs, username):
+    """
+    为未注册的裸序列自动创建 Sequence + SeqInfo + DuplexRelationship。
+    每对用独立 savepoint，单对失败不影响其余对。
+    返回 (registered_log, skipped_log)。
+    """
+    registered_log = []
+    skipped_log = []
+    created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    for pair in auto_register_pairs:
+        naked_ss = pair['naked_ss']
+        naked_as = pair['naked_as']
+        ss_exists = pair['ss_exists']
+        as_exists = pair['as_exists']
+        transcript = pair.get('transcript', '')
+        position = pair.get('position', '')
+        project = pair.get('project', '')
+
+        try:
+            with transaction.atomic():
+                # ── 基本校验 ──
+                if not naked_ss or not naked_as:
+                    raise ValueError(f"naked_ss or naked_as is empty/None: ss={naked_ss!r}, as={naked_as!r}")
+
+                # ── SS ──
+                if not ss_exists:
+                    ss_obj = Sequence.objects.create(
+                        seq=naked_ss, seq_type='SS', created_at=created_at
+                    )
+                    registered_log.append(f"SS created: {naked_ss} ({ss_obj.rm_code})")
+                else:
+                    ss_obj = Sequence.objects.filter(seq=naked_ss, seq_type='SS').first()
+
+                # ── AS ──
+                if not as_exists:
+                    as_obj = Sequence.objects.create(
+                        seq=naked_as, seq_type='AS', created_at=created_at
+                    )
+                    registered_log.append(f"AS created: {naked_as} ({as_obj.rm_code})")
+                else:
+                    as_obj = Sequence.objects.filter(seq=naked_as, seq_type='AS').first()
+
+                # ── Duplex ──
+                duplex_seq_str = f"{naked_as}, {naked_ss}"
+                duplex_obj, duplex_created = Sequence.objects.get_or_create(
+                    seq=duplex_seq_str, seq_type='duplex',
+                    defaults={'created_at': created_at},
+                )
+                if duplex_created:
+                    registered_log.append(f"Duplex created: {duplex_seq_str[:60]}")
+
+                # ── DuplexRelationship ──
+                DuplexRelationship.objects.get_or_create(
+                    as_seq=as_obj, ss_seq=ss_obj,
+                    defaults={'duplex_seq': duplex_obj},
+                )
+
+                # ── SeqInfo (SS only，如不存在则创建) ──
+                if not SeqInfo.objects.filter(sequence=ss_obj).exists():
+                    SeqInfo.objects.create(
+                        sequence=ss_obj,
+                        Transcript=transcript,
+                        Pos=position,
+                        project=project,
+                        Remark='',
+                        created_at=created_at,
+                    )
+
+        except Exception as e:
+            skipped_log.append({
+                'naked_ss': naked_ss,
+                'naked_as': naked_as,
+                'error': str(e),
+            })
+
+    return registered_log, skipped_log
+
+
 # 同一组SS+AS算重复
 def check_duplicates(df, ss_groups, target_project=None):
     repeated_ids = set()
