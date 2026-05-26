@@ -1996,6 +1996,46 @@ def upload_delivery_info(request):
             df['Modify_seq'] = df['Modify_seq'].apply(normalize_middle_brackets)
             ss_groups, unpaired_ss_as = group_sequences(df)
 
+            # ── 预检分析 ──
+            preflight = run_preflight_check(df, ss_groups)
+            needs_confirm = (
+                bool(preflight['auto_register_pairs'])
+                or bool(preflight['unknown_module_pairs'])
+            )
+
+            if needs_confirm:
+                # 写跳过序列 CSV（如有），路径存 session 供下载
+                username = request.user.username
+                skip_csv_path = ''
+                if preflight['unknown_module_pairs']:
+                    skip_csv_path = write_skip_csv(df, preflight['unknown_module_pairs'], username)
+
+                # 序列化 preflight 中的不可 JSON 序列化部分
+                preflight_serializable = {
+                    'auto_register_pairs': preflight['auto_register_pairs'],
+                    'unknown_module_pairs': preflight['unknown_module_pairs'],
+                    'unknown_delivery_warnings': preflight['unknown_delivery_warnings'],
+                }
+                clean_groups_serializable = [
+                    [g[0], g[1], list(g[2])] for g in preflight['clean_groups']
+                ]
+
+                request.session['preflight_result'] = preflight_serializable
+                request.session['preflight_df_json'] = df.to_json()
+                request.session['preflight_clean_groups'] = json.dumps(clean_groups_serializable)
+                if skip_csv_path:
+                    request.session['preflight_skip_csv_path'] = skip_csv_path
+
+                # 未配对的 SS/AS 警告仍然显示
+                if unpaired_ss_as:
+                    messages.warning(request, f"有未成对的 SS 或 AS 序列，请注意检查。")
+
+                return redirect('confirm_upload_preflight')
+
+            # ── 全部 clean：走原有流程 ──
+            # 用 preflight['clean_groups'] 替代原 ss_groups，已去掉未知模块对
+            ss_groups = preflight['clean_groups']
+
             # 从 CSV 第一行读取目标项目
             target_project = None
             if 'Project' in df.columns and not df.empty:
