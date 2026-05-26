@@ -2001,6 +2001,7 @@ def upload_delivery_info(request):
             needs_confirm = (
                 bool(preflight['auto_register_pairs'])
                 or bool(preflight['unknown_module_pairs'])
+                or bool(preflight['unknown_delivery_warnings'])
             )
 
             if needs_confirm:
@@ -2178,9 +2179,9 @@ def confirm_upload_preflight(request):
 
     if request.method == 'POST':
         try:
-            preflight = request.session.pop('preflight_result', {})
-            df_json = request.session.pop('preflight_df_json', None)
-            clean_groups_json = request.session.pop('preflight_clean_groups', None)
+            preflight = request.session.get('preflight_result', {})
+            df_json = request.session.get('preflight_df_json', None)
+            clean_groups_json = request.session.get('preflight_clean_groups', None)
 
             if not df_json or clean_groups_json is None:
                 messages.error(request, "会话已过期，请重新上传文件")
@@ -2190,6 +2191,7 @@ def confirm_upload_preflight(request):
 
             # ── 1. 自动注册（guest 跳过）──
             user_type = getattr(request.user, 'user_type', 'guest')
+            skipped_log = []
             if user_type != 'guest' and auto_register_pairs:
                 registered_log, skipped_log = auto_register_bare_sequences(
                     auto_register_pairs, request.user.username
@@ -2208,6 +2210,26 @@ def confirm_upload_preflight(request):
 
             raw_groups = json.loads(clean_groups_json)
             clean_groups = [(g[0], g[1], g[2]) for g in raw_groups]
+
+            # Remove failed-registration pairs from clean_groups to avoid confusing
+            # "unregistered" warnings from save_deliveries
+            if skipped_log:
+                # Collect naked_ss values of failed pairs
+                failed_naked_ss = {entry['naked_ss'] for entry in skipped_log if entry.get('naked_ss')}
+                # Map naked_ss back to row_ids via auto_register_pairs
+                failed_row_ids = set()
+                for pair in auto_register_pairs:
+                    if pair.get('naked_ss') in failed_naked_ss:
+                        if pair.get('ss_row_id') is not None:
+                            failed_row_ids.add(pair['ss_row_id'])
+                        if pair.get('as_row_id') is not None:
+                            failed_row_ids.add(pair['as_row_id'])
+                if failed_row_ids:
+                    clean_groups = [
+                        (g[0], g[1], [rid for rid in g[2] if rid not in failed_row_ids])
+                        for g in clean_groups
+                        if any(rid not in failed_row_ids for rid in g[2])
+                    ]
 
             target_project = None
             if 'Project' in df.columns and not df.empty:
@@ -2248,6 +2270,10 @@ def confirm_upload_preflight(request):
             if not upload_meg:
                 messages.error(request, "无新的序列信息上传")
 
+            # Clear session keys after successful upload
+            for key in ['preflight_result', 'preflight_df_json', 'preflight_clean_groups', 'preflight_skip_csv_path']:
+                request.session.pop(key, None)
+
             return render(request, 'upload_delivery_info.html', {
                 'success': True,
                 'repeated_count': len(repeated_ids),
@@ -2255,6 +2281,8 @@ def confirm_upload_preflight(request):
 
         except Exception as e:
             messages.error(request, f"文件处理失败：{e}")
+            for key in ['preflight_result', 'preflight_df_json', 'preflight_clean_groups', 'preflight_skip_csv_path']:
+                request.session.pop(key, None)
             return render(request, 'upload_delivery_info.html')
 
 
