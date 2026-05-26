@@ -1482,18 +1482,22 @@ def auto_register_bare_sequences(auto_register_pairs, username):
                     ss_obj = Sequence.objects.create(
                         seq=naked_ss, seq_type='SS', created_at=created_at
                     )
-                    registered_log.append(f"SS created: {naked_ss} ({ss_obj.rm_code})")
+                    registered_log.append(f"SS created: {naked_ss} ({ss_obj.rm_code}) by {username}")
                 else:
                     ss_obj = Sequence.objects.filter(seq=naked_ss, seq_type='SS').first()
+                    if ss_obj is None:
+                        raise ValueError(f"SS sequence not found in DB: seq={naked_ss!r}")
 
                 # ── AS ──
                 if not as_exists:
                     as_obj = Sequence.objects.create(
                         seq=naked_as, seq_type='AS', created_at=created_at
                     )
-                    registered_log.append(f"AS created: {naked_as} ({as_obj.rm_code})")
+                    registered_log.append(f"AS created: {naked_as} ({as_obj.rm_code}) by {username}")
                 else:
                     as_obj = Sequence.objects.filter(seq=naked_as, seq_type='AS').first()
+                    if as_obj is None:
+                        raise ValueError(f"AS sequence not found in DB: seq={naked_as!r}")
 
                 # ── Duplex ──
                 duplex_seq_str = f"{naked_as}, {naked_ss}"

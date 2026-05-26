@@ -253,6 +253,13 @@ class AutoRegisterTests(TestCase):
         self.assertEqual(skipped_log, [])
         self.assertEqual(Sequence.objects.filter(seq_type='SS').count(), 1)
         self.assertEqual(Sequence.objects.filter(seq_type='AS').count(), 1)
+        # Verify DuplexRelationship was created even when both strands pre-existed
+        ss_obj = Sequence.objects.get(seq='AUGCAU', seq_type='SS')
+        as_obj = Sequence.objects.get(seq='UGCAUG', seq_type='AS')
+        self.assertTrue(
+            DuplexRelationship.objects.filter(ss_seq=ss_obj, as_seq=as_obj).exists(),
+            "DuplexRelationship must be created even when both strands pre-exist"
+        )
 
     def test_transcript_and_position_saved_in_seqinfo(self):
         """Transcript and Position stored in SeqInfo for SS."""
