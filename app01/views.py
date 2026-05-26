@@ -1899,6 +1899,42 @@ def write_unpaired_ss_as_log(unpaired_ss_as, username):
     return filepath
 
 
+def write_skip_csv(df, unknown_module_pairs, username):
+    """将 SeqModule 未知的跳过对写入 CSV，供用户下载修正。"""
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    user_dir = os.path.join('logs', username)
+    os.makedirs(user_dir, exist_ok=True)
+    filename = f'{username}_skip_unknown_module_{timestamp}.csv'
+    filepath = os.path.join(user_dir, filename)
+
+    rows_to_write = []
+    for pair in unknown_module_pairs:
+        for row_id in [pair['ss_row_id'], pair['as_row_id']]:
+            matching = df.loc[df['__row_id'] == row_id]
+            if not matching.empty:
+                row = matching.iloc[0]
+                rows_to_write.append({
+                    'Project': str(row.get('Project', '')),
+                    'Target': str(row.get('Target', '')),
+                    'Seq_type': str(row.get('Seq_type', '')),
+                    'Modify_seq': str(row.get('Modify_seq', '')),
+                    'Strand_MWs': str(row.get('Strand_MWs', '')),
+                    'Parents': str(row.get('Parents', '')),
+                    'Remarks': str(row.get('Remarks', '')),
+                    'Unknown_tokens': ', '.join(pair['unknown_tokens']),
+                    'Original_lines': ', '.join(str(l) for l in pair['original_lines']),
+                })
+
+    with open(filepath, 'w', encoding='utf-8-sig', newline='') as f:
+        fieldnames = ['Project', 'Target', 'Seq_type', 'Modify_seq',
+                      'Strand_MWs', 'Parents', 'Remarks', 'Unknown_tokens', 'Original_lines']
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows_to_write)
+
+    return filepath
+
+
 def write_repeated_log(repeated_df, username):
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     user_dir = os.path.join('logs', username)
@@ -2069,6 +2105,113 @@ def confirm_share_deliveries(request):
         skip_count = len(pending) - shared_count
         messages.success(request, f"成功共享 {shared_count} 条，跳过 {skip_count} 条。")
         return redirect('seq_delivery')
+
+
+@login_required
+def confirm_upload_preflight(request):
+    """
+    GET  — 渲染预检报告页（从 session 读取数据）
+    GET  ?download=skip_csv — 下载跳过序列 CSV
+    POST — 执行自动注册并继续上传管道
+    """
+    if request.method == 'GET':
+        if request.GET.get('download') == 'skip_csv':
+            skip_path = request.session.get('preflight_skip_csv_path')
+            if skip_path and os.path.exists(skip_path):
+                with open(skip_path, 'rb') as f:
+                    response = HttpResponse(f.read(), content_type='text/csv')
+                    response['Content-Disposition'] = (
+                        f'attachment; filename="{os.path.basename(skip_path)}"'
+                    )
+                    return response
+            messages.warning(request, "跳过序列 CSV 文件不存在")
+            return redirect('confirm_upload_preflight')
+
+        preflight = request.session.get('preflight_result')
+        if not preflight:
+            return redirect('seq_delivery')
+        return render(request, 'confirm_upload_preflight.html', {
+            'auto_register_pairs': preflight.get('auto_register_pairs', []),
+            'unknown_module_pairs': preflight.get('unknown_module_pairs', []),
+            'unknown_delivery_warnings': preflight.get('unknown_delivery_warnings', []),
+        })
+
+    if request.method == 'POST':
+        preflight = request.session.pop('preflight_result', {})
+        df_json = request.session.pop('preflight_df_json', None)
+        clean_groups_json = request.session.pop('preflight_clean_groups', None)
+
+        if not df_json or clean_groups_json is None:
+            messages.error(request, "会话已过期，请重新上传文件")
+            return redirect('seq_delivery')
+
+        auto_register_pairs = preflight.get('auto_register_pairs', [])
+
+        # ── 1. 自动注册（guest 跳过）──
+        user_type = getattr(request.user, 'user_type', 'guest')
+        if user_type != 'guest' and auto_register_pairs:
+            registered_log, skipped_log = auto_register_bare_sequences(
+                auto_register_pairs, request.user.username
+            )
+            if registered_log:
+                messages.success(request, f"已自动注册 {len(registered_log)} 条序列")
+            if skipped_log:
+                messages.warning(request, f"{len(skipped_log)} 对注册失败，已跳过")
+
+        # ── 2. 从 session 恢复 df 和 clean_groups ──
+        df = pd.read_json(StringIO(df_json))
+        df = df.fillna('')
+        # 恢复 index 以支持 df.loc[row_id]
+        if '__row_id' in df.columns:
+            df.index = df['__row_id'].astype(int)
+
+        raw_groups = json.loads(clean_groups_json)
+        clean_groups = [(g[0], g[1], g[2]) for g in raw_groups]
+
+        target_project = None
+        if 'Project' in df.columns and not df.empty:
+            target_project = str(df['Project'].iloc[0]).strip()
+
+        # ── 3. 继续现有上传管道 ──
+        repeated_ids, duplicate_meg, cross_project_duplicates = check_duplicates(
+            df, clean_groups, target_project=target_project
+        )
+
+        if cross_project_duplicates:
+            cross_row_ids = set()
+            for item in cross_project_duplicates:
+                cross_row_ids.update(item['row_ids'])
+            df_normal = df[~df.index.isin(cross_row_ids)].copy()
+            request.session['pending_shares'] = cross_project_duplicates
+            request.session['pending_upload_df'] = df_normal.to_json()
+            request.session['pending_repeated_ids'] = list(repeated_ids)
+            request.session['pending_unpaired'] = []
+            request.session.pop('preflight_skip_csv_path', None)
+            return redirect('confirm_share')
+
+        duplex_id_map = assign_duplex_ids(df, clean_groups, repeated_ids)
+        username = request.user.username
+        upload_meg, upload_log, unregistered_meg, unregistered_log = save_deliveries(
+            df, duplex_id_map, username
+        )
+        write_upload_log(upload_log, username)
+        write_unregistered_log(unregistered_log, username)
+        save_repeated_to_session(request, df, repeated_ids, unregistered_log, username)
+        request.session.pop('preflight_skip_csv_path', None)
+
+        if upload_meg:
+            messages.success(request, f"共 {len(upload_meg)} 条序列成功上传！")
+        if repeated_ids:
+            messages.warning(request, f"有 {len(duplicate_meg)} 条重复序列！")
+        if unregistered_meg:
+            messages.warning(request, f"有 {len(unregistered_meg)} 条序列未注册！")
+        if not upload_meg:
+            messages.error(request, "无新的序列信息上传")
+
+        return render(request, 'upload_delivery_info.html', {
+            'success': True,
+            'repeated_count': len(repeated_ids),
+        })
 
 
 def _generate_next_bp():
