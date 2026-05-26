@@ -2137,81 +2137,85 @@ def confirm_upload_preflight(request):
         })
 
     if request.method == 'POST':
-        preflight = request.session.pop('preflight_result', {})
-        df_json = request.session.pop('preflight_df_json', None)
-        clean_groups_json = request.session.pop('preflight_clean_groups', None)
+        try:
+            preflight = request.session.pop('preflight_result', {})
+            df_json = request.session.pop('preflight_df_json', None)
+            clean_groups_json = request.session.pop('preflight_clean_groups', None)
 
-        if not df_json or clean_groups_json is None:
-            messages.error(request, "会话已过期，请重新上传文件")
-            return redirect('seq_delivery')
+            if not df_json or clean_groups_json is None:
+                messages.error(request, "会话已过期，请重新上传文件")
+                return redirect('seq_delivery')
 
-        auto_register_pairs = preflight.get('auto_register_pairs', [])
+            auto_register_pairs = preflight.get('auto_register_pairs', [])
 
-        # ── 1. 自动注册（guest 跳过）──
-        user_type = getattr(request.user, 'user_type', 'guest')
-        if user_type != 'guest' and auto_register_pairs:
-            registered_log, skipped_log = auto_register_bare_sequences(
-                auto_register_pairs, request.user.username
+            # ── 1. 自动注册（guest 跳过）──
+            user_type = getattr(request.user, 'user_type', 'guest')
+            if user_type != 'guest' and auto_register_pairs:
+                registered_log, skipped_log = auto_register_bare_sequences(
+                    auto_register_pairs, request.user.username
+                )
+                if registered_log:
+                    messages.success(request, f"已自动注册 {len(registered_log)} 条序列")
+                if skipped_log:
+                    messages.warning(request, f"{len(skipped_log)} 对注册失败，已跳过")
+
+            # ── 2. 从 session 恢复 df 和 clean_groups ──
+            df = pd.read_json(StringIO(df_json))
+            df = df.fillna('')
+            # 恢复 index 以支持 df.loc[row_id]
+            if '__row_id' in df.columns:
+                df.index = df['__row_id'].astype(int)
+
+            raw_groups = json.loads(clean_groups_json)
+            clean_groups = [(g[0], g[1], g[2]) for g in raw_groups]
+
+            target_project = None
+            if 'Project' in df.columns and not df.empty:
+                target_project = str(df['Project'].iloc[0]).strip()
+
+            # ── 3. 继续现有上传管道 ──
+            repeated_ids, duplicate_meg, cross_project_duplicates = check_duplicates(
+                df, clean_groups, target_project=target_project
             )
-            if registered_log:
-                messages.success(request, f"已自动注册 {len(registered_log)} 条序列")
-            if skipped_log:
-                messages.warning(request, f"{len(skipped_log)} 对注册失败，已跳过")
 
-        # ── 2. 从 session 恢复 df 和 clean_groups ──
-        df = pd.read_json(StringIO(df_json))
-        df = df.fillna('')
-        # 恢复 index 以支持 df.loc[row_id]
-        if '__row_id' in df.columns:
-            df.index = df['__row_id'].astype(int)
+            if cross_project_duplicates:
+                cross_row_ids = set()
+                for item in cross_project_duplicates:
+                    cross_row_ids.update(item['row_ids'])
+                df_normal = df[~df.index.isin(cross_row_ids)].copy()
+                request.session['pending_shares'] = cross_project_duplicates
+                request.session['pending_upload_df'] = df_normal.to_json()
+                request.session['pending_repeated_ids'] = list(repeated_ids)
+                request.session['pending_unpaired'] = []
+                request.session.pop('preflight_skip_csv_path', None)
+                return redirect('confirm_share')
 
-        raw_groups = json.loads(clean_groups_json)
-        clean_groups = [(g[0], g[1], g[2]) for g in raw_groups]
-
-        target_project = None
-        if 'Project' in df.columns and not df.empty:
-            target_project = str(df['Project'].iloc[0]).strip()
-
-        # ── 3. 继续现有上传管道 ──
-        repeated_ids, duplicate_meg, cross_project_duplicates = check_duplicates(
-            df, clean_groups, target_project=target_project
-        )
-
-        if cross_project_duplicates:
-            cross_row_ids = set()
-            for item in cross_project_duplicates:
-                cross_row_ids.update(item['row_ids'])
-            df_normal = df[~df.index.isin(cross_row_ids)].copy()
-            request.session['pending_shares'] = cross_project_duplicates
-            request.session['pending_upload_df'] = df_normal.to_json()
-            request.session['pending_repeated_ids'] = list(repeated_ids)
-            request.session['pending_unpaired'] = []
+            duplex_id_map = assign_duplex_ids(df, clean_groups, repeated_ids)
+            username = request.user.username
+            upload_meg, upload_log, unregistered_meg, unregistered_log = save_deliveries(
+                df, duplex_id_map, username
+            )
+            write_upload_log(upload_log, username)
+            save_repeated_to_session(request, df, repeated_ids, unregistered_log, username)
             request.session.pop('preflight_skip_csv_path', None)
-            return redirect('confirm_share')
 
-        duplex_id_map = assign_duplex_ids(df, clean_groups, repeated_ids)
-        username = request.user.username
-        upload_meg, upload_log, unregistered_meg, unregistered_log = save_deliveries(
-            df, duplex_id_map, username
-        )
-        write_upload_log(upload_log, username)
-        write_unregistered_log(unregistered_log, username)
-        save_repeated_to_session(request, df, repeated_ids, unregistered_log, username)
-        request.session.pop('preflight_skip_csv_path', None)
+            if upload_meg:
+                messages.success(request, f"共 {len(upload_meg)} 条序列成功上传！")
+            if repeated_ids:
+                messages.warning(request, f"有 {len(duplicate_meg)} 条重复序列！")
+            if unregistered_meg:
+                messages.warning(request, f"有 {len(unregistered_meg)} 条序列未注册！")
+            if not upload_meg:
+                messages.error(request, "无新的序列信息上传")
 
-        if upload_meg:
-            messages.success(request, f"共 {len(upload_meg)} 条序列成功上传！")
-        if repeated_ids:
-            messages.warning(request, f"有 {len(duplicate_meg)} 条重复序列！")
-        if unregistered_meg:
-            messages.warning(request, f"有 {len(unregistered_meg)} 条序列未注册！")
-        if not upload_meg:
-            messages.error(request, "无新的序列信息上传")
+            return render(request, 'upload_delivery_info.html', {
+                'success': True,
+                'repeated_count': len(repeated_ids),
+            })
 
-        return render(request, 'upload_delivery_info.html', {
-            'success': True,
-            'repeated_count': len(repeated_ids),
-        })
+        except Exception as e:
+            messages.error(request, f"文件处理失败：{e}")
+            return render(request, 'upload_delivery_info.html')
 
 
 def _generate_next_bp():
