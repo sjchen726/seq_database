@@ -1318,8 +1318,13 @@ def run_preflight_check(df, ss_groups):
         if _sm_list else None
     )
 
-    # 预加载 DeliveryModule 关键词集合
+    # 预加载 DeliveryModule 关键词集合，并构建用于 unknown-check 的正则（longest-match）
     dm_keywords = set(DeliveryModule.objects.values_list('keyword', flat=True))
+    _dm_sorted = sorted([k for k in dm_keywords if k], key=len, reverse=True)
+    _dm_strip_re = (
+        re.compile('|'.join(re.escape(k) for k in _dm_sorted), re.IGNORECASE)
+        if _dm_sorted else None
+    )
 
     has_transcript_col = 'Transcript' in df.columns
     has_position_col = 'Position' in df.columns
@@ -1355,12 +1360,14 @@ def run_preflight_check(df, ss_groups):
             clean_seq = re.sub(r'^\[.*?\]', '', full_seq)
             clean_seq = re.sub(r'\[.*?\]$', '', clean_seq)
 
-            # 提取 naked_seq（与 save_deliveries 完全一致）
+            # 一次规范化，复用 tmp for both naked_seq and unknown check
             tmp = normalize_tmp_seq_with_combo(clean_seq)
             if _sm_norm_re:
                 tmp = _sm_norm_re.sub(lambda m: _sm_map[m.group(0).upper()], tmp)
-            tmp = re.sub(r'\(.*?\)', '', tmp)
-            naked_seq = ''.join(re.findall(r'(INVAB|[AUGCI])', tmp))
+
+            # ── naked_seq（与 save_deliveries 完全一致）──
+            tmp_no_paren = re.sub(r'\(.*?\)', '', tmp)
+            naked_seq = ''.join(re.findall(r'(INVAB|[AUGCI])', tmp_no_paren))
 
             extracted[label] = {
                 'naked_seq': naked_seq,
@@ -1370,11 +1377,11 @@ def run_preflight_check(df, ss_groups):
                 'original_line': int(row['__original_line']),
             }
 
-            # ── 检测未知 SeqModule token ──
-            tmp_check = normalize_tmp_seq_with_combo(clean_seq)
-            if _sm_norm_re:
-                tmp_check = _sm_norm_re.sub(lambda m: _sm_map[m.group(0).upper()], tmp_check)
-            tmp_check = re.sub(r'[\(\)\[\]\-]', '', tmp_check)
+            # ── 检测未知 SeqModule token（复用 tmp）──
+            # First remove known DeliveryModule keywords (e.g. LK1, L96 from dual-segment linkers)
+            tmp_check = _dm_strip_re.sub('', tmp) if _dm_strip_re else tmp
+            # Then strip parens, brackets, hyphens, and digits
+            tmp_check = re.sub(r'[\(\)\[\]\-\d]', '', tmp_check)
             unknowns = re.findall(r'[^AUGCIaugci\s]', tmp_check)
             if unknowns:
                 pair_has_unknown_module = True

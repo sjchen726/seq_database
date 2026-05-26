@@ -75,6 +75,8 @@ class RunPreflightCheckTests(TestCase):
         SeqModule.objects.get_or_create(keyword='Cm', defaults={'base_char': 'C'})
         DeliveryModule.objects.get_or_create(keyword='invAb', defaults={'type_code': 'ligand'})
         DeliveryModule.objects.get_or_create(keyword='Vp', defaults={'type_code': 'ligand'})
+        DeliveryModule.objects.get_or_create(keyword='LK1', defaults={'type_code': 'linker'})
+        DeliveryModule.objects.get_or_create(keyword='L96', defaults={'type_code': 'linker'})
 
     def test_clean_pair_both_registered(self):
         """Both naked_seqs exist → auto_register_pairs is empty, clean_groups has the pair."""
@@ -124,10 +126,10 @@ class RunPreflightCheckTests(TestCase):
         df = _make_df(rows)
         ss_groups, _ = group_sequences(df)
         result = run_preflight_check(df, ss_groups)
-        if result['auto_register_pairs']:
-            pair = result['auto_register_pairs'][0]
-            self.assertEqual(pair['transcript'], 'NM_001234')
-            self.assertEqual(pair['position'], '99')
+        self.assertEqual(len(result['auto_register_pairs']), 1)
+        pair = result['auto_register_pairs'][0]
+        self.assertEqual(pair['transcript'], 'NM_001234')
+        self.assertEqual(pair['position'], '99')
 
     def test_transcript_falls_back_to_as_row(self):
         """Transcript taken from AS row when SS row is empty."""
@@ -142,10 +144,10 @@ class RunPreflightCheckTests(TestCase):
         df = _make_df(rows)
         ss_groups, _ = group_sequences(df)
         result = run_preflight_check(df, ss_groups)
-        if result['auto_register_pairs']:
-            pair = result['auto_register_pairs'][0]
-            self.assertEqual(pair['transcript'], 'NM_999')
-            self.assertEqual(pair['position'], '42')
+        self.assertEqual(len(result['auto_register_pairs']), 1)
+        pair = result['auto_register_pairs'][0]
+        self.assertEqual(pair['transcript'], 'NM_999')
+        self.assertEqual(pair['position'], '42')
 
     def test_unknown_seqmodule_token_skips_pair(self):
         """Unknown SeqModule token → pair moves to unknown_module_pairs, not clean_groups."""
@@ -178,3 +180,22 @@ class RunPreflightCheckTests(TestCase):
         self.assertEqual(len(result['unknown_module_pairs']), 0)
         self.assertEqual(len(result['unknown_delivery_warnings']), 1)
         self.assertIn('UNKNOWN', result['unknown_delivery_warnings'][0]['unknown_tokens'])
+
+    def test_dual_segment_linker_no_false_unknown(self):
+        """Dual-segment sequence with -LK1-L96-LK1- linker is NOT flagged as unknown module."""
+        # normalize_middle_brackets has already run before run_preflight_check,
+        # so [LK1-L96-LK1] becomes -LK1-L96-LK1- in clean_seq.
+        # Digits from linker names should NOT be flagged as unknown tokens.
+        rows = [
+            {'Project': 'P1', 'Target': 'T', 'Seq_type': 'SS',
+             'Modify_seq': '[invAb]AmUmGm-LK1-L96-LK1-CmAmUm[Vp]',
+             'Strand_MWs': '', 'Parents': '', 'Remarks': ''},
+            {'Project': 'P1', 'Target': 'T', 'Seq_type': 'AS',
+             'Modify_seq': '[Vp]AmUmGmCmAmUm[invAb]',
+             'Strand_MWs': '', 'Parents': '', 'Remarks': ''},
+        ]
+        df = _make_df(rows)
+        ss_groups, _ = group_sequences(df)
+        result = run_preflight_check(df, ss_groups)
+        self.assertEqual(len(result['unknown_module_pairs']), 0,
+                         f"Unexpected unknown tokens: {result['unknown_module_pairs']}")
