@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="ds-container" style="max-width:800px;margin:32px auto;padding:0 16px;">
+  <h2 style="font-size:20px;font-weight:700;margin-bottom:24px;">📋 上传预检报告</h2>
+
+  {% if messages %}
+    {% for msg in messages %}
+      <div class="ds-alert ds-alert-{{ msg.tags }}" style="margin-bottom:12px;">{{ msg }}</div>
+    {% endfor %}
+  {% endif %}
+
+  {# ── 自动注册区块 ── #}
+  {% if auto_register_pairs %}
+  <details open style="margin-bottom:20px;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;">
+    <summary style="font-weight:600;cursor:pointer;color:#0f172a;">
+      ✅ 将自动注册裸序列（{{ auto_register_pairs|length }} 对）
+    </summary>
+    <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">
+      {% for pair in auto_register_pairs %}
+      <div style="background:#f8fafc;border-radius:6px;padding:10px 14px;font-size:13px;font-family:monospace;">
+        <div><span style="color:#475569;width:36px;display:inline-block;">SS:</span>
+          <span>{{ pair.naked_ss }}</span>
+          {% if pair.ss_exists %}<span style="color:#16a34a;margin-left:8px;">（已存在，复用）</span>
+          {% else %}<span style="color:#0284c7;margin-left:8px;">（新建）</span>{% endif %}
+        </div>
+        <div><span style="color:#475569;width:36px;display:inline-block;">AS:</span>
+          <span>{{ pair.naked_as }}</span>
+          {% if pair.as_exists %}<span style="color:#16a34a;margin-left:8px;">（已存在，复用）</span>
+          {% else %}<span style="color:#0284c7;margin-left:8px;">（新建）</span>{% endif %}
+        </div>
+        {% if pair.transcript %}<div style="color:#64748b;margin-top:4px;">Transcript: {{ pair.transcript }}{% if pair.position %} &nbsp;|&nbsp; Position: {{ pair.position }}{% endif %}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
+
+  {# ── Delivery 模块警告区块 ── #}
+  {% if unknown_delivery_warnings %}
+  <div style="margin-bottom:20px;border:1px solid #fcd34d;border-radius:8px;padding:12px 16px;background:#fffbeb;">
+    <div style="font-weight:600;margin-bottom:8px;color:#92400e;">⚠️ Delivery 模块未知（{{ unknown_delivery_warnings|length }} 条，上传继续）</div>
+    {% for warn in unknown_delivery_warnings %}
+    <div style="font-size:13px;color:#78350f;margin-bottom:4px;">
+      行 {{ warn.original_line }}：token
+      {% for t in warn.unknown_tokens %}<code style="background:#fef3c7;padding:1px 5px;border-radius:3px;">{{ t }}</code> {% endfor %}
+      未在 DeliveryModule 中找到
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# ── SeqModule 未知（跳过）区块 ── #}
+  {% if unknown_module_pairs %}
+  <div style="margin-bottom:20px;border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;background:#fff1f2;">
+    <div style="font-weight:600;margin-bottom:8px;color:#9f1239;">❌ SeqModule 未知，已跳过（{{ unknown_module_pairs|length }} 对）</div>
+    {% for pair in unknown_module_pairs %}
+    <div style="font-size:13px;color:#be123c;margin-bottom:4px;">
+      行 {{ pair.original_lines|join:"–" }}：未知 token
+      {% for t in pair.unknown_tokens %}<code style="background:#ffe4e6;padding:1px 5px;border-radius:3px;">{{ t }}</code> {% endfor %}
+    </div>
+    {% endfor %}
+    <a href="?download=skip_csv" class="ds-btn ds-btn-secondary" style="margin-top:10px;display:inline-block;font-size:13px;">
+      ⬇ 下载跳过序列 CSV
+    </a>
+  </div>
+  {% endif %}
+
+  {# ── 无任何问题 ── #}
+  {% if not auto_register_pairs and not unknown_delivery_warnings and not unknown_module_pairs %}
+  <div style="padding:16px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;color:#166534;margin-bottom:20px;">
+    ✅ 所有序列均已注册且模块均已识别，可直接上传。
+  </div>
+  {% endif %}
+
+  {# ── 操作按钮 ── #}
+  <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:24px;">
+    <a href="{% url 'seq_delivery' %}" class="ds-btn ds-btn-secondary">取消</a>
+    <form method="post" style="display:inline;">
+      {% csrf_token %}
+      <button type="submit" class="ds-btn ds-btn-primary">确认并上传</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
