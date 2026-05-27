@@ -9,7 +9,12 @@
               {{ d.duplex_id|default_if_none:'' }}
             {% endfor %}
           </td>
-          <td>{{ group.items.0.Project }}</td>
+          <td>
+            {{ group.items.0.Project }}
+            {% if group.shared_projects %}
+              <span class="shared-pill" title="已共享至：{{ group.shared_projects|join:', ' }}">→ {{ group.shared_projects|join:', ' }}</span>
+            {% endif %}
+          </td>
           <td>
             {% for d in group.items.0.deliveries %}
               {{ d.Target|default_if_none:'' }}
