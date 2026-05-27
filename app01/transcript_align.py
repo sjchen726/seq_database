@@ -6,6 +6,10 @@
 """
 from __future__ import annotations
 
+import warnings
+from Bio import BiopythonDeprecationWarning
+warnings.filterwarnings('ignore', category=BiopythonDeprecationWarning)
+
 
 class TranscriptFetchError(Exception):
     """NCBI 拉取失败时抛出。"""
@@ -26,18 +30,20 @@ def fetch_transcript_seq(accession: str) -> str:
             db='nucleotide', id=accession.strip(),
             rettype='fasta', retmode='text'
         )
-        record = SeqIO.read(handle, 'fasta')
-        handle.close()
-        return str(record.seq).upper()
+        try:
+            record = SeqIO.read(handle, 'fasta')
+        finally:
+            handle.close()
+        return str(record.seq).upper().replace('U', 'T')
     except Exception as exc:
         raise TranscriptFetchError(f'NCBI 获取失败（{accession}）: {exc}') from exc
 
 
-def get_ss_naked_dna(duplex_id: str, user) -> tuple[str | None, str | None]:
-    """返回 (naked_dna, sequence_rm_code)。
-    优先取 SS 链裸序列（RNA→DNA, U→T）；
-    无 SS 则取 AS 链裸序列的反向互补。
-    两者都没有时返回 (None, None)。"""
+def get_ss_naked_dna(duplex_id: str, user) -> tuple[str | None, str | None, bool]:
+    """返回 (naked_dna, sequence_rm_code, is_rc)。
+    优先取 SS 链裸序列（RNA→DNA, U→T），is_rc=False；
+    无 SS 则取 AS 链裸序列的反向互补，is_rc=True。
+    两者都没有时返回 (None, None, False)。"""
     from app01.views import get_permitted_delivery_qs
 
     qs = get_permitted_delivery_qs(user).select_related('sequence')
@@ -46,16 +52,16 @@ def get_ss_naked_dna(duplex_id: str, user) -> tuple[str | None, str | None]:
     ss_d = qs.filter(duplex_id=duplex_id, seq_type='SS').first()
     if ss_d and ss_d.sequence and ss_d.sequence.seq:
         dna = ss_d.sequence.seq.upper().replace('U', 'T')
-        return dna, ss_d.sequence.rm_code
+        return dna, ss_d.sequence.rm_code, False
 
     # 降级到 AS 反向互补
     as_d = qs.filter(duplex_id=duplex_id, seq_type='AS').first()
     if as_d and as_d.sequence and as_d.sequence.seq:
         dna = as_d.sequence.seq.upper().replace('U', 'T')
         rc = ''.join(_COMP.get(b, 'N') for b in reversed(dna))
-        return rc, as_d.sequence.rm_code
+        return rc, as_d.sequence.rm_code, True
 
-    return None, None
+    return None, None, False
 
 
 def parse_mismatches(seqA: str, seqB: str, query_len: int) -> list[dict]:
@@ -146,11 +152,12 @@ def align_duplex(
     }
 
     try:
-        naked_dna, seq_rm_code = get_ss_naked_dna(duplex_id, user)
+        naked_dna, seq_rm_code, used_rc = get_ss_naked_dna(duplex_id, user)
         if not naked_dna:
             result['error'] = '无裸序列信息'
             return result
         result['sequence_rm_code'] = seq_rm_code
+        result['used_rc'] = used_rc
 
         transcript_seq = fetch_transcript_seq(nm_accession)
         sw = run_sw_alignment(naked_dna, transcript_seq, score_threshold)
