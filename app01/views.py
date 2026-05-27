@@ -3870,6 +3870,7 @@ def transcript_align_prepare(request):
             messages.warning(request, '请先勾选至少一条序列')
             return redirect(back_url)
 
+        from app01.transcript_align import get_ss_naked_dna
         rows = []
         seen_duplex = set()
         for rm_code in rm_codes:
@@ -3879,7 +3880,6 @@ def transcript_align_prepare(request):
             seen_duplex.add(duplex_id)
 
             # SS 裸序列预览（注意：get_ss_naked_dna 返回 3-tuple）
-            from app01.transcript_align import get_ss_naked_dna
             naked_dna, seq_rm_code, used_rc = get_ss_naked_dna(duplex_id, request.user)
             if naked_dna:
                 preview = naked_dna[:15] + ('…' if len(naked_dna) > 15 else '')
