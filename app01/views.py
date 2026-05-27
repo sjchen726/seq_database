@@ -1662,7 +1662,7 @@ def check_duplicates(df, ss_groups):
                         else:
                             # 跨项目重复 → 收集待确认，不跳过
                             cross_project_duplicates.append({
-                                'row_ids': [row_ids[i], row_ids[i + 1]],
+                                'row_ids': [int(row_ids[i]), int(row_ids[i + 1])],
                                 'existing_duplex_id': ss_del.duplex_id,
                                 'existing_delivery_id': ss_del.id,
                                 'existing_projects': existing_projects,
@@ -2120,7 +2120,7 @@ def upload_delivery_info(request):
 
                 request.session['pending_shares'] = cross_project_duplicates
                 request.session['pending_upload_df'] = df_normal.to_json()
-                request.session['pending_repeated_ids'] = list(repeated_ids)
+                request.session['pending_repeated_ids'] = [int(x) for x in repeated_ids]
                 request.session['pending_unpaired'] = unpaired_ss_as or []
                 return redirect('confirm_share')
 
@@ -2312,7 +2312,7 @@ def confirm_upload_preflight(request):
                 df_normal = df[~df.index.isin(cross_row_ids)].copy()
                 request.session['pending_shares'] = cross_project_duplicates
                 request.session['pending_upload_df'] = df_normal.to_json()
-                request.session['pending_repeated_ids'] = list(repeated_ids)
+                request.session['pending_repeated_ids'] = [int(x) for x in repeated_ids]
                 request.session['pending_unpaired'] = []
                 request.session.pop('preflight_skip_csv_path', None)
                 return redirect('confirm_share')
