@@ -1,7 +1,10 @@
 import pandas as pd
 from django.test import TestCase
-from app01.models import Sequence, SeqModule, DeliveryModule
-from app01.views import normalize_middle_brackets, run_preflight_check, group_sequences, auto_register_bare_sequences
+from app01.models import Sequence, SeqModule, DeliveryModule, Delivery, DeliveryProject
+from app01.views import (
+    normalize_middle_brackets, run_preflight_check, group_sequences,
+    auto_register_bare_sequences, check_duplicates,
+)
 from app01.models import DuplexRelationship, SeqInfo
 
 
@@ -280,3 +283,108 @@ class AutoRegisterTests(TestCase):
         )
         self.assertTrue(Sequence.objects.filter(seq='CCCCCC', seq_type='SS').exists())
         self.assertEqual(len(skipped_log), 1)
+
+
+class CheckDuplicatesTests(TestCase):
+    """Tests for check_duplicates() cross-project and same-project detection."""
+
+    def setUp(self):
+        # Minimal SeqModule entries so extract_naked_seq works (Am→A, Um→U, Gm→G, Cm→C)
+        for kw, base in [('Am', 'A'), ('Um', 'U'), ('Gm', 'G'), ('Cm', 'C')]:
+            SeqModule.objects.get_or_create(keyword=kw, defaults={'base_char': base, 'linker_connector': 'o'})
+
+        # Register SS and AS bare sequences
+        self.ss_seq = Sequence.objects.create(seq='AUGCAU', seq_type='SS')
+        self.as_seq = Sequence.objects.create(seq='AUGCAU', seq_type='AS')
+
+        # Create a Delivery in project BPR-350
+        self.delivery_ss = Delivery.objects.create(
+            sequence=self.ss_seq,
+            duplex_id='BP000001',
+            seq_type='SS',
+            delivery5='invAb',
+            delivery3='Vp',
+            modify_seq='AmUmGmCmAmUm',
+            linker_seq='AoUoGoCoAoU',
+            project='BPR-350',
+        )
+        self.delivery_as = Delivery.objects.create(
+            sequence=self.as_seq,
+            duplex_id='BP000001',
+            seq_type='AS',
+            delivery5='Vp',
+            delivery3='invAb',
+            modify_seq='AmUmGmCmAmUm',
+            linker_seq='AoUoGoCoAoU',
+            project='BPR-350',
+        )
+        # DeliveryProject entries are auto-created by post_save signal on Delivery
+
+    def _make_df(self, project, ss_seq, as_seq):
+        """Build a minimal upload DataFrame for one SS+AS pair."""
+        rows = [
+            {
+                'Project': project,
+                'Seq_type': 'SS',
+                'Modify_seq': f'[invAb]{ss_seq}[Vp]',
+                '__row_id': 0,
+                '__original_line': 2,
+            },
+            {
+                'Project': project,
+                'Seq_type': 'AS',
+                'Modify_seq': f'[Vp]{as_seq}[invAb]',
+                '__row_id': 1,
+                '__original_line': 3,
+            },
+        ]
+        df = pd.DataFrame(rows)
+        df.index = df['__row_id'].astype(int)
+        return df
+
+    def _make_ss_groups(self, df):
+        """Pair rows 0+1 as one SS+AS group."""
+        return [(None, df.iloc[0]['Project'], [0, 1])]
+
+    def test_same_project_duplicate_goes_to_repeated_ids(self):
+        """Uploading same (naked_seq, d5, d3) to same project → repeated_ids, not cross."""
+        df = self._make_df('BPR-350', 'AmUmGmCmAmUm', 'AmUmGmCmAmUm')
+        ss_groups = self._make_ss_groups(df)
+        repeated_ids, duplicate_meg, cross = check_duplicates(df, ss_groups, target_project='BPR-350')
+        self.assertIn(0, repeated_ids)
+        self.assertIn(1, repeated_ids)
+        self.assertEqual(cross, [])
+        self.assertTrue(len(duplicate_meg) > 0)
+
+    def test_cross_project_duplicate_triggers_share_list(self):
+        """Uploading same (naked_seq, d5, d3) to different project → cross_project_duplicates."""
+        df = self._make_df('BPR-3T03', 'AmUmGmCmAmUm', 'AmUmGmCmAmUm')
+        ss_groups = self._make_ss_groups(df)
+        repeated_ids, duplicate_meg, cross = check_duplicates(df, ss_groups, target_project='BPR-3T03')
+        self.assertEqual(repeated_ids, set())
+        self.assertEqual(duplicate_meg, [])
+        self.assertEqual(len(cross), 1)
+        self.assertEqual(cross[0]['existing_duplex_id'], 'BP000001')
+        self.assertEqual(cross[0]['target_project'], 'BPR-3T03')
+
+    def test_new_sequence_not_in_db_no_duplicate(self):
+        """A truly new (naked_seq, d5, d3) not in DB → nothing flagged."""
+        df = self._make_df('BPR-3T03', 'AmGmCmUmAmUm', 'AmGmCmUmAmUm')
+        ss_groups = self._make_ss_groups(df)
+        repeated_ids, duplicate_meg, cross = check_duplicates(df, ss_groups, target_project='BPR-3T03')
+        self.assertEqual(repeated_ids, set())
+        self.assertEqual(duplicate_meg, [])
+        self.assertEqual(cross, [])
+
+    def test_linker_seq_format_difference_still_detected(self):
+        """Even if stored linker_seq differs from computed, naked_seq match catches it."""
+        # Modify the stored linker_seq to a deliberately different format
+        self.delivery_ss.linker_seq = 'DIFFERENT_FORMAT'
+        self.delivery_ss.save()
+        self.delivery_as.linker_seq = 'DIFFERENT_FORMAT'
+        self.delivery_as.save()
+        # Should still detect cross-project via naked_seq
+        df = self._make_df('BPR-3T03', 'AmUmGmCmAmUm', 'AmUmGmCmAmUm')
+        ss_groups = self._make_ss_groups(df)
+        repeated_ids, duplicate_meg, cross = check_duplicates(df, ss_groups, target_project='BPR-3T03')
+        self.assertEqual(len(cross), 1, "Should detect cross-project even with mismatched linker_seq")
