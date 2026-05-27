@@ -1557,7 +1557,7 @@ def auto_register_bare_sequences(auto_register_pairs, username):
 
 
 # 同一组SS+AS算重复
-def check_duplicates(df, ss_groups, target_project=None):
+def check_duplicates(df, ss_groups):
     repeated_ids = set()
     duplicate_meg = []
     cross_project_duplicates = []
@@ -1575,7 +1575,7 @@ def check_duplicates(df, ss_groups, target_project=None):
 
     seen_combinations = set()
 
-    for _, _, group in ss_groups:
+    for _, group_project, group in ss_groups:
         modify_seqs, delivery_keys, row_ids = [], [], []
 
         for row_id in group:
@@ -1654,7 +1654,7 @@ def check_duplicates(df, ss_groups, target_project=None):
                             ss_del.project_links.values_list('project_code', flat=True)
                         )
                         # 同项目重复 → 跳过
-                        if target_project and target_project in existing_projects:
+                        if group_project and group_project in existing_projects:
                             duplicate_meg.append(
                                 f"重复SS+AS组：{ss_full_seq} + {as_full_seq} 与数据库中已有记录重复（duplex_id: {ss_del.duplex_id}）"
                             )
@@ -1666,7 +1666,7 @@ def check_duplicates(df, ss_groups, target_project=None):
                                 'existing_duplex_id': ss_del.duplex_id,
                                 'existing_delivery_id': ss_del.id,
                                 'existing_projects': existing_projects,
-                                'target_project': target_project or '',
+                                'target_project': group_project or '',
                                 'delivery5': ss_d5,
                                 'modify_seq': ss_clean_seq,
                                 'delivery3': ss_d3,
@@ -2113,7 +2113,7 @@ def upload_delivery_info(request):
                 target_project = str(df['Project'].iloc[0]).strip()
 
             repeated_ids, duplicate_meg, cross_project_duplicates = check_duplicates(
-                df, ss_groups, target_project=target_project
+                df, ss_groups
             )
 
             # 有跨项目重复 → 暂存数据，跳转到确认页让用户决定是否共享
@@ -2310,7 +2310,7 @@ def confirm_upload_preflight(request):
 
             # ── 3. 继续现有上传管道 ──
             repeated_ids, duplicate_meg, cross_project_duplicates = check_duplicates(
-                df, clean_groups, target_project=target_project
+                df, clean_groups
             )
 
             # 有跨项目重复 → 暂存数据，跳转到确认页让用户决定是否共享
