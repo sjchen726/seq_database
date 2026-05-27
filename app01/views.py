@@ -2107,11 +2107,6 @@ def upload_delivery_info(request):
             # 用 preflight['clean_groups'] 替代原 ss_groups，已去掉未知模块对
             ss_groups = preflight['clean_groups']
 
-            # 从 CSV 第一行读取目标项目
-            target_project = None
-            if 'Project' in df.columns and not df.empty:
-                target_project = str(df['Project'].iloc[0]).strip()
-
             repeated_ids, duplicate_meg, cross_project_duplicates = check_duplicates(
                 df, ss_groups
             )
@@ -2303,10 +2298,6 @@ def confirm_upload_preflight(request):
                         g for g in clean_groups
                         if not any(rid in failed_row_ids for rid in g[2])
                     ]
-
-            target_project = None
-            if 'Project' in df.columns and not df.empty:
-                target_project = str(df['Project'].iloc[0]).strip()
 
             # ── 3. 继续现有上传管道 ──
             repeated_ids, duplicate_meg, cross_project_duplicates = check_duplicates(
