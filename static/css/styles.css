@@ -3629,3 +3629,18 @@ code {
   white-space: nowrap;
   vertical-align: middle;
 }
+
+/* ── Transcript align toolbar button ──────────────────────────── */
+.ds-tb-teal {
+  background: #f0fdfa;
+  color: #0f766e;
+  border: 1px solid #99f6e4;
+}
+.ds-tb-teal:hover:not(:disabled) {
+  background: #ccfbf1;
+  border-color: #5eead4;
+}
+.ds-tb-teal:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

@@ -68,6 +68,9 @@
     <a href="{% url 'seqmodule_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'seqmodule_list' or request.resolver_match.url_name == 'edit_seqmodule' %}active{% endif %}">
       <i class="bi bi-check2-square ds-nav-icon"></i> 序列修饰模块
     </a>
+    <a href="{% url 'linkermodule_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'linkermodule_list' or request.resolver_match.url_name == 'edit_linkermodule' %}active{% endif %}">
+      <i class="bi bi-link-45deg ds-nav-icon"></i> Linker 模块
+    </a>
 
     {% if request.user.user_type in 'admin,superadmin' or request.user.is_superuser %}
     <div class="ds-nav-divider"></div>
@@ -130,6 +133,7 @@
 <script src="/static/js/loading.js"></script>
 <script src="/static/js/table-sort.js"></script>
 <script src="/static/js/multi-blast-toolbar.js"></script>
+<script src="/static/js/transcript-align-toolbar.js"></script>
 
 </body>
 </html>
