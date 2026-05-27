@@ -1562,6 +1562,17 @@ def check_duplicates(df, ss_groups, target_project=None):
     duplicate_meg = []
     cross_project_duplicates = []
 
+    # Preload SeqModule once for naked_seq computation
+    _sm_list = sorted(
+        SeqModule.objects.filter(base_char__isnull=False).exclude(base_char=''),
+        key=lambda m: len(m.keyword), reverse=True,
+    )
+    _sm_map = {m.keyword.upper(): m.base_char for m in _sm_list}
+    _sm_norm_re = (
+        re.compile('|'.join(re.escape(m.keyword) for m in _sm_list), re.IGNORECASE)
+        if _sm_list else None
+    )
+
     seen_combinations = set()
 
     for _, _, group in ss_groups:
@@ -1604,21 +1615,26 @@ def check_duplicates(df, ss_groups, target_project=None):
                     continue
                 seen_combinations.add(combo_key)
 
-                # 2️⃣ 与数据库查重
-                ss_linker_seq = add_o_to_all_rules_safe(ss_clean_seq)
+                # 2️⃣ 与数据库查重 — 用裸序列匹配，避免 linker_seq 格式化差异导致漏检
+                ss_naked = extract_naked_seq(ss_clean_seq, _sm_map, _sm_norm_re)
+                as_naked = extract_naked_seq(as_clean_seq, _sm_map, _sm_norm_re)
+
+                if not ss_naked or not as_naked:
+                    # Empty naked seq means all-unknown tokens — skip silently
+                    continue
+
                 ss_deliveries = Delivery.objects.filter(
-                    linker_seq=ss_linker_seq,
+                    sequence__seq=ss_naked,
                     delivery5=ss_d5,
-                    delivery3=ss_d3
+                    delivery3=ss_d3,
                 ).prefetch_related('project_links')
-                as_linker_seq = add_o_to_all_rules_safe(as_clean_seq)
 
                 for ss_del in ss_deliveries:
                     exists_as = Delivery.objects.filter(
-                        linker_seq=as_linker_seq,
+                        sequence__seq=as_naked,
                         delivery5=as_d5,
                         delivery3=as_d3,
-                        duplex_id=ss_del.duplex_id
+                        duplex_id=ss_del.duplex_id,
                     ).exists()
 
                     if exists_as:
