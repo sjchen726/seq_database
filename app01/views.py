@@ -483,12 +483,12 @@ def add_author(request):
 
         return redirect('/author_list/')
 
-    # 获取项目列表（从 Delivery 表动态获取）
+    # 获取项目列表（从 DeliveryProject 取，含共享项目）
     project_list = list(
-        Delivery.objects
-        .exclude(project__isnull=True).exclude(project='')
-        .values_list('project', flat=True)
-        .distinct().order_by('project')
+        DeliveryProject.objects
+        .exclude(project_code__isnull=True).exclude(project_code='')
+        .values_list('project_code', flat=True)
+        .distinct().order_by('project_code')
     )
 
     return render(request, 'author_add.html', {'project_choices': project_list})
@@ -1667,8 +1667,8 @@ def check_duplicates(df, ss_groups, target_project=None):
                                 'existing_delivery_id': ss_del.id,
                                 'existing_projects': existing_projects,
                                 'target_project': target_project or '',
-                                'sequence_info': ss_full_seq[:40],
                                 'delivery5': ss_d5,
+                                'modify_seq': ss_clean_seq,
                                 'delivery3': ss_d3,
                             })
                         break
@@ -2116,20 +2116,18 @@ def upload_delivery_info(request):
                 df, ss_groups, target_project=target_project
             )
 
-            # 有跨项目重复 → 自动建立 DeliveryProject 关联，不跳转确认页
-            shared_pairs_count = 0
+            # 有跨项目重复 → 暂存数据，跳转到确认页让用户决定是否共享
             if cross_project_duplicates:
                 cross_row_ids = set()
                 for item in cross_project_duplicates:
-                    DeliveryProject.objects.get_or_create(
-                        delivery_id=item['existing_delivery_id'],
-                        project_code=item['target_project'] or '',
-                    )
                     cross_row_ids.update(item['row_ids'])
-                    shared_pairs_count += 1
-                # 从 df 和 ss_groups 中剔除已共享的行，不重复写入
-                df = df[~df.index.isin(cross_row_ids)].copy()
-                ss_groups = [g for g in ss_groups if not cross_row_ids.intersection(set(g[2]))]
+                df_normal = df[~df.index.isin(cross_row_ids)].copy()
+
+                request.session['pending_shares'] = cross_project_duplicates
+                request.session['pending_upload_df'] = df_normal.to_json()
+                request.session['pending_repeated_ids'] = list(repeated_ids)
+                request.session['pending_unpaired'] = unpaired_ss_as or []
+                return redirect('confirm_share')
 
             duplex_id_map = assign_duplex_ids(df, ss_groups, repeated_ids)
 
@@ -2149,15 +2147,13 @@ def upload_delivery_info(request):
                 # 提示用户有未成对的 SS 或 AS 序列
                 messages.warning(request, f"有未成对的 SS 或 AS 序列，请查看并下载未配对的序列文件。")
 
-            if shared_pairs_count:
-                messages.info(request, f"已将 {shared_pairs_count} 对序列从其他项目自动共享至 {target_project}。")
             if upload_meg:
                 messages.success(request, f"共 {len(upload_meg)} 条序列成功上传！")
             if repeated_ids:
                 messages.warning(request, f"有 {len(duplicate_meg)} 条重复序列！")
             if unregistered_meg:
                 messages.warning(request, f"有 {len(unregistered_meg)} 条序列未注册，请先注册！")
-            if not upload_meg and not shared_pairs_count:
+            if not upload_meg:
                 messages.error(request, "无新的序列信息上传")
 
             return render(request, 'upload_delivery_info.html', {
@@ -2312,19 +2308,18 @@ def confirm_upload_preflight(request):
                 df, clean_groups, target_project=target_project
             )
 
-            # 有跨项目重复 → 自动建立 DeliveryProject 关联，不跳转确认页
-            shared_pairs_count = 0
+            # 有跨项目重复 → 暂存数据，跳转到确认页让用户决定是否共享
             if cross_project_duplicates:
                 cross_row_ids = set()
                 for item in cross_project_duplicates:
-                    DeliveryProject.objects.get_or_create(
-                        delivery_id=item['existing_delivery_id'],
-                        project_code=item['target_project'] or '',
-                    )
                     cross_row_ids.update(item['row_ids'])
-                    shared_pairs_count += 1
-                df = df[~df.index.isin(cross_row_ids)].copy()
-                clean_groups = [g for g in clean_groups if not cross_row_ids.intersection(set(g[2]))]
+                df_normal = df[~df.index.isin(cross_row_ids)].copy()
+                request.session['pending_shares'] = cross_project_duplicates
+                request.session['pending_upload_df'] = df_normal.to_json()
+                request.session['pending_repeated_ids'] = list(repeated_ids)
+                request.session['pending_unpaired'] = []
+                request.session.pop('preflight_skip_csv_path', None)
+                return redirect('confirm_share')
 
             duplex_id_map = assign_duplex_ids(df, clean_groups, repeated_ids)
             username = request.user.username
@@ -2335,15 +2330,13 @@ def confirm_upload_preflight(request):
             save_repeated_to_session(request, df, repeated_ids, unregistered_log, username)
             request.session.pop('preflight_skip_csv_path', None)
 
-            if shared_pairs_count:
-                messages.info(request, f"已将 {shared_pairs_count} 对序列从其他项目自动共享至 {target_project}。")
             if upload_meg:
                 messages.success(request, f"共 {len(upload_meg)} 条序列成功上传！")
             if repeated_ids:
                 messages.warning(request, f"有 {len(duplicate_meg)} 条重复序列！")
             if unregistered_meg:
                 messages.warning(request, f"有 {len(unregistered_meg)} 条序列未注册！")
-            if not upload_meg and not shared_pairs_count:
+            if not upload_meg:
                 messages.error(request, "无新的序列信息上传")
 
             # Clear session keys after successful upload
@@ -2786,9 +2779,10 @@ def get_sequence_info(request):
     user_type = getattr(request.user, 'user_type', 'guest')
     selected_seq_type = request.GET.get('seq_type', get_user_default_seq_type(request.user))
 
-    # allowed_projects：超管为全部，否则取用户权限列表
+    # allowed_projects：超管为全部（含共享项目），否则取用户权限列表
+    # 用 DeliveryProject.project_code 而非 Delivery.project，确保共享项目也出现在列表中
     if request.user.is_superuser:
-        allowed_projects = sorted(filter(None, Delivery.objects.values_list('project', flat=True).distinct()))
+        allowed_projects = sorted(filter(None, DeliveryProject.objects.values_list('project_code', flat=True).distinct()))
     else:
         allowed_projects = request.user.get_allowed_projects()
 
@@ -2808,10 +2802,13 @@ def get_sequence_info(request):
     delivery_qs = get_permitted_delivery_qs(request.user)
 
     # 在权限范围内进一步按 selected_projects 过滤（防止越权）
+    # 用 project_links__project_code__in 而非 project__in，确保共享序列也能被过滤到
     if selected_projects:
         safe_selected = [p for p in selected_projects if p in allowed_projects]
         if safe_selected:
-            delivery_qs = delivery_qs.filter(project__in=safe_selected)
+            delivery_qs = delivery_qs.filter(
+                project_links__project_code__in=safe_selected
+            ).distinct()
         else:
             delivery_qs = Delivery.objects.none()
 
