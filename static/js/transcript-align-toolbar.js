@@ -11,7 +11,7 @@
     function getCheckedRmCodes() {
         return Array.prototype.map.call(
             document.querySelectorAll('input.row-checkbox:checked'),
-            function (cb) { return cb.closest('tr').dataset.rmCode; }
+            function (cb) { var tr = cb.closest('tr'); return tr ? tr.dataset.rmCode : null; }
         ).filter(Boolean);
     }
 
