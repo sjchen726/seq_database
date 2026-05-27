@@ -1623,19 +1623,27 @@ def check_duplicates(df, ss_groups, target_project=None):
                     # Empty naked seq means all-unknown tokens — skip silently
                     continue
 
-                ss_deliveries = Delivery.objects.filter(
+                ss_deliveries = list(Delivery.objects.filter(
                     sequence__seq=ss_naked,
                     delivery5=ss_d5,
                     delivery3=ss_d3,
-                ).prefetch_related('project_links')
+                ).prefetch_related('project_links'))
+
+                if ss_deliveries:
+                    ss_duplex_ids = [d.duplex_id for d in ss_deliveries]
+                    matched_as_duplex_ids = set(
+                        Delivery.objects.filter(
+                            sequence__seq=as_naked,
+                            delivery5=as_d5,
+                            delivery3=as_d3,
+                            duplex_id__in=ss_duplex_ids,
+                        ).values_list('duplex_id', flat=True)
+                    )
+                else:
+                    matched_as_duplex_ids = set()
 
                 for ss_del in ss_deliveries:
-                    exists_as = Delivery.objects.filter(
-                        sequence__seq=as_naked,
-                        delivery5=as_d5,
-                        delivery3=as_d3,
-                        duplex_id=ss_del.duplex_id,
-                    ).exists()
+                    exists_as = ss_del.duplex_id in matched_as_duplex_ids
 
                     if exists_as:
                         existing_projects = list(
