@@ -3861,7 +3861,8 @@ def transcript_align_prepare(request):
         return redirect('seq_list')
 
     step = request.POST.get('step', 'init')
-    back_url = request.POST.get('back_url') or reverse('seq_list')
+    _raw_back = request.POST.get('back_url', '')
+    back_url = _raw_back if _raw_back.startswith('/') else reverse('seq_list')
 
     # ── step='init'：收集选中序列，渲染填写表格 ──────────────────────
     if step == 'init':
