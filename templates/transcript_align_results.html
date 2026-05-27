@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block page_title %} — 转录本定位结果{% endblock %}
+
+{% block topbar_content %}
+  <span class="ds-topbar-title">转录本定位 — 比对结果</span>
+  <span class="ds-topbar-spacer"></span>
+{% endblock %}
+
+{% block content %}
+<div class="ds-table-card" style="max-width:1100px;margin:24px auto;padding:24px;">
+  <h2 style="font-size:15px;font-weight:700;margin-bottom:6px;">比对结果预览</h2>
+  <p style="font-size:13px;color:#666;margin-bottom:4px;">
+    勾选要写入的行，点「确认写入」后将更新 Transcript 和 Position 字段。
+  </p>
+  <p style="font-size:12px;color:#f59e0b;margin-bottom:16px;">
+    ⚠️ 得分低于 {{ score_threshold }} 的结果以橙色标注，请核实后再写入。
+  </p>
+
+  <form method="POST" action="{% url 'transcript_align_results' %}">
+    {% csrf_token %}
+
+    <table class="ds-table" style="width:100%;margin-bottom:16px;table-layout:fixed;">
+      <colgroup>
+        <col style="width:36px;">
+        <col style="width:130px;">
+        <col style="width:130px;">
+        <col style="width:120px;">
+        <col style="width:70px;">
+        <col style="width:70px;">
+        <col>
+      </colgroup>
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="ta-select-all" title="全选/取消"></th>
+          <th>Duplex ID</th>
+          <th>Transcript</th>
+          <th>位置</th>
+          <th>得分</th>
+          <th>错配数</th>
+          <th>对齐图</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in ta_results %}
+        {% if row.error %}
+        <tr style="background:#fff1f2;">
+          <td></td>
+          <td style="font-family:monospace;font-size:12px;">{{ row.duplex_id }}</td>
+          <td style="font-size:12px;">{{ row.nm }}</td>
+          <td colspan="4" style="color:#dc2626;font-size:12px;">❌ {{ row.error }}</td>
+        </tr>
+        {% elif row.score is not None and row.score < score_threshold %}
+        <tr style="background:#fffbeb;">
+          <td><input type="checkbox" name="selected" value="{{ row.duplex_id }}" checked></td>
+          <td style="font-family:monospace;font-size:12px;">{{ row.duplex_id }}</td>
+          <td style="font-size:12px;">{{ row.nm }}</td>
+          <td style="font-size:12px;color:#f59e0b;font-weight:600;">{{ row.position }} ⚠️</td>
+          <td style="font-size:12px;color:#f59e0b;">{{ row.score }}</td>
+          <td style="font-size:12px;">{{ row.mismatch_count }}</td>
+          <td>
+            {% if row.alignment_str %}
+            <button type="button" class="ta-toggle ds-btn ds-btn-ghost" style="font-size:11px;height:24px;padding:0 6px;">展开</button>
+            <pre class="ta-pre" style="display:none;font-size:11px;background:#f8fafc;padding:8px;border-radius:4px;overflow-x:auto;margin-top:4px;">{{ row.alignment_str }}</pre>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td><input type="checkbox" name="selected" value="{{ row.duplex_id }}" checked></td>
+          <td style="font-family:monospace;font-size:12px;">{{ row.duplex_id }}</td>
+          <td style="font-size:12px;">{{ row.nm }}</td>
+          <td style="font-size:12px;font-weight:600;">{{ row.position }}</td>
+          <td style="font-size:12px;">{{ row.score }}</td>
+          <td style="font-size:12px;">{{ row.mismatch_count }}</td>
+          <td>
+            {% if row.alignment_str %}
+            <button type="button" class="ta-toggle ds-btn ds-btn-ghost" style="font-size:11px;height:24px;padding:0 6px;">展开</button>
+            <pre class="ta-pre" style="display:none;font-size:11px;background:#f8fafc;padding:8px;border-radius:4px;overflow-x:auto;margin-top:4px;">{{ row.alignment_str }}</pre>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div style="display:flex;gap:8px;align-items:center;">
+      <a href="{{ back_url }}" class="ds-btn ds-btn-ghost" style="height:30px;font-size:12px;">放弃，返回列表</a>
+      <button type="submit" class="ds-btn ds-btn-primary" style="height:30px;font-size:12px;">✅ 确认写入选中</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// 对齐图折叠展开
+document.querySelectorAll('.ta-toggle').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var pre = this.nextElementSibling;
+        var hidden = pre.style.display === 'none';
+        pre.style.display = hidden ? 'block' : 'none';
+        this.textContent = hidden ? '收起' : '展开';
+    });
+});
+
+// 全选 / 取消全选
+var selectAll = document.getElementById('ta-select-all');
+if (selectAll) {
+    selectAll.addEventListener('change', function() {
+        document.querySelectorAll('input[name="selected"]').forEach(function(cb) {
+            cb.checked = selectAll.checked;
+        });
+    });
+}
+</script>
+{% endblock %}

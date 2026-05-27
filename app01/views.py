@@ -3954,7 +3954,42 @@ def transcript_align_prepare(request):
 @login_required
 def transcript_align_results(request):
     """结果预览页：GET 从 session 读结果；POST 写 DB。"""
-    return HttpResponse('transcript_align_results placeholder')
+    if request.method == 'GET':
+        ta_results = request.session.get('ta_results')
+        if not ta_results:
+            messages.warning(request, '无比对结果，请重新操作')
+            return redirect('seq_list')
+        from django.conf import settings
+        score_threshold = getattr(settings, 'SW_SCORE_THRESHOLD', 15)
+        return render(request, 'transcript_align_results.html', {
+            'ta_results': ta_results,
+            'back_url': request.session.get('ta_back_url', '/seq_list/'),
+            'score_threshold': score_threshold,
+        })
+
+    if request.method == 'POST':
+        ta_results = request.session.pop('ta_results', [])
+        back_url = request.session.pop('ta_back_url', '/seq_list/')
+        selected = set(request.POST.getlist('selected'))
+
+        saved_count = 0
+        for row in ta_results:
+            if row['duplex_id'] not in selected:
+                continue
+            if row.get('error') or not row.get('position') or not row.get('sequence_rm_code'):
+                continue
+            seqinfo, _ = SeqInfo.objects.get_or_create(
+                sequence_id=row['sequence_rm_code']
+            )
+            seqinfo.Transcript = row['nm']
+            seqinfo.Pos = row['position']
+            seqinfo.save()
+            saved_count += 1
+
+        messages.success(request, f'已更新 {saved_count} 条序列的转录本位置信息')
+        return redirect(back_url)
+
+    return redirect('seq_list')
 
 
 # ─────────────────────────────────────────────────────────────────────────────
