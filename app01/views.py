@@ -1615,7 +1615,9 @@ def check_duplicates(df, ss_groups, target_project=None):
                     continue
                 seen_combinations.add(combo_key)
 
-                # 2️⃣ 与数据库查重 — 用裸序列匹配，避免 linker_seq 格式化差异导致漏检
+                # 2️⃣ 与数据库查重 — 完整匹配：裸序列 + delivery5/3 + 中间修饰码
+                # modify_seq 直接取自 CSV（与 save_deliveries 存库时相同），无格式转换风险
+                # naked_seq 作为辅助过滤（利用数据库索引加速），modify_seq 保证精确匹配
                 ss_naked = extract_naked_seq(ss_clean_seq, _sm_map, _sm_norm_re)
                 as_naked = extract_naked_seq(as_clean_seq, _sm_map, _sm_norm_re)
 
@@ -1627,6 +1629,7 @@ def check_duplicates(df, ss_groups, target_project=None):
                     sequence__seq=ss_naked,
                     delivery5=ss_d5,
                     delivery3=ss_d3,
+                    modify_seq=ss_clean_seq,   # 中间修饰码也必须完全相同
                 ).prefetch_related('project_links'))
 
                 if ss_deliveries:
@@ -1636,6 +1639,7 @@ def check_duplicates(df, ss_groups, target_project=None):
                             sequence__seq=as_naked,
                             delivery5=as_d5,
                             delivery3=as_d3,
+                            modify_seq=as_clean_seq,   # AS 端同样精确匹配
                             duplex_id__in=ss_duplex_ids,
                         ).values_list('duplex_id', flat=True)
                     )
