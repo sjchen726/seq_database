@@ -165,3 +165,6 @@ LOGGING = {
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# ── 转录本定位工具 ──────────────────────────────────────────────────
+ENTREZ_EMAIL = 'admin@seqdb.local'   # NCBI Entrez 必填邮箱
+SW_SCORE_THRESHOLD = 15              # Smith-Waterman 最低得分阈值
