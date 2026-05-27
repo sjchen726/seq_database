@@ -1713,7 +1713,7 @@ def normalize_tmp_seq_with_combo(modify_seq: str) -> str:
 
 def extract_naked_seq(clean_seq: str, sm_map: dict, sm_norm_re) -> str:
     """
-    Derive the bare nucleotide sequence (AUGCI only) from a clean modify_seq
+    Derive the bare nucleotide sequence (AUGCI and INVAB tokens) from a clean modify_seq
     (brackets already stripped). Uses the caller-preloaded SeqModule map/regex
     to avoid repeated DB hits.
 
@@ -1723,7 +1723,7 @@ def extract_naked_seq(clean_seq: str, sm_map: dict, sm_norm_re) -> str:
         sm_norm_re:  compiled regex of SeqModule keywords (or None if empty).
 
     Returns:
-        Bare nucleotide string, e.g. "AUGCAUGC".
+        Bare nucleotide/INVAB token string, e.g. "AUGCAUGC" or "INVABAUGCAU".
     """
     tmp = normalize_tmp_seq_with_combo(clean_seq)
     if sm_norm_re:
