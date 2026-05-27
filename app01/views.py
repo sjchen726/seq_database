@@ -1326,6 +1326,17 @@ def run_preflight_check(df, ss_groups):
         if _dm_sorted else None
     )
 
+    # 预加载 LinkerModule 关键词（如 LK1）——出现在序列中间 [] 括号内，
+    # 是双段序列的结构性连接词，注册裸序列时忽略，未知 token 检查中也应剔除
+    _lk_module_keywords = sorted(
+        [m.keyword for m in LinkerModule.objects.all() if m.keyword],
+        key=len, reverse=True,
+    )
+    _lk_strip_re = (
+        re.compile('|'.join(re.escape(k) for k in _lk_module_keywords), re.IGNORECASE)
+        if _lk_module_keywords else None
+    )
+
     has_transcript_col = 'Transcript' in df.columns
     has_position_col = 'Position' in df.columns
 
@@ -1379,9 +1390,11 @@ def run_preflight_check(df, ss_groups):
             }
 
             # ── 检测未知 SeqModule token（复用 tmp）──
-            # First remove known DeliveryModule keywords (e.g. LK1, L96 from dual-segment linkers)
+            # 移除 DeliveryModule 关键词（如 L96）
             tmp_check = _dm_strip_re.sub('', tmp) if _dm_strip_re else tmp
-            # Then strip parens, brackets, hyphens, and digits
+            # 移除 LinkerModule 关键词（如 LK1）——双段序列中间 [] 内的连接词，不是修饰 token
+            tmp_check = _lk_strip_re.sub('', tmp_check) if _lk_strip_re else tmp_check
+            # 去掉括号、连字符、数字
             tmp_check = re.sub(r'[\(\)\[\]\-\d]', '', tmp_check)
             unknowns = re.findall(r'[^AUGCIaugci\s]', tmp_check)
             if unknowns:
@@ -1696,6 +1709,27 @@ def normalize_tmp_seq_with_combo(modify_seq: str) -> str:
 
     tmp_seq = combo_re.sub(combo_to_left, tmp_seq)
     return tmp_seq
+
+
+def extract_naked_seq(clean_seq: str, sm_map: dict, sm_norm_re) -> str:
+    """
+    Derive the bare nucleotide sequence (AUGCI only) from a clean modify_seq
+    (brackets already stripped). Uses the caller-preloaded SeqModule map/regex
+    to avoid repeated DB hits.
+
+    Args:
+        clean_seq:   modify_seq with leading/trailing [...] already removed.
+        sm_map:      {keyword.upper(): base_char} from SeqModule.
+        sm_norm_re:  compiled regex of SeqModule keywords (or None if empty).
+
+    Returns:
+        Bare nucleotide string, e.g. "AUGCAUGC".
+    """
+    tmp = normalize_tmp_seq_with_combo(clean_seq)
+    if sm_norm_re:
+        tmp = sm_norm_re.sub(lambda m: sm_map[m.group(0).upper()], tmp)
+    tmp = re.sub(r'\(.*?\)', '', tmp)
+    return ''.join(re.findall(r'(INVAB|[AUGCI])', tmp))
 
 
 @transaction.atomic
