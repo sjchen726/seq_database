@@ -276,6 +276,12 @@ document.getElementById('seq_type_selector').addEventListener('change', function
     const selectedType = this.value;
     const url = new URL(window.location.href);
     url.searchParams.set('seq_type', selectedType);
+    // Preserve current DataTables page so user returns to same position after switch
+    try {
+        if (window.table) {
+            url.searchParams.set('dt_page', window.table.page());
+        }
+    } catch (e) { /* table not ready, ignore */ }
     window.location.href = url.toString();
 });
 </script>
