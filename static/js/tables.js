@@ -138,7 +138,7 @@ $(document).ready(function() {
     });
 
     // 每次重绘后，确保编辑/关联链接包含当前页码参数 dt_page
-    table.on('draw', function() {
+    function updateEditLinkDtPage() {
         try {
             const currentPage = table.page(); // 0-based
             // 编辑链接
@@ -167,7 +167,8 @@ $(document).ready(function() {
         } catch (e) {
             console.warn('append dt_page failed', e);
         }
-    });
+    }
+    table.on('draw', updateEditLinkDtPage);
 
     // 高亮处理：读取 URL 参数 highlight_duplex / highlight_delivery 并在表格中标记对应行
     function applyHighlights() {
@@ -250,6 +251,7 @@ $(document).ready(function() {
                 const pageIndex = parseInt(dtPage, 10);
                 if (!isNaN(pageIndex)) {
                     table.page(pageIndex).draw(false);
+                    updateEditLinkDtPage(); // inject dt_page into links immediately
                     return;
                 }
             }
@@ -259,6 +261,7 @@ $(document).ready(function() {
 
         // 默认绘制第一页
         table.draw();
+        updateEditLinkDtPage(); // inject dt_page=0 into links immediately
     })();
 });
 
