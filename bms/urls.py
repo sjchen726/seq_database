@@ -55,6 +55,9 @@ urlpatterns = [
     path('edit_seqmodule/', views.edit_seqmodule, name='edit_seqmodule'),
     path('upload_seqmodules/', views.upload_seqmodules, name='upload_seqmodules'),
     path('delete_seqmodule/', views.delete_seqmodule, name='delete_seqmodule'),
+    path('linkermodule_list/', views.linkermodule_list, name='linkermodule_list'),
+    path('edit_linkermodule/', views.edit_linkermodule, name='edit_linkermodule'),
+    path('delete_linkermodule/', views.delete_linkermodule, name='delete_linkermodule'),
 
     path('search/', views.search, name='search'),                          # 搜索功能
     path('clone_delivery/', views.clone_delivery, name='clone_delivery'),
@@ -64,6 +67,8 @@ urlpatterns = [
     path('download_selected/', views.download_selected, name='download_selected'),
     path('blast_seq/', views.blast_seq, name='blast_seq'),
     path('multi_blast/', views.multi_blast, name='multi_blast'),
+    path('transcript_align/', views.transcript_align_prepare, name='transcript_align_prepare'),
+    path('transcript_align/results/', views.transcript_align_results, name='transcript_align_results'),
 
     # Experiment data
     path('experiment/add/', views.add_experiment, name='add_experiment'),

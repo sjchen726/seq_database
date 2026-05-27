@@ -3848,6 +3848,22 @@ def multi_blast(request):
         'seq_ids': seq_ids,
     })
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Transcript alignment views
+# ─────────────────────────────────────────────────────────────────────────────
+
+@login_required
+def transcript_align_prepare(request):
+    """准备页：接收来自 seq_list 的 rm_code 列表（step='init'），
+    或接收填好 NM 号的表单（step='run'）触发比对。"""
+    return HttpResponse('transcript_align_prepare placeholder')
+
+
+@login_required
+def transcript_align_results(request):
+    """结果预览页：GET 从 session 读结果；POST 写 DB。"""
+    return HttpResponse('transcript_align_results placeholder')
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Experiment data views
