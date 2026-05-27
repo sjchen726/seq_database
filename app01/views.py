@@ -3959,7 +3959,6 @@ def transcript_align_results(request):
         if not ta_results:
             messages.warning(request, '无比对结果，请重新操作')
             return redirect('seq_list')
-        from django.conf import settings
         score_threshold = getattr(settings, 'SW_SCORE_THRESHOLD', 15)
         return render(request, 'transcript_align_results.html', {
             'ta_results': ta_results,

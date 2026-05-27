@@ -55,7 +55,7 @@
           <td style="font-family:monospace;font-size:12px;">{{ row.duplex_id }}</td>
           <td style="font-size:12px;">{{ row.nm }}</td>
           <td style="font-size:12px;color:#f59e0b;font-weight:600;">{{ row.position }} ⚠️</td>
-          <td style="font-size:12px;color:#f59e0b;">{{ row.score }}</td>
+          <td style="font-size:12px;color:#f59e0b;">{{ row.score|floatformat:"-1" }}</td>
           <td style="font-size:12px;">{{ row.mismatch_count }}</td>
           <td>
             {% if row.alignment_str %}
@@ -70,7 +70,7 @@
           <td style="font-family:monospace;font-size:12px;">{{ row.duplex_id }}</td>
           <td style="font-size:12px;">{{ row.nm }}</td>
           <td style="font-size:12px;font-weight:600;">{{ row.position }}</td>
-          <td style="font-size:12px;">{{ row.score }}</td>
+          <td style="font-size:12px;">{{ row.score|floatformat:"-1" }}</td>
           <td style="font-size:12px;">{{ row.mismatch_count }}</td>
           <td>
             {% if row.alignment_str %}
