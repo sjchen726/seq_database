@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block page_title %} — 转录本定位{% endblock %}
+
+{% block topbar_content %}
+  <span class="ds-topbar-title">转录本定位 — 准备</span>
+  <span class="ds-topbar-spacer"></span>
+  <a href="{{ back_url }}" class="ds-btn ds-btn-ghost">&#8592; 返回</a>
+{% endblock %}
+
+{% block content %}
+<div class="ds-table-card" style="max-width:900px;margin:24px auto;padding:24px;">
+  <h2 style="font-size:15px;font-weight:700;margin-bottom:6px;">确认比对序列与转录本</h2>
+  <p style="font-size:13px;color:#666;margin-bottom:16px;">
+    请为每条序列填写目标转录本的 NCBI 登录号（如 <code>NM_001234</code>）。
+    已有值已预填，可直接修改。⚠️ 标注的条目写入后将覆盖现有 Position。
+  </p>
+
+  <form method="POST" action="{% url 'transcript_align_prepare' %}">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="run">
+    <input type="hidden" name="back_url" value="{{ back_url }}">
+
+    <table class="ds-table" style="width:100%;margin-bottom:16px;">
+      <thead>
+        <tr>
+          <th style="width:130px;">Duplex ID</th>
+          <th style="width:180px;">SS 裸序列预览</th>
+          <th>Transcript（NM 登录号）</th>
+          <th style="width:140px;">现有 Position</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td style="font-family:monospace;font-size:12px;">
+            {{ row.duplex_id }}
+            <input type="hidden" name="duplex_id" value="{{ row.duplex_id }}">
+          </td>
+          <td style="font-family:monospace;font-size:12px;color:#555;">{{ row.naked_preview }}</td>
+          <td>
+            <input type="text" name="nm"
+                   value="{{ row.existing_transcript }}"
+                   placeholder="如 NM_001234"
+                   required
+                   class="ds-form-control"
+                   style="width:100%;max-width:280px;">
+          </td>
+          <td style="font-size:12px;">
+            {% if row.existing_pos %}
+              <span style="color:#f59e0b;font-weight:600;">{{ row.existing_pos }} ⚠️ 将覆盖</span>
+            {% else %}
+              <span style="color:#94a3b8;">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div style="display:flex;gap:8px;align-items:center;">
+      <a href="{{ back_url }}" class="ds-btn ds-btn-ghost" style="height:30px;font-size:12px;">取消</a>
+      <button type="submit" class="ds-btn ds-btn-primary" style="height:30px;font-size:12px;">
+        🧬 开始比对 →
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

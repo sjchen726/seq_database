@@ -3,6 +3,7 @@ import hashlib
 
 from django.http import  HttpResponse, Http404, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate, login, get_user_model, update_session_auth_hash
 from django.contrib.auth.hashers import make_password, check_password   
@@ -3856,7 +3857,98 @@ def multi_blast(request):
 def transcript_align_prepare(request):
     """准备页：接收来自 seq_list 的 rm_code 列表（step='init'），
     或接收填好 NM 号的表单（step='run'）触发比对。"""
-    return HttpResponse('transcript_align_prepare placeholder')
+    if request.method != 'POST':
+        return redirect('seq_list')
+
+    step = request.POST.get('step', 'init')
+    back_url = request.POST.get('back_url') or reverse('seq_list')
+
+    # ── step='init'：收集选中序列，渲染填写表格 ──────────────────────
+    if step == 'init':
+        rm_codes = request.POST.getlist('rm_code')
+        if not rm_codes:
+            messages.warning(request, '请先勾选至少一条序列')
+            return redirect(back_url)
+
+        rows = []
+        seen_duplex = set()
+        for rm_code in rm_codes:
+            duplex_id = _resolve_duplex_id(rm_code, request.user)
+            if not duplex_id or duplex_id in seen_duplex:
+                continue
+            seen_duplex.add(duplex_id)
+
+            # SS 裸序列预览（注意：get_ss_naked_dna 返回 3-tuple）
+            from app01.transcript_align import get_ss_naked_dna
+            naked_dna, seq_rm_code, used_rc = get_ss_naked_dna(duplex_id, request.user)
+            if naked_dna:
+                preview = naked_dna[:15] + ('…' if len(naked_dna) > 15 else '')
+                if used_rc:
+                    preview += ' (RC)'
+            else:
+                preview = '—'
+
+            # 现有 SeqInfo
+            existing_transcript = ''
+            existing_pos = ''
+            if seq_rm_code:
+                si = SeqInfo.objects.filter(sequence_id=seq_rm_code).first()
+                if si:
+                    existing_transcript = si.Transcript or ''
+                    existing_pos = si.Pos or ''
+
+            rows.append({
+                'duplex_id': duplex_id,
+                'naked_preview': preview,
+                'existing_transcript': existing_transcript,
+                'existing_pos': existing_pos,
+            })
+
+        if not rows:
+            messages.warning(request, '未找到有效序列，请检查选中项')
+            return redirect(back_url)
+
+        return render(request, 'transcript_align_prepare.html', {
+            'rows': rows,
+            'back_url': back_url,
+        })
+
+    # ── step='run'：运行比对，结果写 session，redirect 到结果页 ──────
+    if step == 'run':
+        duplex_ids = request.POST.getlist('duplex_id')
+        nm_values = request.POST.getlist('nm')
+
+        if len(duplex_ids) > 20:
+            messages.error(request, '每次最多处理 20 条序列，请分批操作')
+            return redirect(back_url)
+
+        from app01.transcript_align import align_duplex
+        threshold = getattr(settings, 'SW_SCORE_THRESHOLD', 15)
+
+        ta_results = []
+        for duplex_id, nm in zip(duplex_ids, nm_values):
+            nm = nm.strip()
+            if not nm:
+                ta_results.append({
+                    'duplex_id': duplex_id,
+                    'nm': nm,
+                    'sequence_rm_code': None,
+                    'position': None,
+                    'score': None,
+                    'mismatch_count': None,
+                    'mismatches': [],
+                    'alignment_str': '',
+                    'used_rc': False,
+                    'error': 'Transcript 登录号不能为空',
+                })
+                continue
+            ta_results.append(align_duplex(duplex_id, nm, request.user, threshold))
+
+        request.session['ta_results'] = ta_results
+        request.session['ta_back_url'] = back_url
+        return redirect('transcript_align_results')
+
+    return redirect(back_url)
 
 
 @login_required
