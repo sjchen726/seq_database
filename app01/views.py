@@ -1344,6 +1344,7 @@ def run_preflight_check(df, ss_groups):
         pair_has_unknown_module = False
         pair_unknown_tokens = []
         pair_original_lines = [int(ss_row['__original_line']), int(as_row['__original_line'])]
+        pair_delivery_warnings = []
 
         extracted = {}  # 'ss' or 'as' → {naked_seq, delivery5, delivery3, row_id, original_line}
 
@@ -1397,7 +1398,7 @@ def run_preflight_check(df, ss_groups):
                     if token and token not in dm_keywords:
                         row_dm_unknowns.append(token)
             if row_dm_unknowns:
-                unknown_delivery_warnings.append({
+                pair_delivery_warnings.append({
                     'row_id': extracted[label]['row_id'],
                     'unknown_tokens': row_dm_unknowns,
                     'original_line': extracted[label]['original_line'],
@@ -1412,6 +1413,10 @@ def run_preflight_check(df, ss_groups):
                 'original_lines': pair_original_lines,
             })
             continue
+
+        # Only add delivery warnings for pairs that reach the clean path
+        if pair_delivery_warnings:
+            unknown_delivery_warnings.extend(pair_delivery_warnings)
 
         # ── 检查裸序列是否已注册 ──
         ss_exists = Sequence.objects.filter(seq=extracted['ss']['naked_seq'], seq_type='SS').exists()
@@ -1478,26 +1483,31 @@ def auto_register_bare_sequences(auto_register_pairs, username):
                     raise ValueError(f"naked_ss or naked_as is empty/None: ss={naked_ss!r}, as={naked_as!r}")
 
                 # ── SS ──
-                if not ss_exists:
-                    ss_obj = Sequence.objects.create(
-                        seq=naked_ss, seq_type='SS', created_at=created_at
-                    )
-                    registered_log.append(f"SS created: {naked_ss} ({ss_obj.rm_code}) by {username}")
-                else:
-                    ss_obj = Sequence.objects.filter(seq=naked_ss, seq_type='SS').first()
-                    if ss_obj is None:
-                        raise ValueError(f"SS sequence not found in DB: seq={naked_ss!r}")
+                ss_obj, ss_created = Sequence.objects.get_or_create(
+                    seq=naked_ss, seq_type='SS',
+                    defaults={'created_at': created_at},
+                )
+                if ss_obj is None:
+                    raise ValueError(f"SS sequence not found in DB: seq={naked_ss!r}")
 
                 # ── AS ──
-                if not as_exists:
-                    as_obj = Sequence.objects.create(
-                        seq=naked_as, seq_type='AS', created_at=created_at
-                    )
-                    registered_log.append(f"AS created: {naked_as} ({as_obj.rm_code}) by {username}")
-                else:
-                    as_obj = Sequence.objects.filter(seq=naked_as, seq_type='AS').first()
-                    if as_obj is None:
-                        raise ValueError(f"AS sequence not found in DB: seq={naked_as!r}")
+                as_obj, as_created = Sequence.objects.get_or_create(
+                    seq=naked_as, seq_type='AS',
+                    defaults={'created_at': created_at},
+                )
+                if as_obj is None:
+                    raise ValueError(f"AS sequence not found in DB: seq={naked_as!r}")
+
+                if ss_created or as_created:
+                    registered_log.append({
+                        'naked_ss': naked_ss,
+                        'naked_as': naked_as,
+                        'ss_created': ss_created,
+                        'as_created': as_created,
+                        'ss_rm_code': ss_obj.rm_code,
+                        'as_rm_code': as_obj.rm_code,
+                        'username': username,
+                    })
 
                 # ── Duplex ──
                 duplex_seq_str = f"{naked_as}, {naked_ss}"
@@ -1505,8 +1515,6 @@ def auto_register_bare_sequences(auto_register_pairs, username):
                     seq=duplex_seq_str, seq_type='duplex',
                     defaults={'created_at': created_at},
                 )
-                if duplex_created:
-                    registered_log.append(f"Duplex created: {duplex_seq_str[:60]}")
 
                 # ── DuplexRelationship ──
                 DuplexRelationship.objects.get_or_create(
@@ -2018,7 +2026,7 @@ def upload_delivery_info(request):
                     'unknown_delivery_warnings': preflight['unknown_delivery_warnings'],
                 }
                 clean_groups_serializable = [
-                    [g[0], g[1], list(g[2])] for g in preflight['clean_groups']
+                    [g[0], g[1], [int(rid) for rid in g[2]]] for g in preflight['clean_groups']
                 ]
 
                 request.session['preflight_result'] = preflight_serializable
@@ -2226,9 +2234,8 @@ def confirm_upload_preflight(request):
                             failed_row_ids.add(pair['as_row_id'])
                 if failed_row_ids:
                     clean_groups = [
-                        (g[0], g[1], [rid for rid in g[2] if rid not in failed_row_ids])
-                        for g in clean_groups
-                        if any(rid not in failed_row_ids for rid in g[2])
+                        g for g in clean_groups
+                        if not any(rid in failed_row_ids for rid in g[2])
                     ]
 
             target_project = None
