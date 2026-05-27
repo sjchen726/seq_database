@@ -18,9 +18,22 @@ class TranscriptFetchError(Exception):
 _COMP = {'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C'}
 
 
+def _patch_ssl_if_needed() -> None:
+    """macOS Python 自带 SSL 有时缺系统根证书，尝试用 certifi 补丁。"""
+    import ssl
+    try:
+        import certifi
+        ssl._create_default_https_context = lambda: ssl.create_default_context(
+            cafile=certifi.where()
+        )
+    except ImportError:
+        pass  # 没有 certifi 就维持默认，由系统证书决定
+
+
 def fetch_transcript_seq(accession: str) -> str:
     """调用 NCBI Entrez efetch 拉取 FASTA，返回大写 DNA 字符串（T，不含 U）。
     失败时抛 TranscriptFetchError。"""
+    _patch_ssl_if_needed()
     from Bio import Entrez, SeqIO
     from django.conf import settings
 
