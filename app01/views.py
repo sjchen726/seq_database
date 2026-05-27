@@ -2184,16 +2184,21 @@ def confirm_share_deliveries(request):
         pending = request.session.pop('pending_shares', [])
         pending_df_json = request.session.pop('pending_upload_df', None)
         pending_repeated_ids = request.session.pop('pending_repeated_ids', [])
+        request.session.pop('pending_unpaired', None)  # clean up session key
 
         choices = request.POST.getlist('action')
         shared_count = 0
         for i, item in enumerate(pending):
             action = choices[i] if i < len(choices) else 'skip'
             if action == 'share':
-                DeliveryProject.objects.get_or_create(
-                    delivery_id=item['existing_delivery_id'],
-                    project_code=item['target_project'],
-                )
+                # Share all deliveries in the duplex (SS + AS), not just the SS strand
+                duplex_id = item['existing_duplex_id']
+                target_proj = item['target_project']
+                for d in Delivery.objects.filter(duplex_id=duplex_id):
+                    DeliveryProject.objects.get_or_create(
+                        delivery_id=d.id,
+                        project_code=target_proj,
+                    )
                 shared_count += 1
 
         if pending_df_json:
