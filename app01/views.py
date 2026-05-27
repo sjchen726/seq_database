@@ -2721,7 +2721,7 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
                     )
                     # 计算共享项目（超出原始 Delivery.project 的额外项目）
                     first_d = group_deliveries[0]
-                    all_projs = list(first_d.project_links.values_list('project_code', flat=True))
+                    all_projs = [pl.project_code for pl in first_d.project_links.all()]
                     item['shared_projects'] = [p for p in all_projs if p != first_d.project]
                     duplex_group_map[(project, duplex_id)].append(item)
             else:
@@ -2738,7 +2738,7 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
                 )
                 # 计算共享项目（超出原始 Delivery.project 的额外项目）
                 first_d = group_deliveries[0]
-                all_projs = list(first_d.project_links.values_list('project_code', flat=True))
+                all_projs = [pl.project_code for pl in first_d.project_links.all()]
                 item['shared_projects'] = [p for p in all_projs if p != first_d.project]
                 duplex_group_map[(project, duplex_id)].append(item)
 
@@ -2775,7 +2775,7 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
             'items': sorted_items,
             'aligned_columns': aligned,
             'latest_update_time': max(times) if times else None,
-            'shared_projects': items[0].get('shared_projects', []) if items else [],
+            'shared_projects': sorted(set().union(*[it.get('shared_projects', []) for it in items]) - {project}),
         })
 
     return sequence_groups
