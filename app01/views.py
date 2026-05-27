@@ -2666,6 +2666,8 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
         value 是 Sequence.rm_code（6 位字符串）。
         此处命名保留原逻辑，避免影响 build_sequence_data 及模板。
     """
+    # 预取 project_links，避免后续访问产生 N+1 查询
+    delivery_qs = delivery_qs.prefetch_related('project_links')
     # 预加载 DeliveryModule 和 LinkerModule（一次查询，供所有 build_sequence_data 调用复用）
     _dm_modules = list(DeliveryModule.objects.all())
     _color_map = get_color_map(modules=_dm_modules)
@@ -2717,6 +2719,10 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
                         color_map=_color_map,
                         lk_modules=_lk_modules,
                     )
+                    # 计算共享项目（超出原始 Delivery.project 的额外项目）
+                    first_d = group_deliveries[0]
+                    all_projs = list(first_d.project_links.values_list('project_code', flat=True))
+                    item['shared_projects'] = [p for p in all_projs if p != first_d.project]
                     duplex_group_map[(project, duplex_id)].append(item)
             else:
                 item = build_sequence_data(
@@ -2730,6 +2736,10 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
                     color_map=_color_map,
                     lk_modules=_lk_modules,
                 )
+                # 计算共享项目（超出原始 Delivery.project 的额外项目）
+                first_d = group_deliveries[0]
+                all_projs = list(first_d.project_links.values_list('project_code', flat=True))
+                item['shared_projects'] = [p for p in all_projs if p != first_d.project]
                 duplex_group_map[(project, duplex_id)].append(item)
 
     sequence_groups = []
@@ -2765,6 +2775,7 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
             'items': sorted_items,
             'aligned_columns': aligned,
             'latest_update_time': max(times) if times else None,
+            'shared_projects': items[0].get('shared_projects', []) if items else [],
         })
 
     return sequence_groups
