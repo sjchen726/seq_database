@@ -2112,19 +2112,20 @@ def upload_delivery_info(request):
                 df, ss_groups, target_project=target_project
             )
 
-            # 有跨项目重复 → 暂存数据，跳转到确认页
+            # 有跨项目重复 → 自动建立 DeliveryProject 关联，不跳转确认页
+            shared_pairs_count = 0
             if cross_project_duplicates:
-                # 把跨项目重复行从 df 中排除，剩余行正常保存
                 cross_row_ids = set()
                 for item in cross_project_duplicates:
+                    DeliveryProject.objects.get_or_create(
+                        delivery_id=item['existing_delivery_id'],
+                        project_code=item['target_project'] or '',
+                    )
                     cross_row_ids.update(item['row_ids'])
-                df_normal = df[~df.index.isin(cross_row_ids)].copy()
-
-                request.session['pending_shares'] = cross_project_duplicates
-                request.session['pending_upload_df'] = df_normal.to_json()
-                request.session['pending_repeated_ids'] = list(repeated_ids)
-                request.session['pending_unpaired'] = unpaired_ss_as or []
-                return redirect('confirm_share')
+                    shared_pairs_count += 1
+                # 从 df 和 ss_groups 中剔除已共享的行，不重复写入
+                df = df[~df.index.isin(cross_row_ids)].copy()
+                ss_groups = [g for g in ss_groups if not cross_row_ids.intersection(set(g[2]))]
 
             duplex_id_map = assign_duplex_ids(df, ss_groups, repeated_ids)
 
@@ -2144,13 +2145,15 @@ def upload_delivery_info(request):
                 # 提示用户有未成对的 SS 或 AS 序列
                 messages.warning(request, f"有未成对的 SS 或 AS 序列，请查看并下载未配对的序列文件。")
 
+            if shared_pairs_count:
+                messages.info(request, f"已将 {shared_pairs_count} 对序列从其他项目自动共享至 {target_project}。")
             if upload_meg:
                 messages.success(request, f"共 {len(upload_meg)} 条序列成功上传！")
             if repeated_ids:
                 messages.warning(request, f"有 {len(duplicate_meg)} 条重复序列！")
             if unregistered_meg:
                 messages.warning(request, f"有 {len(unregistered_meg)} 条序列未注册，请先注册！")
-            if not upload_meg:
+            if not upload_meg and not shared_pairs_count:
                 messages.error(request, "无新的序列信息上传")
 
             return render(request, 'upload_delivery_info.html', {
@@ -2305,17 +2308,19 @@ def confirm_upload_preflight(request):
                 df, clean_groups, target_project=target_project
             )
 
+            # 有跨项目重复 → 自动建立 DeliveryProject 关联，不跳转确认页
+            shared_pairs_count = 0
             if cross_project_duplicates:
                 cross_row_ids = set()
                 for item in cross_project_duplicates:
+                    DeliveryProject.objects.get_or_create(
+                        delivery_id=item['existing_delivery_id'],
+                        project_code=item['target_project'] or '',
+                    )
                     cross_row_ids.update(item['row_ids'])
-                df_normal = df[~df.index.isin(cross_row_ids)].copy()
-                request.session['pending_shares'] = cross_project_duplicates
-                request.session['pending_upload_df'] = df_normal.to_json()
-                request.session['pending_repeated_ids'] = list(repeated_ids)
-                request.session['pending_unpaired'] = []
-                request.session.pop('preflight_skip_csv_path', None)
-                return redirect('confirm_share')
+                    shared_pairs_count += 1
+                df = df[~df.index.isin(cross_row_ids)].copy()
+                clean_groups = [g for g in clean_groups if not cross_row_ids.intersection(set(g[2]))]
 
             duplex_id_map = assign_duplex_ids(df, clean_groups, repeated_ids)
             username = request.user.username
@@ -2326,13 +2331,15 @@ def confirm_upload_preflight(request):
             save_repeated_to_session(request, df, repeated_ids, unregistered_log, username)
             request.session.pop('preflight_skip_csv_path', None)
 
+            if shared_pairs_count:
+                messages.info(request, f"已将 {shared_pairs_count} 对序列从其他项目自动共享至 {target_project}。")
             if upload_meg:
                 messages.success(request, f"共 {len(upload_meg)} 条序列成功上传！")
             if repeated_ids:
                 messages.warning(request, f"有 {len(duplicate_meg)} 条重复序列！")
             if unregistered_meg:
                 messages.warning(request, f"有 {len(unregistered_meg)} 条序列未注册！")
-            if not upload_meg:
+            if not upload_meg and not shared_pairs_count:
                 messages.error(request, "无新的序列信息上传")
 
             # Clear session keys after successful upload
