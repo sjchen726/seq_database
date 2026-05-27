@@ -2458,7 +2458,7 @@ def clone_delivery(request):
         # Before creating, run grouping and duplicate check (reuse existing logic)
         try:
             ss_groups, unpaired = group_sequences(df)
-            repeated_ids, duplicate_meg = check_duplicates(df, ss_groups)
+            repeated_ids, duplicate_meg, _ = check_duplicates(df, ss_groups)
         except Exception as e:
             return JsonResponse({'error': f'precheck failed: {e}'}, status=500)
 
