@@ -3570,6 +3570,8 @@ def edit_seqmodule(request):
         return redirect('/seqmodule_list/')
 
     module_id = request.GET.get('id')
+    page = request.GET.get('page', 1)
+    q = request.GET.get('q', '')
     module = None
 
     if module_id:
@@ -3597,6 +3599,8 @@ def edit_seqmodule(request):
                         'base_char': base_char,
                         'linker_connector': request.POST.get('linker_connector', 'o').strip() or 'o',
                     },
+                    'page': request.POST.get('page', 1),
+                    'q': request.POST.get('q', ''),
                 })
 
         if module is None:
@@ -3605,23 +3609,39 @@ def edit_seqmodule(request):
                 return render(request, 'edit_seqmodule.html', {
                     'module': None,
                     'form_data': {'keyword': keyword, 'base_char': base_char, 'linker_connector': linker_connector},
+                    'page': request.POST.get('page', 1),
+                    'q': request.POST.get('q', ''),
                 })
             SeqModule.objects.create(keyword=keyword, base_char=base_char or None, linker_connector=linker_connector)
-            return redirect('/seqmodule_list/')
+            page = request.POST.get('page', 1)
+            q = request.POST.get('q', '')
+            qs = f'?page={page}'
+            if q:
+                from urllib.parse import quote
+                qs += f'&q={quote(q)}'
+            return redirect(f'/seqmodule_list/{qs}')
         else:
             if keyword != module.keyword and SeqModule.objects.filter(keyword=keyword).exists():
                 messages.warning(request, f'修饰模块"{keyword}"已存在，请换一个名称。')
                 return render(request, 'edit_seqmodule.html', {
                     'module': module,
                     'form_data': {'keyword': keyword, 'base_char': base_char, 'linker_connector': linker_connector},
+                    'page': request.POST.get('page', 1),
+                    'q': request.POST.get('q', ''),
                 })
             module.keyword = keyword
             module.base_char = base_char or None
             module.linker_connector = linker_connector
             module.save()
-            return redirect('/seqmodule_list/')
+            page = request.POST.get('page', 1)
+            q = request.POST.get('q', '')
+            qs = f'?page={page}'
+            if q:
+                from urllib.parse import quote
+                qs += f'&q={quote(q)}'
+            return redirect(f'/seqmodule_list/{qs}')
 
-    return render(request, 'edit_seqmodule.html', {'module': module})
+    return render(request, 'edit_seqmodule.html', {'module': module, 'page': page, 'q': q})
 
 
 @login_required
@@ -3635,7 +3655,13 @@ def delete_seqmodule(request):
     try:
         module = SeqModule.objects.get(id=module_id)
         module.delete()
-        return redirect('/seqmodule_list/')
+        page = request.POST.get('page', 1)
+        q = request.POST.get('q', '')
+        qs = f'?page={page}'
+        if q:
+            from urllib.parse import quote
+            qs += f'&q={quote(q)}'
+        return redirect(f'/seqmodule_list/{qs}')
     except SeqModule.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': '修饰模块不存在'})
 
