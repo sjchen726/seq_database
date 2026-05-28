@@ -3559,7 +3559,7 @@ def seqmodule_list(request):
     page = int(request.GET.get('page', 1))
     q = request.GET.get('q', '').strip()
 
-    queryset = SeqModule.objects.all().values('id', 'keyword', 'base_char', 'linker_connector')
+    queryset = SeqModule.objects.all()
     if q:
         queryset = queryset.filter(keyword__icontains=q)
     paginator = Paginator(queryset, page_size)
