@@ -1538,16 +1538,12 @@ def auto_register_bare_sequences(auto_register_pairs, username):
                     seq=naked_ss, seq_type='SS',
                     defaults={'created_at': created_at},
                 )
-                if ss_obj is None:
-                    raise ValueError(f"SS sequence not found in DB: seq={naked_ss!r}")
 
                 # ── AS ──
                 as_obj, as_created = Sequence.objects.get_or_create(
                     seq=naked_as, seq_type='AS',
                     defaults={'created_at': created_at},
                 )
-                if as_obj is None:
-                    raise ValueError(f"AS sequence not found in DB: seq={naked_as!r}")
 
                 if ss_created or as_created:
                     registered_log.append({
