@@ -2110,6 +2110,7 @@ def upload_delivery_info(request):
                 bool(preflight['auto_register_pairs'])
                 or bool(preflight['unknown_module_pairs'])
                 or bool(preflight['unknown_delivery_warnings'])
+                or bool(preflight.get('ambiguous_pairs'))
             )
 
             if needs_confirm:
@@ -2124,6 +2125,7 @@ def upload_delivery_info(request):
                     'auto_register_pairs': preflight['auto_register_pairs'],
                     'unknown_module_pairs': preflight['unknown_module_pairs'],
                     'unknown_delivery_warnings': preflight['unknown_delivery_warnings'],
+                    'ambiguous_pairs': preflight.get('ambiguous_pairs', []),
                 }
                 clean_groups_serializable = [
                     [g[0], g[1], [int(rid) for rid in g[2]]] for g in preflight['clean_groups']
@@ -2282,6 +2284,7 @@ def confirm_upload_preflight(request):
             'auto_register_pairs': preflight.get('auto_register_pairs', []),
             'unknown_module_pairs': preflight.get('unknown_module_pairs', []),
             'unknown_delivery_warnings': preflight.get('unknown_delivery_warnings', []),
+            'ambiguous_pairs': preflight.get('ambiguous_pairs', []),
         })
 
     if request.method == 'POST':
