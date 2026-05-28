@@ -1799,7 +1799,7 @@ def extract_naked_seq(clean_seq: str, sm_map: dict, sm_norm_re) -> str:
 
 
 @transaction.atomic
-def save_deliveries(df, duplex_id_map, username):
+def save_deliveries(df, duplex_id_map, username, sm_overrides=None):
     upload_log = []
     upload_meg = []
     unregistered_meg = []
@@ -1814,6 +1814,9 @@ def save_deliveries(df, duplex_id_map, username):
     _sm_list = sorted(SeqModule.objects.filter(base_char__isnull=False).exclude(base_char=''),
                       key=lambda m: len(m.keyword), reverse=True)
     _sm_map = {m.keyword.upper(): m.base_char for m in _sm_list}
+    # 应用外部消歧覆盖（供含多值 token 的序列上传后正确推导裸序列）
+    if sm_overrides:
+        _sm_map.update({k.upper(): v for k, v in sm_overrides.items()})
     if _sm_list:
         _sm_norm_re = re.compile(
             '|'.join(re.escape(m.keyword) for m in _sm_list),
@@ -2289,6 +2292,25 @@ def confirm_upload_preflight(request):
 
     if request.method == 'POST':
         try:
+            # ── 0. 读取消歧选择 ──
+            disambig_choices = {}  # { ss_row_id (int): { 'BU01': 'A' } }
+            for key, val in request.POST.items():
+                if key.startswith('disambig_'):
+                    parts = key.split('_', 2)
+                    if len(parts) == 3:
+                        try:
+                            row_id = int(parts[1])
+                        except ValueError:
+                            continue
+                        token = parts[2]
+                        disambig_choices.setdefault(row_id, {})[token] = val.strip()
+
+            # 构建全局 sm_overrides（token→单值）
+            sm_overrides = {}
+            for token_choices in disambig_choices.values():
+                for token, char in token_choices.items():
+                    sm_overrides.setdefault(token.upper(), char)
+
             preflight = request.session.get('preflight_result', {})
             df_json = request.session.get('preflight_df_json', None)
             clean_groups_json = request.session.get('preflight_clean_groups', None)
@@ -2320,6 +2342,80 @@ def confirm_upload_preflight(request):
 
             raw_groups = json.loads(clean_groups_json)
             clean_groups = [(g[0], g[1], g[2]) for g in raw_groups]
+
+            # ── [新增] 消歧对处理：将用户选择的 base_char 用于推导裸序列，并入 clean_groups ──
+            ambiguous_pairs_session = preflight.get('ambiguous_pairs', [])
+            if ambiguous_pairs_session and disambig_choices:
+                # 构建用于裸序列推导的 sm_map（含消歧覆盖）
+                _sm_for_disambig = sorted(
+                    SeqModule.objects.filter(base_char__isnull=False).exclude(base_char=''),
+                    key=lambda m: len(m.keyword), reverse=True,
+                )
+                _sm_map_disambig = {m.keyword.upper(): m.base_char for m in _sm_for_disambig}
+                _sm_map_disambig.update({k.upper(): v for k, v in sm_overrides.items()})
+                _sm_re_disambig = (
+                    re.compile('|'.join(re.escape(m.keyword) for m in _sm_for_disambig), re.IGNORECASE)
+                    if _sm_for_disambig else None
+                )
+
+                ambig_auto_pairs = []   # 需要自动注册的消歧对
+                for pair in ambiguous_pairs_session:
+                    ss_rid = pair['ss_row_id']
+                    if ss_rid not in disambig_choices:
+                        continue  # 用户未提交该对的选择（前端 required 应阻止，但防御性跳过）
+
+                    ambig_naked = {}
+                    for label, row_id in [('ss', ss_rid), ('as', pair['as_row_id'])]:
+                        row = df.loc[row_id]
+                        full_seq = str(row['Modify_seq'])
+                        clean_seq = re.sub(r'^\[.*?\]', '', full_seq)
+                        clean_seq = re.sub(r'\[.*?\]$', '', clean_seq)
+                        tmp = normalize_tmp_seq_with_combo(clean_seq)
+                        if _sm_re_disambig:
+                            tmp = _sm_re_disambig.sub(
+                                lambda m, mp=_sm_map_disambig: mp[m.group(0).upper()], tmp
+                            )
+                        tmp = re.sub(r'\(.*?\)', '', tmp)
+                        naked_seq = ''.join(re.findall(r'(INVAB|[AUGCI])', tmp))
+                        ambig_naked[label] = naked_seq
+
+                    # 检查裸序列是否已注册
+                    ss_exists = Sequence.objects.filter(seq=ambig_naked['ss'], seq_type='SS').exists()
+                    as_exists = Sequence.objects.filter(seq=ambig_naked['as'], seq_type='AS').exists()
+                    if not ss_exists or not as_exists:
+                        ambig_auto_pairs.append({
+                            'ss_row_id': ss_rid,
+                            'as_row_id': pair['as_row_id'],
+                            'naked_ss': ambig_naked['ss'],
+                            'naked_as': ambig_naked['as'],
+                            'ss_exists': ss_exists,
+                            'as_exists': as_exists,
+                            'transcript': '',
+                            'position': '',
+                            'project': pair['project'],
+                        })
+
+                    # 将消歧对并入 clean_groups
+                    clean_groups.append((None, pair['project'], [ss_rid, pair['as_row_id']]))
+
+                # 自动注册消歧对的裸序列（如有未注册）
+                if ambig_auto_pairs and user_type != 'guest':
+                    reg_log2, skip_log2 = auto_register_bare_sequences(
+                        ambig_auto_pairs, request.user.username
+                    )
+                    if reg_log2:
+                        messages.success(request, f"消歧后自动注册 {len(reg_log2)} 条序列")
+                    if skip_log2:
+                        messages.warning(request, f"{len(skip_log2)} 对消歧序列注册失败，已跳过")
+                    # 从 clean_groups 移除注册失败的
+                    if skip_log2:
+                        failed_ss = {e['naked_ss'] for e in skip_log2 if e.get('naked_ss')}
+                        failed_rids = set()
+                        for p in ambig_auto_pairs:
+                            if p.get('naked_ss') in failed_ss:
+                                failed_rids.update([p['ss_row_id'], p['as_row_id']])
+                        if failed_rids:
+                            clean_groups = [g for g in clean_groups if not any(r in failed_rids for r in g[2])]
 
             # Remove failed-registration pairs from clean_groups to avoid confusing
             # "unregistered" warnings from save_deliveries
@@ -2361,7 +2457,7 @@ def confirm_upload_preflight(request):
             duplex_id_map = assign_duplex_ids(df, clean_groups, repeated_ids)
             username = request.user.username
             upload_meg, upload_log, unregistered_meg, unregistered_log = save_deliveries(
-                df, duplex_id_map, username
+                df, duplex_id_map, username, sm_overrides=sm_overrides if sm_overrides else None
             )
             write_upload_log(upload_log, username)
             save_repeated_to_session(request, df, repeated_ids, unregistered_log, username)
