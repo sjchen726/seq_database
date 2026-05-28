@@ -76,7 +76,7 @@ class Delivery(models.Model):
     sequence = models.ForeignKey(Sequence, on_delete=models.CASCADE, related_name='deliveries')  # 外键关联到Sequence表，裸序列的相关ID
     modify_seq = models.CharField('modify_seq', max_length=500, null=True)  # 存储序列（如 AUGC）
     linker_seq = models.CharField('linker_seq', max_length=500, null=True)  # 存储序列（如 AoUoGo）
-    naked_length = models.CharField('Naked Length', max_length=100, null=True)  # Naked Length
+    naked_length = models.IntegerField('Naked Length', null=True, blank=True)  # Naked Length
     delivery5 = models.CharField('Delivery5', max_length=100, null=True)  # 递送内容 5
     delivery3 = models.CharField('Delivery3', max_length=100, null=True)  # 递送内容 3
     Strand_MWs = models.CharField('Strand_MWs', max_length=64, null=True) # 分子量
