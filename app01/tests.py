@@ -1,6 +1,6 @@
 import pandas as pd
 from django.test import TestCase
-from app01.models import Sequence, SeqModule, DeliveryModule, Delivery, DeliveryProject
+from app01.models import Sequence, SeqModule, DeliveryModule, Delivery, DeliveryProject, LmsUser
 from app01.views import (
     normalize_middle_brackets, run_preflight_check, group_sequences,
     auto_register_bare_sequences, check_duplicates,
@@ -388,3 +388,26 @@ class CheckDuplicatesTests(TestCase):
         ss_groups = self._make_ss_groups(df)
         repeated_ids, duplicate_meg, cross = check_duplicates(df, ss_groups, target_project='BPR-3T03')
         self.assertEqual(len(cross), 1, "Should detect cross-project even with mismatched linker_seq")
+
+
+class DropAuthorSecurityTests(TestCase):
+    def setUp(self):
+        self.admin = LmsUser.objects.create_user(
+            username='admin_test', password='pass', user_type='admin', is_admin=True
+        )
+        self.victim = LmsUser.objects.create_user(
+            username='victim_user', password='pass', user_type='guest'
+        )
+        self.client.login(username='admin_test', password='pass')
+
+    def test_get_request_returns_400(self):
+        """GET to drop_author must be rejected (CSRF protection)."""
+        response = self.client.get(f'/drop_author/?id={self.victim.id}')
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue(LmsUser.objects.filter(id=self.victim.id).exists())
+
+    def test_post_request_deletes_user(self):
+        """POST to drop_author with valid id deletes the user."""
+        response = self.client.post('/drop_author/', {'id': self.victim.id})
+        self.assertIn(response.status_code, [200, 302])
+        self.assertFalse(LmsUser.objects.filter(id=self.victim.id).exists())
