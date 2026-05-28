@@ -47,7 +47,7 @@
               <div class="ds-actions">
                 <a class="ds-act ds-act-edit" href="{% url 'edit_author' %}?id={{ user.id }}" title="编辑">&#9998;</a>
                 <form method="POST" action="{% url 'drop_author' %}" style="display:inline;"
-                      onsubmit="return confirm('确定删除用户 {{ user.username }}？');">
+                      onsubmit="return confirm('确定删除用户 {{ user.username|escapejs }}？');">
                   {% csrf_token %}
                   <input type="hidden" name="id" value="{{ user.id }}">
                   <button type="submit" class="ds-act" style="color:#ef4444;background:none;border:none;cursor:pointer;" title="删除">&#128465;</button>

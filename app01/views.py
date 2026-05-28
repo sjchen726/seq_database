@@ -1,7 +1,7 @@
 from collections import defaultdict
 import hashlib
 
-from django.http import  HttpResponse, Http404, JsonResponse, HttpResponseBadRequest
+from django.http import  HttpResponse, Http404, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
@@ -498,10 +498,8 @@ def add_author(request):
 
 # 删除用户
 @login_required
+@require_POST
 def drop_author(request):
-    if request.method != 'POST':
-        return HttpResponseBadRequest('仅支持 POST 请求')
-
     if not request.user.is_authenticated or (not request.user.is_superuser and not request.user.is_admin):
         messages.error(request, '您没有权限删除用户信息！')
         return redirect('/author_list/')

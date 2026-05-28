@@ -403,7 +403,7 @@ class DropAuthorSecurityTests(TestCase):
     def test_get_request_returns_400(self):
         """GET to drop_author must be rejected (CSRF protection)."""
         response = self.client.get(f'/drop_author/?id={self.victim.id}')
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 405)
         self.assertTrue(LmsUser.objects.filter(id=self.victim.id).exists())
 
     def test_post_request_deletes_user(self):
