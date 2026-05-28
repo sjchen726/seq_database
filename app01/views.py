@@ -4788,6 +4788,8 @@ def edit_linkermodule(request):
     module = None
     if module_id:
         module = get_object_or_404(LinkerModule, id=module_id)
+    page = request.GET.get('page', 1)
+    q = request.GET.get('q', '')
 
     if request.method == 'POST':
         keyword = request.POST.get('keyword', '').strip()
@@ -4799,22 +4801,38 @@ def edit_linkermodule(request):
                 return render(request, 'edit_linkermodule.html', {
                     'module': None,
                     'form_data': {'keyword': keyword, 'description': description},
+                    'page': request.POST.get('page', 1),
+                    'q': request.POST.get('q', ''),
                 })
             LinkerModule.objects.create(keyword=keyword, description=description or None)
-            return redirect('/linkermodule_list/')
+            page = request.POST.get('page', 1)
+            q = request.POST.get('q', '')
+            qs = f'?page={page}'
+            if q:
+                from urllib.parse import quote
+                qs += f'&q={quote(q)}'
+            return redirect(f'/linkermodule_list/{qs}')
         else:
             if keyword != module.keyword and LinkerModule.objects.filter(keyword=keyword).exists():
                 messages.warning(request, f'Linker 模块"{keyword}"已存在，请换一个名称。')
                 return render(request, 'edit_linkermodule.html', {
                     'module': module,
                     'form_data': {'keyword': keyword, 'description': description},
+                    'page': request.POST.get('page', 1),
+                    'q': request.POST.get('q', ''),
                 })
             module.keyword = keyword
             module.description = description or None
             module.save()
-            return redirect('/linkermodule_list/')
+            page = request.POST.get('page', 1)
+            q = request.POST.get('q', '')
+            qs = f'?page={page}'
+            if q:
+                from urllib.parse import quote
+                qs += f'&q={quote(q)}'
+            return redirect(f'/linkermodule_list/{qs}')
 
-    return render(request, 'edit_linkermodule.html', {'module': module})
+    return render(request, 'edit_linkermodule.html', {'module': module, 'page': page, 'q': q})
 
 
 @login_required
@@ -4828,7 +4846,13 @@ def delete_linkermodule(request):
     try:
         module = LinkerModule.objects.get(id=module_id)
         module.delete()
-        return redirect('/linkermodule_list/')
+        page = request.POST.get('page', 1)
+        q = request.POST.get('q', '')
+        qs = f'?page={page}'
+        if q:
+            from urllib.parse import quote
+            qs += f'&q={quote(q)}'
+        return redirect(f'/linkermodule_list/{qs}')
     except LinkerModule.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Linker 模块不存在'})
 

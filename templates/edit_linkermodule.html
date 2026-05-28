@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block page_title %} — {% if module %}编辑 Linker 模块{% else %}新增 Linker 模块{% endif %}{% endblock %}
+{% block topbar_content %}
+  <span class="ds-topbar-title">{% if module %}编辑 Linker 模块{% else %}新增 Linker 模块{% endif %}</span>
+  <span class="ds-topbar-spacer"></span>
+  <a href="{% url 'linkermodule_list' %}{% if page %}?page={{ page }}&q={{ q|urlencode }}{% endif %}" class="ds-btn ds-btn-ghost">返回列表</a>
+{% endblock %}
+{% block content %}
+<div class="ds-form-page">
+  <div class="ds-form-card">
+    <div class="ds-form-card-title">{% if module %}编辑 Linker 模块{% else %}新增 Linker 模块{% endif %}</div>
+    {% if messages %}
+    <div class="ds-alert-list">
+      {% for message in messages %}
+      <div class="ds-alert {% if 'error' in message.tags %}ds-alert-error{% elif 'success' in message.tags %}ds-alert-success{% else %}ds-alert-info{% endif %}">{{ message }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <form method="POST" action="{% if module %}{% url 'edit_linkermodule' %}?id={{ module.id }}{% else %}{% url 'edit_linkermodule' %}{% endif %}">
+      {% csrf_token %}
+      <input type="hidden" name="page" value="{{ page|default:1 }}">
+      <input type="hidden" name="q" value="{{ q|default:'' }}">
+      <div class="ds-form-row">
+        <label class="ds-form-label" for="keyword">Keyword（Linker 关键词）</label>
+        <input type="text" id="keyword" name="keyword" class="ds-form-control"
+          placeholder="如 LK1、P96、P91"
+          value="{% if form_data %}{{ form_data.keyword }}{% elif module %}{{ module.keyword }}{% endif %}"
+          required>
+        <p class="ds-form-hint">序列中该 token 被识别为 Linker 单元，不会将递送模块标签悬空显示在其上方</p>
+      </div>
+      <div class="ds-form-row">
+        <label class="ds-form-label" for="description">描述（可选）</label>
+        <input type="text" id="description" name="description" class="ds-form-control"
+          placeholder="简短说明，如"磷酸酯连接子""
+          value="{% if form_data %}{{ form_data.description }}{% elif module %}{{ module.description }}{% endif %}">
+      </div>
+      <div style="margin-top:24px;display:flex;justify-content:flex-end;gap:10px;">
+        <a href="{% url 'linkermodule_list' %}{% if page %}?page={{ page }}&q={{ q|urlencode }}{% endif %}" class="ds-btn ds-btn-ghost">返回</a>
+        <button type="submit" class="ds-btn ds-btn-primary"
+          onclick="return confirm('{% if module %}此操作将修改当前数据，您确定要更新吗？{% else %}此操作将创建新 Linker 模块，您确定吗？{% endif %}');">
+          {% if module %}更新{% else %}创建{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
