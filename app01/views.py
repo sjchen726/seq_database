@@ -3444,6 +3444,25 @@ def edit_seqmodule(request):
         base_char = request.POST.get('base_char', '').strip()
         linker_connector = request.POST.get('linker_connector', 'o').strip() or 'o'
 
+        # base_char 校验：每个值必须是 A/U/G/C/I/INVAB
+        VALID_BASE_CHARS = {'A', 'U', 'G', 'C', 'I', 'INVAB'}
+        if base_char:
+            bad_vals = [v.strip() for v in base_char.split(',')
+                        if v.strip() and v.strip() not in VALID_BASE_CHARS]
+            if bad_vals:
+                messages.error(
+                    request,
+                    f'无效碱基值：{", ".join(bad_vals)}。仅允许 A/U/G/C/I/INVAB，多个用逗号分隔（如 A,U）。'
+                )
+                return render(request, 'edit_seqmodule.html', {
+                    'module': module,
+                    'form_data': {
+                        'keyword': request.POST.get('keyword', '').strip(),
+                        'base_char': base_char,
+                        'linker_connector': request.POST.get('linker_connector', 'o').strip() or 'o',
+                    },
+                })
+
         if module is None:
             if SeqModule.objects.filter(keyword=keyword).exists():
                 messages.warning(request, f'修饰模块"{keyword}"已存在，请勿重复添加。')

@@ -30,6 +30,7 @@
         <input type="text" id="base_char" name="base_char" class="ds-form-control"
           placeholder="A / U / G / C / INVAB（纯连接符可留空）"
           value="{% if form_data %}{{ form_data.base_char }}{% elif module %}{{ module.base_char }}{% endif %}">
+        <p class="ds-form-hint">多个碱基用逗号分隔，如 A,U（仅允许 A / U / G / C / I / INVAB）</p>
       </div>
       <div class="ds-form-row">
         <label class="ds-form-label" for="linker_connector">连接符</label>
