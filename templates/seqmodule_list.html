@@ -36,16 +36,20 @@
         <tr>
           <td><code style="background:#f1f5f9;color:#334155;padding:2px 7px;border-radius:4px;font-size:11px;font-family:'DM Mono',monospace;white-space:nowrap;">{{ module.keyword }}</code></td>
           <td>
-            {% if module.base_char == 'A' %}
-              <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#dbeafe;color:#1d4ed8;">A</span>
-            {% elif module.base_char == 'U' %}
-              <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#ffedd5;color:#c2410c;">U</span>
-            {% elif module.base_char == 'G' %}
-              <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#dcfce7;color:#15803d;">G</span>
-            {% elif module.base_char == 'C' %}
-              <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#fce7f3;color:#9d174d;">C</span>
-            {% elif module.base_char %}
-              <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#f1f5f9;color:#475569;">{{ module.base_char }}</span>
+            {% if module.base_char_list %}
+              {% for c in module.base_char_list %}
+                {% if c == 'A' %}
+                  <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#dbeafe;color:#1d4ed8;">A</span>
+                {% elif c == 'U' %}
+                  <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#ffedd5;color:#c2410c;">U</span>
+                {% elif c == 'G' %}
+                  <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#dcfce7;color:#15803d;">G</span>
+                {% elif c == 'C' %}
+                  <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#fce7f3;color:#9d174d;">C</span>
+                {% else %}
+                  <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#f1f5f9;color:#475569;">{{ c }}</span>
+                {% endif %}
+              {% endfor %}
             {% else %}
               <span class="cell-dim">—</span>
             {% endif %}
