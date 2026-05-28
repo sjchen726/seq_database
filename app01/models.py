@@ -198,9 +198,29 @@ class DeliveryModule(models.Model):
 # 存储序列规范化修饰模块（用于 save_deliveries 和 add_o_to_all_rules）
 class SeqModule(models.Model):
     keyword = models.CharField(max_length=100, unique=True)          # 修饰码，如 "VP25A", "GU02", "T(MOE)"
-    base_char = models.CharField(max_length=10, null=True, blank=True)  # 对应裸碱基（A/U/G/C/INVAB），纯连接符留空
+    base_char = models.CharField(max_length=32, null=True, blank=True)  # 对应裸碱基（A/U/G/C/INVAB），纯连接符留空
     linker_connector = models.CharField(max_length=2, default='o')   # linker_seq 中当后一位不是 's' 且非末尾时追加的字符
     description = models.CharField(max_length=200, null=True, blank=True)
+
+    @property
+    def base_char_list(self):
+        """返回 base_char 各值的列表，如 'A,U' → ['A', 'U']；空则返回 []"""
+        if not self.base_char:
+            return []
+        return [c.strip() for c in self.base_char.split(',') if c.strip()]
+
+    def __str__(self):
+        return self.keyword
+
+
+class LinkerModule(models.Model):
+    keyword = models.CharField(max_length=100, unique=True)
+    description = models.CharField(max_length=200, null=True, blank=True)
+
+    class Meta:
+        ordering = ['keyword']
+        verbose_name = 'Linker 模块'
+        verbose_name_plural = 'Linker 模块'
 
     def __str__(self):
         return self.keyword
