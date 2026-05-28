@@ -32,6 +32,12 @@ class Sequence(models.Model):
             models.Index(fields=['seq_type']),
             models.Index(fields=['seq', 'seq_type'], name='idx_sequence_seq_seqtype'),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['seq', 'seq_type'],
+                name='unique_sequence_seq_seqtype',
+            ),
+        ]
 
     def __str__(self):
         return f"{self.seq_type} ({self.rm_code})"
