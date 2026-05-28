@@ -1314,9 +1314,20 @@ def run_preflight_check(df, ss_groups):
         key=lambda m: len(m.keyword), reverse=True,
     )
     _sm_map = {m.keyword.upper(): m.base_char for m in _sm_list}
+
+    # 多值 token（base_char 含逗号）→ 消歧映射
+    _ambig_map = {kw: bc for kw, bc in _sm_map.items() if ',' in bc}
+    _ambig_sorted = sorted(_ambig_map.keys(), key=len, reverse=True)
+    _ambig_re = (
+        re.compile('|'.join(re.escape(k) for k in _ambig_sorted), re.IGNORECASE)
+        if _ambig_sorted else None
+    )
+
+    # _sm_norm_re 只包含单值 token（排除多值），避免裸序列推导出错
+    _sm_list_single = [m for m in _sm_list if ',' not in (m.base_char or '')]
     _sm_norm_re = (
-        re.compile('|'.join(re.escape(m.keyword) for m in _sm_list), re.IGNORECASE)
-        if _sm_list else None
+        re.compile('|'.join(re.escape(m.keyword) for m in _sm_list_single), re.IGNORECASE)
+        if _sm_list_single else None
     )
 
     # 预加载 DeliveryModule 关键词集合，并构建用于 unknown-check 的正则（longest-match）
@@ -1344,6 +1355,7 @@ def run_preflight_check(df, ss_groups):
     auto_register_pairs = []
     unknown_module_pairs = []
     unknown_delivery_warnings = []
+    ambiguous_pairs = []           # 新增
     skip_group_indices = set()
 
     for group_idx, (_, project, group) in enumerate(ss_groups):
@@ -1357,6 +1369,7 @@ def run_preflight_check(df, ss_groups):
         pair_unknown_tokens = []
         pair_original_lines = [int(ss_row['__original_line']), int(as_row['__original_line'])]
         pair_delivery_warnings = []
+        pair_ambig_tokens = {}   # { 'BU01': ['A', 'U'] }
 
         extracted = {}  # 'ss' or 'as' → {naked_seq, delivery5, delivery3, row_id, original_line}
 
@@ -1375,6 +1388,16 @@ def run_preflight_check(df, ss_groups):
 
             # 一次规范化，复用 tmp for both naked_seq and unknown check
             tmp = normalize_tmp_seq_with_combo(clean_seq)
+
+            # ── [新增] 检测多值 token（必须在 sm 替换之前） ──
+            if _ambig_re:
+                for match in _ambig_re.finditer(tmp):
+                    token_upper = match.group(0).upper()
+                    if token_upper not in pair_ambig_tokens:
+                        pair_ambig_tokens[token_upper] = [
+                            c.strip() for c in _ambig_map[token_upper].split(',')
+                        ]
+
             if _sm_norm_re:
                 tmp = _sm_norm_re.sub(lambda m: _sm_map[m.group(0).upper()], tmp)
 
@@ -1417,6 +1440,19 @@ def run_preflight_check(df, ss_groups):
                     'unknown_tokens': row_dm_unknowns,
                     'original_line': extracted[label]['original_line'],
                 })
+
+        # ── [新增] 消歧对：含多值 token → 归入 ambiguous_pairs ──
+        if pair_ambig_tokens:
+            skip_group_indices.add(group_idx)
+            ambiguous_pairs.append({
+                'ss_row_id': ss_row_id,
+                'as_row_id': as_row_id,
+                'project': str(project).strip(),
+                'duplex_preview': str(ss_row['Modify_seq'])[:80],
+                'ambig_tokens': pair_ambig_tokens,
+                'original_lines': pair_original_lines,
+            })
+            continue
 
         if pair_has_unknown_module:
             skip_group_indices.add(group_idx)
@@ -1467,6 +1503,7 @@ def run_preflight_check(df, ss_groups):
         'auto_register_pairs': auto_register_pairs,
         'unknown_module_pairs': unknown_module_pairs,
         'unknown_delivery_warnings': unknown_delivery_warnings,
+        'ambiguous_pairs': ambiguous_pairs,
         'clean_groups': clean_groups,
     }
 
