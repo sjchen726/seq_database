@@ -1870,20 +1870,22 @@ def save_deliveries(df, duplex_id_map, username, sm_overrides=None):
                 'naked_length': naked_length
             })
 
-            if not Sequence.objects.filter(seq=naked_seq).exists():
+        # ── 批量查询本组所有裸序列（1 次 DB 查询代替 N 次）──
+        _naked_seqs = [item['naked_seq'] for item in detailed_rows]
+        _seq_cache = {s.seq: s for s in Sequence.objects.filter(seq__in=_naked_seqs)}
+
+        for item in detailed_rows:
+            if item['naked_seq'] not in _seq_cache:
                 all_registered = False
-
-                # 更稳妥地计算当前组的原始行号列表
                 group_lines = ",".join(str(r['__original_line']) for r in rows)
-
-                unregistered_meg.append(f"{row['Project']} ➜ {full_seq} ➜ {naked_seq}")
+                unregistered_meg.append(f"{item['row']['Project']} ➜ {item['full_seq']} ➜ {item['naked_seq']}")
                 unregistered_log.append({
-                    'Project': row['Project'],
+                    'Project': item['row']['Project'],
                     'duplex_id': duplex_id,
                     '行号组': group_lines,
-                    'origin_line': row['__original_line'],
-                    'Modify_seq': full_seq,
-                    'Unregistered': naked_seq,
+                    'origin_line': item['row']['__original_line'],
+                    'Modify_seq': item['full_seq'],
+                    'Unregistered': item['naked_seq'],
                     '原因': '组内存在未注册序列，整组未上传'
                 })
 
@@ -1896,7 +1898,7 @@ def save_deliveries(df, duplex_id_map, username, sm_overrides=None):
         # 处理每个详细行
         for item in detailed_rows:
             row = item['row']
-            sequence_obj = Sequence.objects.get(seq=item['naked_seq'])
+            sequence_obj = _seq_cache[item['naked_seq']]
             base_id = sequence_obj.rm_code
             current_delivery5 = item['delivery5']
             current_delivery3 = item['delivery3']
