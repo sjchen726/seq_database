@@ -416,13 +416,9 @@ def register_view(request):
         email = data.get("email")
         password = data.get("password")
         user_type = data.get("user_type")  # 获取用户类型
-   #     print(user_type)
-
         raw_premissions_projects = data.get('permissions_project')
-       # print(raw_premissions_projects)
         # 将选中的项目转换为逗号分隔的字符串
         new_author_permissions_project = ','.join([proj.strip() for proj in raw_premissions_projects.split(',') if proj.strip()])
-       # print(new_author_permissions_project)
         
 
         # 检查用户名和邮箱是否已存在
@@ -726,8 +722,6 @@ def edit_seq(request):
     # **检查是否有字段修改**
         changes = []
         if delivery and delivery.project != edit_project:
-     #       print(delivery.project)
-     #       print(edit_project)
             changes.append(f"Project: {delivery.project} → {edit_project}")
             delivery.project = edit_project
         if delivery and delivery.delivery5 != edit_delivery5:
@@ -1836,16 +1830,12 @@ def save_deliveries(df, duplex_id_map, username, sm_overrides=None):
             full_seq = row['Modify_seq']
             # 捕获序列最左侧的内容
             d5 = re.search(r'^\[([^\[\]]*)\]', full_seq)
-      #      print(d5)
             # 捕获序列最右侧的内容
             d3 = re.search(r'\[([^\[\]]*)\]$', full_seq)
-       #     print(d3)
             delivery5 = d5.group(1) if d5 else ''
             delivery3 = d3.group(1) if d3 else ''
             modify_seq = re.sub(r'^\[.*?\]', '', full_seq)
             modify_seq = re.sub(r'\[.*?\]$', '', modify_seq)
-         #   print(f"Processing row: {row['__original_line']}, full_seq: {full_seq}, modify_seq: {modify_seq[::-1]}")
-            
 
             # 规范化：strip combo，替换修饰码为裸碱基，提取 naked_seq
             tmp_seq = normalize_tmp_seq_with_combo(modify_seq)  # 去 combo 并大写
@@ -1902,9 +1892,6 @@ def save_deliveries(df, duplex_id_map, username, sm_overrides=None):
 
 
             key = (base_id, current_delivery5, current_linker_seq, current_delivery3)
-
-            # print(f"Key for this item: {key}")  # 调试输出
-            # print(f"Seen combinations so far: {seen_combinations}")  # 调试输出
 
             # 优先查数据库中是否有重复
             duplicate = Delivery.objects.filter(
@@ -3127,7 +3114,6 @@ def cor_seq(request):
     # 获取 Delivery 对象并获取 sequence_id
     delivery = get_object_or_404(Delivery, Q(id=query_id_tmp)&Q(seq_type=seq_type))  # 根据 query_id 获取 Delivery 对象
     query_id = delivery.sequence_id  # 获取该 Delivery 对应的 sequence_id
- #   print(f'3.{query_id}')
 
     # 根据前缀查双链关系
     if seq_type == "AS":
