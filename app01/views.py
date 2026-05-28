@@ -2218,35 +2218,41 @@ def confirm_share_deliveries(request):
         choices = request.POST.getlist('action')
         shared_count = 0
 
-        with transaction.atomic():
-            for i, item in enumerate(pending):
-                action = choices[i] if i < len(choices) else 'skip'
-                if action == 'share':
-                    # Share all deliveries in the duplex (SS + AS), not just the SS strand
-                    duplex_id = item['existing_duplex_id']
-                    target_proj = item['target_project']
-                    for d in Delivery.objects.filter(duplex_id=duplex_id):
-                        DeliveryProject.objects.get_or_create(
-                            delivery_id=d.id,
-                            project_code=target_proj,
-                        )
-                    shared_count += 1
+        try:
+            with transaction.atomic():
+                for i, item in enumerate(pending):
+                    action = choices[i] if i < len(choices) else 'skip'
+                    if action == 'share':
+                        # Share all deliveries in the duplex (SS + AS), not just the SS strand
+                        duplex_id = item['existing_duplex_id']
+                        target_proj = item['target_project']
+                        for d in Delivery.objects.filter(duplex_id=duplex_id):
+                            DeliveryProject.objects.get_or_create(
+                                delivery_id=d.id,
+                                project_code=target_proj,
+                            )
+                        shared_count += 1
 
-            if pending_df_json:
-                df = pd.read_json(pending_df_json)
-                if not df.empty:
-                    ss_groups, _ = group_sequences(df)
-                    repeated_ids, _, _ = check_duplicates(df, ss_groups)
-                    repeated_ids.update(pending_repeated_ids)
-                    duplex_id_map = assign_duplex_ids(df, ss_groups, repeated_ids)
-                    username = request.user.username
-                    upload_meg, upload_log, unregistered_meg, unregistered_log = save_deliveries(
-                        df, duplex_id_map, username
-                    )
-                    write_upload_log(upload_log, username)
-                    write_unregistered_log(unregistered_log, username)
-                    if upload_meg:
-                        messages.success(request, f"共 {len(upload_meg)} 条序列成功上传！")
+                if pending_df_json:
+                    df = pd.read_json(pending_df_json)
+                    if not df.empty:
+                        ss_groups, _ = group_sequences(df)
+                        repeated_ids, _, _ = check_duplicates(df, ss_groups)
+                        repeated_ids.update(pending_repeated_ids)
+                        duplex_id_map = assign_duplex_ids(df, ss_groups, repeated_ids)
+                        username = request.user.username
+                        upload_meg, upload_log, unregistered_meg, unregistered_log = save_deliveries(
+                            df, duplex_id_map, username
+                        )
+                        write_upload_log(upload_log, username)
+                        write_unregistered_log(unregistered_log, username)
+                        if upload_meg:
+                            messages.success(request, f"共 {len(upload_meg)} 条序列成功上传！")
+        except Exception as e:
+            _logger = logging.getLogger('edit_book_log')
+            _logger.exception("confirm_share_deliveries 事务失败")
+            messages.error(request, f"操作失败，所有更改已回滚：{e}")
+            return redirect('seq_delivery')
 
         skip_count = len(pending) - shared_count
         messages.success(request, f"成功共享 {shared_count} 条，跳过 {skip_count} 条。")
