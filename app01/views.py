@@ -2479,8 +2479,20 @@ def confirm_upload_preflight(request):
                 'repeated_count': len(repeated_ids),
             })
 
+        except KeyError as e:
+            messages.error(request, f"会话数据损坏，请重新上传文件（缺少字段: {e}）")
+            for key in ['preflight_result', 'preflight_df_json', 'preflight_clean_groups', 'preflight_skip_csv_path']:
+                request.session.pop(key, None)
+            return render(request, 'upload_delivery_info.html')
+        except (json.JSONDecodeError, ValueError) as e:
+            messages.error(request, f"数据解析失败，请重新上传文件：{e}")
+            for key in ['preflight_result', 'preflight_df_json', 'preflight_clean_groups', 'preflight_skip_csv_path']:
+                request.session.pop(key, None)
+            return render(request, 'upload_delivery_info.html')
         except Exception as e:
-            messages.error(request, f"文件处理失败：{e}")
+            _logger = logging.getLogger('edit_book_log')
+            _logger.exception("confirm_upload_preflight 未预期错误")
+            messages.error(request, f"文件处理失败，请联系管理员：{e}")
             for key in ['preflight_result', 'preflight_df_json', 'preflight_clean_groups', 'preflight_skip_csv_path']:
                 request.session.pop(key, None)
             return render(request, 'upload_delivery_info.html')
