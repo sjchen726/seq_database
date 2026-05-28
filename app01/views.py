@@ -4759,6 +4759,7 @@ def upload_experiment(request):
     return redirect('upload_experiment')
 
 
+@login_required
 def linkermodule_list(request):
     page_size = int(request.GET.get('page_size', 20))
     page = int(request.GET.get('page', 1))
