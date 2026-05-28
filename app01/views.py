@@ -2373,7 +2373,7 @@ def confirm_upload_preflight(request):
                         tmp = normalize_tmp_seq_with_combo(clean_seq)
                         if _sm_re_disambig:
                             tmp = _sm_re_disambig.sub(
-                                lambda m, mp=_sm_map_disambig: mp[m.group(0).upper()], tmp
+                                lambda m: _sm_map_disambig[m.group(0).upper()], tmp
                             )
                         tmp = re.sub(r'\(.*?\)', '', tmp)
                         naked_seq = ''.join(re.findall(r'(INVAB|[AUGCI])', tmp))
@@ -2457,7 +2457,7 @@ def confirm_upload_preflight(request):
             duplex_id_map = assign_duplex_ids(df, clean_groups, repeated_ids)
             username = request.user.username
             upload_meg, upload_log, unregistered_meg, unregistered_log = save_deliveries(
-                df, duplex_id_map, username, sm_overrides=sm_overrides if sm_overrides else None
+                df, duplex_id_map, username, sm_overrides=sm_overrides or None
             )
             write_upload_log(upload_log, username)
             save_repeated_to_session(request, df, repeated_ids, unregistered_log, username)
