@@ -29,6 +29,12 @@ from io import StringIO
 from django.conf import settings
 
 
+def _module_list_url(base: str, page, q: str) -> str:
+    """构建带 page/q 参数的模块列表页 redirect URL。"""
+    qs = f'?page={page}'
+    if q:
+        qs += f'&q={urllib.parse.quote(str(q))}'
+    return f'{base}{qs}'
 
 
 # 生成颜色映射规则（接受预加载的 modules 避免循环内重复查询）
@@ -3613,11 +3619,7 @@ def edit_seqmodule(request):
             SeqModule.objects.create(keyword=keyword, base_char=base_char or None, linker_connector=linker_connector)
             page = request.POST.get('page', 1)
             q = request.POST.get('q', '')
-            qs = f'?page={page}'
-            if q:
-                from urllib.parse import quote
-                qs += f'&q={quote(q)}'
-            return redirect(f'/seqmodule_list/{qs}')
+            return redirect(_module_list_url('/seqmodule_list/', page, q))
         else:
             if keyword != module.keyword and SeqModule.objects.filter(keyword=keyword).exists():
                 messages.warning(request, f'修饰模块"{keyword}"已存在，请换一个名称。')
@@ -3633,11 +3635,7 @@ def edit_seqmodule(request):
             module.save()
             page = request.POST.get('page', 1)
             q = request.POST.get('q', '')
-            qs = f'?page={page}'
-            if q:
-                from urllib.parse import quote
-                qs += f'&q={quote(q)}'
-            return redirect(f'/seqmodule_list/{qs}')
+            return redirect(_module_list_url('/seqmodule_list/', page, q))
 
     return render(request, 'edit_seqmodule.html', {'module': module, 'page': page, 'q': q})
 
@@ -3655,11 +3653,7 @@ def delete_seqmodule(request):
         module.delete()
         page = request.POST.get('page', 1)
         q = request.POST.get('q', '')
-        qs = f'?page={page}'
-        if q:
-            from urllib.parse import quote
-            qs += f'&q={quote(q)}'
-        return redirect(f'/seqmodule_list/{qs}')
+        return redirect(_module_list_url('/seqmodule_list/', page, q))
     except SeqModule.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': '修饰模块不存在'})
 
@@ -4806,11 +4800,7 @@ def edit_linkermodule(request):
             LinkerModule.objects.create(keyword=keyword, description=description or None)
             page = request.POST.get('page', 1)
             q = request.POST.get('q', '')
-            qs = f'?page={page}'
-            if q:
-                from urllib.parse import quote
-                qs += f'&q={quote(q)}'
-            return redirect(f'/linkermodule_list/{qs}')
+            return redirect(_module_list_url('/linkermodule_list/', page, q))
         else:
             if keyword != module.keyword and LinkerModule.objects.filter(keyword=keyword).exists():
                 messages.warning(request, f'Linker 模块"{keyword}"已存在，请换一个名称。')
@@ -4825,11 +4815,7 @@ def edit_linkermodule(request):
             module.save()
             page = request.POST.get('page', 1)
             q = request.POST.get('q', '')
-            qs = f'?page={page}'
-            if q:
-                from urllib.parse import quote
-                qs += f'&q={quote(q)}'
-            return redirect(f'/linkermodule_list/{qs}')
+            return redirect(_module_list_url('/linkermodule_list/', page, q))
 
     return render(request, 'edit_linkermodule.html', {'module': module, 'page': page, 'q': q})
 
@@ -4847,11 +4833,7 @@ def delete_linkermodule(request):
         module.delete()
         page = request.POST.get('page', 1)
         q = request.POST.get('q', '')
-        qs = f'?page={page}'
-        if q:
-            from urllib.parse import quote
-            qs += f'&q={quote(q)}'
-        return redirect(f'/linkermodule_list/{qs}')
+        return redirect(_module_list_url('/linkermodule_list/', page, q))
     except LinkerModule.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Linker 模块不存在'})
 
