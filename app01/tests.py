@@ -466,3 +466,37 @@ class DownloadSelectedPermissionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         content = response.content.decode('utf-8-sig')
         self.assertIn('BP000001', content)
+
+
+class EditRegSeqProjectTests(TestCase):
+    def setUp(self):
+        self.admin = LmsUser.objects.create_user(
+            username='admin2', password='pass', user_type='admin', is_admin=True
+        )
+        self.client.login(username='admin2', password='pass')
+        self.seq = Sequence.objects.create(seq='AUGCAU', seq_type='SS')
+        self.seqinfo = SeqInfo.objects.create(
+            sequence=self.seq,
+            project='OLD-PROJECT',
+            Pos='1',
+            Transcript='NM_001',
+            Remark='',
+        )
+
+    def test_edit_project_is_saved(self):
+        """Submitting a new project value must persist to SeqInfo.project."""
+        response = self.client.post(
+            f'/edit_reg_seq/?id={self.seq.rm_code}',
+            {
+                'edit_project': 'NEW-PROJECT',
+                'edit_position': '1',
+                'edit_Transcript': 'NM_001',
+                'edit_Remark': '',
+                'edit_date': '',
+            }
+        )
+        self.seqinfo.refresh_from_db()
+        self.assertEqual(
+            self.seqinfo.project, 'NEW-PROJECT',
+            f"Expected 'NEW-PROJECT', got '{self.seqinfo.project}'"
+        )

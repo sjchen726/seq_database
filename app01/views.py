@@ -3261,7 +3261,7 @@ def edit_reg_seq(request):
 
     if request.method == 'POST':
         # 获取表单数据
-        edit_seq = request.POST.get('edit_project')
+        edit_project = request.POST.get('edit_project')
         edit_position = request.POST.get('edit_position')
         edit_transcript = request.POST.get('edit_Transcript')
         edit_remark = request.POST.get('edit_Remark')
@@ -3286,6 +3286,9 @@ def edit_reg_seq(request):
         if seqinfo.Remark != edit_remark:
             changes.append(f"Remark: {seqinfo.Remark} → {edit_remark}")
             seqinfo.Remark = edit_remark
+        if seqinfo and seqinfo.project != edit_project:
+            changes.append(f"Project: {seqinfo.project} → {edit_project}")
+            seqinfo.project = edit_project
 
         # **如果有变化，则更新数据库**
         if changes:
