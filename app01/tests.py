@@ -500,3 +500,39 @@ class EditRegSeqProjectTests(TestCase):
             self.seqinfo.project, 'NEW-PROJECT',
             f"Expected 'NEW-PROJECT', got '{self.seqinfo.project}'"
         )
+
+
+class ASReversalTests(TestCase):
+    def setUp(self):
+        # Minimal DeliveryModule entries for the coloring function to work
+        DeliveryModule.objects.get_or_create(keyword='Am', defaults={'type_code': 'mod'})
+        DeliveryModule.objects.get_or_create(keyword='Um', defaults={'type_code': 'mod'})
+
+    def test_as_strand_reversed_when_selected_is_ss(self):
+        """AS strand must be reversed even when selected_seq_type='SS'."""
+        from app01.views import get_delivery_colored
+        tokens_as = get_delivery_colored('AmUm', selected_seq_type='SS', seq_type='AS')
+        tokens_ss = get_delivery_colored('AmUm', selected_seq_type='SS', seq_type='SS')
+        chars_as = [t['char'] for t in tokens_as if t['char'] not in ('s', 'o', '-')]
+        chars_ss = [t['char'] for t in tokens_ss if t['char'] not in ('s', 'o', '-')]
+        # AS should be reversed: Um then Am; SS should be forward: Am then Um
+        self.assertEqual(chars_as, ['Um', 'Am'],
+                         f"AS tokens not reversed: {chars_as}")
+        self.assertEqual(chars_ss, ['Am', 'Um'],
+                         f"SS tokens wrong order: {chars_ss}")
+
+    def test_as_strand_reversed_when_selected_is_none(self):
+        """AS strand must be reversed even when selected_seq_type is None."""
+        from app01.views import get_delivery_colored
+        tokens_as = get_delivery_colored('AmUm', selected_seq_type=None, seq_type='AS')
+        chars_as = [t['char'] for t in tokens_as if t['char'] not in ('s', 'o', '-')]
+        self.assertEqual(chars_as, ['Um', 'Am'],
+                         f"AS tokens not reversed when selected=None: {chars_as}")
+
+    def test_ss_strand_not_reversed(self):
+        """SS strand must never be reversed regardless of selected_seq_type."""
+        from app01.views import get_delivery_colored
+        tokens = get_delivery_colored('AmUm', selected_seq_type='AS', seq_type='SS')
+        chars = [t['char'] for t in tokens if t['char'] not in ('s', 'o', '-')]
+        self.assertEqual(chars, ['Am', 'Um'],
+                         f"SS tokens were incorrectly reversed: {chars}")

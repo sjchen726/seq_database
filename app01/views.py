@@ -79,8 +79,6 @@ def get_delivery_colored(seq: str, selected_seq_type: str, seq_type: str,
 
     modules / color_map 可由调用方预加载传入，避免循环内重复查询 DB。
     """
-    reversed_seq_type = selected_seq_type
-
     if modules is None:
         modules = DeliveryModule.objects.all()
 
@@ -124,7 +122,7 @@ def get_delivery_colored(seq: str, selected_seq_type: str, seq_type: str,
 
 
     # --- 选择序列，反转组顺序并让 subs 组合到前一组 main ---
-    if seq_type == reversed_seq_type:
+    if seq_type == 'AS':
         #print(f"111111")
         
         groups = []
@@ -260,7 +258,6 @@ def get_modify_seq_colored(seq, selected_seq_type, seq_type, dm_modules=None, co
     # 使用正则表达式来提取符合条件的片段（IGNORECASE 保证大小写不敏感，如 T(moe)/T(MOE) 均可匹配）
     sequence = re.findall(final_pattern, seq, re.IGNORECASE)
 
-    reversed_seq_type = selected_seq_type
     counter = 0
     result = []
 
@@ -338,8 +335,8 @@ def get_modify_seq_colored(seq, selected_seq_type, seq_type, dm_modules=None, co
                     expanded.append(tok)
             result = expanded
 
-    # === 8) 保留你原来的 SS 分组反转逻辑 ===
-    if seq_type == reversed_seq_type:
+    # === 8) 保留你原来的 AS 分组反转逻辑 ===
+    if seq_type == 'AS':
         result = _reverse_tokens(result)
 
     return result
