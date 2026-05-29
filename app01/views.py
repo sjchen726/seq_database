@@ -1567,10 +1567,21 @@ def auto_register_bare_sequences(auto_register_pairs, username):
                     defaults={'duplex_seq': duplex_obj},
                 )
 
-                # ── SeqInfo (SS only，如不存在则创建) ──
+                # ── SeqInfo SS（如不存在则创建）──
                 if not SeqInfo.objects.filter(sequence=ss_obj).exists():
                     SeqInfo.objects.create(
                         sequence=ss_obj,
+                        Transcript=transcript,
+                        Pos=position,
+                        project=project,
+                        Remark='',
+                        created_at=created_at,
+                    )
+
+                # ── SeqInfo AS（如不存在则创建）──
+                if not SeqInfo.objects.filter(sequence=as_obj).exists():
+                    SeqInfo.objects.create(
+                        sequence=as_obj,
                         Transcript=transcript,
                         Pos=position,
                         project=project,

@@ -285,6 +285,25 @@ class AutoRegisterTests(TestCase):
         self.assertTrue(Sequence.objects.filter(seq='CCCCCC', seq_type='SS').exists())
         self.assertEqual(len(skipped_log), 1)
 
+    def test_as_chain_seqinfo_created(self):
+        """auto_register_bare_sequences must create SeqInfo for AS chain too."""
+        pairs = [self._make_pair('AUGCAU', 'UGCAUG', transcript='NM_001', position='42')]
+        auto_register_bare_sequences(pairs, self.username)
+        as_obj = Sequence.objects.get(seq='UGCAUG', seq_type='AS')
+        self.assertTrue(
+            SeqInfo.objects.filter(sequence=as_obj).exists(),
+            "SeqInfo must be created for AS chain"
+        )
+
+    def test_as_chain_seqinfo_has_correct_fields(self):
+        """SeqInfo for AS chain should carry the same transcript/position as SS."""
+        pairs = [self._make_pair('AUGCAU', 'UGCAUG', transcript='NM_999', position='77')]
+        auto_register_bare_sequences(pairs, self.username)
+        as_obj = Sequence.objects.get(seq='UGCAUG', seq_type='AS')
+        info = SeqInfo.objects.get(sequence=as_obj)
+        self.assertEqual(info.Transcript, 'NM_999')
+        self.assertEqual(info.Pos, '77')
+
 
 class CheckDuplicatesTests(TestCase):
     """Tests for check_duplicates() cross-project and same-project detection."""
