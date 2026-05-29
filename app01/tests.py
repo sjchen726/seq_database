@@ -760,3 +760,28 @@ class GroupSequencesOrderTests(TestCase):
         ss_groups, invalid = group_sequences(df)
         self.assertEqual(len(ss_groups), 0)
         self.assertEqual(len(invalid), 1)
+
+
+class RegSeqListPaginationTests(TestCase):
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='pager', password='pass', user_type='guest'
+        )
+        self.client.login(username='pager', password='pass')
+        for i in range(25):
+            seq = Sequence.objects.create(seq=f'AUGCAU{i:02d}', seq_type='SS')
+            SeqInfo.objects.create(sequence=seq, project='P1', Pos='1', Remark='', Transcript='')
+
+    def test_page_1_returns_correct_count(self):
+        response = self.client.get('/reg_seq_list/?page=1&page_size=10')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context['sequence_list']), 10)
+
+    def test_page_2_returns_remaining(self):
+        response = self.client.get('/reg_seq_list/?page=2&page_size=20')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context['sequence_list']), 5)
+
+    def test_page_obj_has_correct_count(self):
+        response = self.client.get('/reg_seq_list/')
+        self.assertEqual(response.context['page_obj'].paginator.count, 25)

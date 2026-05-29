@@ -3221,12 +3221,21 @@ def reg_seq_list(request):
     except (ValueError, TypeError):
         page_size = 20
 
-    sequences = Sequence.objects.exclude(seq_type='duplex').prefetch_related('target_info')
+    sequences = (
+        Sequence.objects
+        .exclude(seq_type='duplex')
+        .prefetch_related('target_info')
+        .order_by('rm_code')
+    )
     if q:
         sequences = sequences.filter(rm_code__icontains=q)
 
+    # DB-level pagination — only fetch the current page's rows
+    paginator = Paginator(sequences, page_size)
+    page_obj = paginator.get_page(request.GET.get('page', 1))
+
     sequence_list = []
-    for seq in sequences:
+    for seq in page_obj.object_list:
         if seq.seq_type == 'SS':
             seq_prefix = 'SS_'
         elif seq.seq_type == 'AS':
@@ -3235,27 +3244,18 @@ def reg_seq_list(request):
             seq_prefix = ''
 
         seq_info = seq.target_info.first()
-        remark = seq_info.Remark if seq_info else ''
-        pos = seq_info.Pos if seq_info else ''
-        Transcript = seq_info.Transcript if seq_info else ''
-        formatted_date = seq.created_at.strftime('%Y-%m-%d %H:%M') if seq.created_at else ''
-
         sequence_list.append({
             'rm_code': seq.rm_code,
             'seq_prefix': seq_prefix,
             'seq': seq.seq,
-            'pos': pos,
-            'transcript': Transcript,
-            'remark': remark,
-            'reg_date': formatted_date,
+            'pos': seq_info.Pos if seq_info else '',
+            'transcript': seq_info.Transcript if seq_info else '',
+            'remark': seq_info.Remark if seq_info else '',
+            'reg_date': seq.created_at.strftime('%Y-%m-%d %H:%M') if seq.created_at else '',
         })
 
-    paginator = Paginator(sequence_list, page_size)
-    page_number = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page_number)
-
     return render(request, 'reg_seq_list.html', {
-        'sequence_list': page_obj.object_list,
+        'sequence_list': sequence_list,
         'page_obj': page_obj,
         'page_size': page_size,
         'q': q,
