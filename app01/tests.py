@@ -650,3 +650,66 @@ class ModuleListPageParamTests(TestCase):
             response, '/module_list/?page=2&q=C16',
             fetch_redirect_response=False,
         )
+
+
+class SaveDeliveriesTests(TestCase):
+    def setUp(self):
+        SeqModule.objects.get_or_create(keyword='Am', defaults={'base_char': 'A', 'linker_connector': 'o'})
+        SeqModule.objects.get_or_create(keyword='Um', defaults={'base_char': 'U', 'linker_connector': 'o'})
+        SeqModule.objects.get_or_create(keyword='Gm', defaults={'base_char': 'G', 'linker_connector': 'o'})
+        SeqModule.objects.get_or_create(keyword='Cm', defaults={'base_char': 'C', 'linker_connector': 'o'})
+
+        self.ss_seq = Sequence.objects.create(seq='AUGCAU', seq_type='SS')
+        self.as_seq = Sequence.objects.create(seq='UGCAUG', seq_type='AS')
+
+    def _make_df(self, rows):
+        import pandas as pd
+        df = pd.DataFrame(rows)
+        df = df.fillna('')
+        df['__row_id'] = df.index
+        df['__original_line'] = df.index + 2
+        return df
+
+    def test_linker_seq_not_double_processed(self):
+        """linker_seq in DB must equal add_o applied once, not twice."""
+        from app01.views import add_o_to_all_rules_safe, save_deliveries, group_sequences, assign_duplex_ids
+        modify_seq = 'AmUmGmCmAmUm'
+        expected_linker = add_o_to_all_rules_safe(modify_seq)
+        double_processed = add_o_to_all_rules_safe(expected_linker)
+        if expected_linker == double_processed:
+            self.skipTest("add_o is idempotent for this input")
+
+        rows = [
+            {'Project': 'P1', 'Target': 'T', 'Seq_type': 'SS', 'Modify_seq': modify_seq,
+             'Strand_MWs': '', 'Parents': '', 'Remarks': '', 'Transcript': '', 'Position': ''},
+            {'Project': 'P1', 'Target': 'T', 'Seq_type': 'AS', 'Modify_seq': modify_seq,
+             'Strand_MWs': '', 'Parents': '', 'Remarks': '', 'Transcript': '', 'Position': ''},
+        ]
+        df = self._make_df(rows)
+        ss_groups, _ = group_sequences(df)
+        duplex_id_map = assign_duplex_ids(df, ss_groups, set())
+        save_deliveries(df, duplex_id_map, 'testuser')
+        delivery = Delivery.objects.filter(sequence=self.ss_seq).first()
+        self.assertIsNotNone(delivery)
+        self.assertEqual(delivery.linker_seq, expected_linker,
+                         f"Expected single-processed: {expected_linker!r}, got: {delivery.linker_seq!r}")
+
+    def test_save_deliveries_creates_delivery_for_each_sequence(self):
+        """save_deliveries must create deliveries for both SS and AS sequences in the upload."""
+        from app01.views import save_deliveries, group_sequences, assign_duplex_ids
+        rows = [
+            {'Project': 'P1', 'Target': 'T', 'Seq_type': 'SS', 'Modify_seq': 'AmUmGmCmAmUm',
+             'Strand_MWs': '', 'Parents': '', 'Remarks': '', 'Transcript': '', 'Position': ''},
+            {'Project': 'P1', 'Target': 'T', 'Seq_type': 'AS', 'Modify_seq': 'UmGmCmAmUmGm',
+             'Strand_MWs': '', 'Parents': '', 'Remarks': '', 'Transcript': '', 'Position': ''},
+        ]
+        df = self._make_df(rows)
+        ss_groups, _ = group_sequences(df)
+        duplex_id_map = assign_duplex_ids(df, ss_groups, set())
+        save_deliveries(df, duplex_id_map, 'testuser')
+
+        # Both sequences must have a delivery
+        self.assertTrue(Delivery.objects.filter(sequence=self.ss_seq).exists(),
+                        "SS delivery was not created")
+        self.assertTrue(Delivery.objects.filter(sequence=self.as_seq).exists(),
+                        "AS delivery was not created")

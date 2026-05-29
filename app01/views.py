@@ -1914,7 +1914,7 @@ def save_deliveries(df, duplex_id_map, username, sm_overrides=None):
 
             # 优先查数据库中是否有重复
             duplicate = Delivery.objects.filter(
-         #       id__startswith=base_id,
+                sequence=sequence_obj,
                 delivery5=current_delivery5,
                 delivery3=current_delivery3,
                 linker_seq=current_linker_seq
@@ -1938,7 +1938,7 @@ def save_deliveries(df, duplex_id_map, username, sm_overrides=None):
                 delivery_id=delivery_id,
                 sequence=sequence_obj,
                 modify_seq=item['modify_seq'],
-                linker_seq=add_o_to_all_rules_safe(item['modify_seq']),
+                linker_seq=current_linker_seq,
                 naked_length=item['naked_length'],
                 project=row['Project'],
                 parents=row['Parents'],
