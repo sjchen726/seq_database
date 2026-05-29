@@ -5,6 +5,7 @@ from app01.models import Sequence, SeqModule, DeliveryModule, Delivery, Delivery
 from app01.views import (
     normalize_middle_brackets, run_preflight_check, group_sequences,
     auto_register_bare_sequences, check_duplicates,
+    build_combo_re, normalize_tmp_seq_with_combo,
 )
 from app01.models import DuplexRelationship, SeqInfo
 
@@ -807,3 +808,41 @@ class DefaultSeqTypeTests(TestCase):
         from app01.views import get_user_default_seq_type
         from django.contrib.auth.models import AnonymousUser
         self.assertEqual(get_user_default_seq_type(AnonymousUser()), 'SS')
+
+
+class BuildComboReTests(TestCase):
+    """CQ-07/08 — build_combo_re / normalize_tmp_seq_with_combo DB caching."""
+
+    def setUp(self):
+        DeliveryModule.objects.get_or_create(keyword='C16-NH', defaults={'type_code': 'Lipid'})
+        SeqModule.objects.get_or_create(keyword='Am', defaults={'base_char': 'A'})
+
+    def test_build_combo_re_returns_compiled_pattern(self):
+        """build_combo_re() returns a compiled regex that matches known combos."""
+        import re
+        combo_re = build_combo_re()
+        self.assertIsNotNone(combo_re)
+        self.assertIsInstance(combo_re, type(re.compile('')))
+        # Should match 'Am-C16-NH' (SeqModule left, DeliveryModule right)
+        self.assertIsNotNone(combo_re.search('Am-C16-NH'))
+
+    def test_normalize_accepts_prebuilt_combo_re(self):
+        """normalize_tmp_seq_with_combo accepts a pre-built combo_re param."""
+        combo_re = build_combo_re()
+        result = normalize_tmp_seq_with_combo('Am-C16-NH', combo_re=combo_re)
+        # combo stripped → left token 'Am' kept, '-C16-NH' dropped
+        self.assertNotIn('C16-NH', result)
+        self.assertIn('AM', result)
+
+    def test_normalize_without_prebuilt_still_works(self):
+        """normalize_tmp_seq_with_combo still works without combo_re (backward compat)."""
+        result = normalize_tmp_seq_with_combo('Am-C16-NH')
+        self.assertNotIn('C16-NH', result)
+        self.assertIn('AM', result)
+
+    def test_prebuilt_and_fresh_give_same_result(self):
+        """Pre-built combo_re gives the same result as building fresh."""
+        seq = 'AmUmGm-C16-NH'
+        prebuilt = normalize_tmp_seq_with_combo(seq, combo_re=build_combo_re())
+        fresh = normalize_tmp_seq_with_combo(seq)
+        self.assertEqual(prebuilt, fresh)

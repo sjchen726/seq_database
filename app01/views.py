@@ -1351,6 +1351,9 @@ def run_preflight_check(df, ss_groups):
         if _lk_module_keywords else None
     )
 
+    # 预编译 combo 正则（避免循环内每次调用 normalize_tmp_seq_with_combo 都重复查 DB）
+    _combo_re = build_combo_re()
+
     has_transcript_col = 'Transcript' in df.columns
     has_position_col = 'Position' in df.columns
 
@@ -1389,7 +1392,7 @@ def run_preflight_check(df, ss_groups):
             clean_seq = re.sub(r'\[.*?\]$', '', clean_seq)
 
             # 一次规范化，复用 tmp for both naked_seq and unknown check
-            tmp = normalize_tmp_seq_with_combo(clean_seq)
+            tmp = normalize_tmp_seq_with_combo(clean_seq, combo_re=_combo_re)
 
             # ── [新增] 检测多值 token（必须在 sm 替换之前） ──
             if _ambig_re:
@@ -1775,12 +1778,18 @@ def build_combo_re():
     return combo_re
 
 
-def normalize_tmp_seq_with_combo(modify_seq: str) -> str:
+def normalize_tmp_seq_with_combo(modify_seq: str, combo_re=None) -> str:
     """
-    先把 modify_seq upper，然后把 combo（LEFT-keyword）展开成 LEFT（保留原样，不做碱基映射）
+    先把 modify_seq upper，然后把 combo（LEFT-keyword）展开成 LEFT（保留原样，不做碱基映射）。
+
+    Args:
+        modify_seq: 原始修饰序列字符串。
+        combo_re:   可选的预编译 combo 正则（由调用方预加载以避免循环内重复查 DB）。
+                    若为 None，则调用 build_combo_re() 即时构建（向后兼容）。
     """
     tmp_seq = (modify_seq or "").upper()
-    combo_re = build_combo_re()
+    if combo_re is None:
+        combo_re = build_combo_re()
 
     def combo_to_left(m: re.Match) -> str:
         # 只保留 LEFT，丢掉 -keyword
@@ -1790,7 +1799,7 @@ def normalize_tmp_seq_with_combo(modify_seq: str) -> str:
     return tmp_seq
 
 
-def extract_naked_seq(clean_seq: str, sm_map: dict, sm_norm_re) -> str:
+def extract_naked_seq(clean_seq: str, sm_map: dict, sm_norm_re, combo_re=None) -> str:
     """
     Derive the bare nucleotide sequence (AUGCI and INVAB tokens) from a clean modify_seq
     (brackets already stripped). Uses the caller-preloaded SeqModule map/regex
@@ -1800,11 +1809,12 @@ def extract_naked_seq(clean_seq: str, sm_map: dict, sm_norm_re) -> str:
         clean_seq:   modify_seq with leading/trailing [...] already removed.
         sm_map:      {keyword.upper(): base_char} from SeqModule.
         sm_norm_re:  compiled regex of SeqModule keywords (or None if empty).
+        combo_re:    optional pre-compiled combo regex (avoids DB hit if provided).
 
     Returns:
         Bare nucleotide/INVAB token string, e.g. "AUGCAUGC" or "INVABAUGCAU".
     """
-    tmp = normalize_tmp_seq_with_combo(clean_seq)
+    tmp = normalize_tmp_seq_with_combo(clean_seq, combo_re=combo_re)
     if sm_norm_re:
         tmp = sm_norm_re.sub(lambda m: sm_map[m.group(0).upper()], tmp)
     tmp = re.sub(r'\(.*?\)', '', tmp)
@@ -1838,6 +1848,9 @@ def save_deliveries(df, duplex_id_map, username, sm_overrides=None):
     else:
         _sm_norm_re = None
 
+    # 预编译 combo 正则（避免循环内每次调用 normalize_tmp_seq_with_combo 都重复查 DB）
+    _combo_re = build_combo_re()
+
     for duplex_id, rows in duplex_groups.items():
         all_registered = True
        # naked_seqs = []
@@ -1861,7 +1874,7 @@ def save_deliveries(df, duplex_id_map, username, sm_overrides=None):
             modify_seq = re.sub(r'\[.*?\]$', '', modify_seq)
 
             # 规范化：strip combo，替换修饰码为裸碱基，提取 naked_seq
-            tmp_seq = normalize_tmp_seq_with_combo(modify_seq)  # 去 combo 并大写
+            tmp_seq = normalize_tmp_seq_with_combo(modify_seq, combo_re=_combo_re)  # 去 combo 并大写
             if _sm_norm_re:
                 tmp_seq = _sm_norm_re.sub(lambda m: _sm_map[m.group(0).upper()], tmp_seq)
             tmp_seq = re.sub(r'\(.*?\)', '', tmp_seq)           # 移除残余括号内容
@@ -2373,6 +2386,8 @@ def confirm_upload_preflight(request):
                     re.compile('|'.join(re.escape(m.keyword) for m in _sm_for_disambig), re.IGNORECASE)
                     if _sm_for_disambig else None
                 )
+                # 预编译 combo 正则（避免循环内每次调用都重复查 DB）
+                _combo_re_disambig = build_combo_re()
 
                 ambig_auto_pairs = []   # 需要自动注册的消歧对
                 for pair in ambiguous_pairs_session:
@@ -2386,7 +2401,7 @@ def confirm_upload_preflight(request):
                         full_seq = str(row['Modify_seq'])
                         clean_seq = re.sub(r'^\[.*?\]', '', full_seq)
                         clean_seq = re.sub(r'\[.*?\]$', '', clean_seq)
-                        tmp = normalize_tmp_seq_with_combo(clean_seq)
+                        tmp = normalize_tmp_seq_with_combo(clean_seq, combo_re=_combo_re_disambig)
                         if _sm_re_disambig:
                             tmp = _sm_re_disambig.sub(
                                 lambda m: _sm_map_disambig[m.group(0).upper()], tmp
