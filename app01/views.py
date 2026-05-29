@@ -1259,40 +1259,44 @@ def parse_uploaded_csv(request):
     return df
 
 def group_sequences(df):
-    ss_groups = []         # 有效 SS+AS 组合
-    invalid_ss_as = []     # 无效条目记录
+    """
+    Pair consecutive SS+AS or AS+SS rows.
+    Pairing rule: scan left to right; consume two adjacent rows if their Seq_type
+    is (SS,AS) or (AS,SS). Unpaired rows are reported in invalid_ss_as.
+    Within each group, SS __row_id is always first, AS __row_id second.
+    """
+    ss_groups = []
+    invalid_ss_as = []
 
-    # 对全表按 __row_id 排序（确保顺序匹配）
     group_sorted = df.sort_values(by='__row_id').reset_index(drop=True)
+    rows = [group_sorted.iloc[i] for i in range(len(group_sorted))]
 
     i = 0
-    while i < len(group_sorted):
-        row = group_sorted.iloc[i]
-        row_id = row['__row_id']
-        original_line = row['__original_line']
+    while i < len(rows):
+        row = rows[i]
         seq_type = row['Seq_type'].strip().upper()
-        modify_seq = row['Modify_seq']
-        project = row['Project']  # 保留项目字段，仅用于显示或后续使用
 
-        if seq_type == 'SS':
-            temp_group = [row_id]
+        if i + 1 < len(rows):
+            next_row = rows[i + 1]
+            next_seq_type = next_row['Seq_type'].strip().upper()
 
-            if i + 1 < len(group_sorted):
-                next_row = group_sorted.iloc[i + 1]
-                next_seq_type = next_row['Seq_type'].strip().upper()
+            if seq_type == 'SS' and next_seq_type == 'AS':
+                temp_group = [row['__row_id'], next_row['__row_id']]
+                ss_groups.append((None, row['Project'], temp_group))
+                i += 2
+                continue
 
-                if next_seq_type == 'AS':
-                    temp_group.append(next_row['__row_id'])
-                    ss_groups.append((None, project, temp_group))  # batch 用 None 占位
-                    i += 1  # 跳过已配对的 AS
-                else:
-                    invalid_ss_as.append(f"原始行 {original_line}, {modify_seq}, 无效SS：没有 AS 配对")
-            else:
-                invalid_ss_as.append(f"原始行 {original_line}, {modify_seq}, 无效SS：没有 AS 配对")
+            if seq_type == 'AS' and next_seq_type == 'SS':
+                # SS first in group regardless of CSV order
+                temp_group = [next_row['__row_id'], row['__row_id']]
+                ss_groups.append((None, next_row['Project'], temp_group))
+                i += 2
+                continue
 
-        elif seq_type == 'AS':
-            invalid_ss_as.append(f"原始行 {original_line}, {modify_seq}, 无效AS：没有配对的 SS")
-
+        # Could not pair with next row
+        invalid_ss_as.append(
+            f"原始行 {row['__original_line']}, {row['Modify_seq']}, 无法配对（{seq_type}）"
+        )
         i += 1
 
     return ss_groups, invalid_ss_as

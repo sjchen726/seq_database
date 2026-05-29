@@ -713,3 +713,50 @@ class SaveDeliveriesTests(TestCase):
                         "SS delivery was not created")
         self.assertTrue(Delivery.objects.filter(sequence=self.as_seq).exists(),
                         "AS delivery was not created")
+
+
+class GroupSequencesOrderTests(TestCase):
+    def _make_df(self, rows):
+        df = pd.DataFrame(rows)
+        df = df.fillna('')
+        df['__row_id'] = df.index
+        df['__original_line'] = df.index + 2
+        return df
+
+    def _row(self, seq_type, modify_seq='AmUm', project='P1'):
+        return {'Seq_type': seq_type, 'Modify_seq': modify_seq, 'Project': project,
+                'Target': 'T', 'Strand_MWs': '', 'Parents': '', 'Remarks': ''}
+
+    def test_ss_then_as_pairs_correctly(self):
+        """Classic order: SS row 0, AS row 1 → one group."""
+        df = self._make_df([self._row('SS'), self._row('AS')])
+        ss_groups, invalid = group_sequences(df)
+        self.assertEqual(len(ss_groups), 1)
+        self.assertEqual(invalid, [])
+
+    def test_as_then_ss_pairs_correctly(self):
+        """Reversed order: AS row 0, SS row 1 → one group, SS id first in group."""
+        df = self._make_df([self._row('AS'), self._row('SS')])
+        ss_groups, invalid = group_sequences(df)
+        self.assertEqual(len(ss_groups), 1, f"Expected 1 group, got {len(ss_groups)}: {invalid}")
+        self.assertEqual(invalid, [])
+        _, _, group = ss_groups[0]
+        ss_row_id = df[df['Seq_type'] == 'SS']['__row_id'].iloc[0]
+        self.assertEqual(group[0], ss_row_id)
+
+    def test_two_pairs_as_ss_ss_as(self):
+        """AS,SS,SS,AS → two valid groups."""
+        df = self._make_df([
+            self._row('AS'), self._row('SS'),
+            self._row('SS'), self._row('AS'),
+        ])
+        ss_groups, invalid = group_sequences(df)
+        self.assertEqual(len(ss_groups), 2)
+        self.assertEqual(invalid, [])
+
+    def test_unpaired_lone_ss_is_invalid(self):
+        """SS with no adjacent AS → invalid."""
+        df = self._make_df([self._row('SS')])
+        ss_groups, invalid = group_sequences(df)
+        self.assertEqual(len(ss_groups), 0)
+        self.assertEqual(len(invalid), 1)
