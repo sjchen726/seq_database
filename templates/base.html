@@ -75,7 +75,7 @@
     {% if request.user.user_type in 'admin,superadmin' or request.user.is_superuser %}
     <div class="ds-nav-divider"></div>
     <div class="ds-nav-section">系统</div>
-    <a href="{% url 'author_list' %}" class="ds-nav-item {% if request.resolver_match.url_name in 'author_list,add_author,edit_author' %}active{% endif %}">
+    <a href="{% url 'author_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'author_list' or request.resolver_match.url_name == 'add_author' or request.resolver_match.url_name == 'edit_author' %}active{% endif %}">
       <i class="bi bi-people ds-nav-icon"></i> 用户管理
     </a>
     {% endif %}
