@@ -411,3 +411,59 @@ class DropAuthorSecurityTests(TestCase):
         response = self.client.post('/drop_author/', {'id': self.victim.id})
         self.assertIn(response.status_code, [200, 302])
         self.assertFalse(LmsUser.objects.filter(id=self.victim.id).exists())
+
+
+class DownloadSelectedPermissionTests(TestCase):
+    def setUp(self):
+        # Create two sequences in different projects
+        self.seq_a = Sequence.objects.create(seq='AUGCAU', seq_type='SS')
+        self.seq_b = Sequence.objects.create(seq='UGCAUG', seq_type='SS')
+
+        # Delivery in project "PROJ-A" (user has access)
+        self.del_a = Delivery.objects.create(
+            sequence=self.seq_a, duplex_id='BP000001',
+            project='PROJ-A', seq_type='SS',
+            delivery5='', delivery3='', modify_seq='AmUm', linker_seq='AoU',
+        )
+        # Delivery in project "PROJ-B" (user has NO access)
+        self.del_b = Delivery.objects.create(
+            sequence=self.seq_b, duplex_id='BP000002',
+            project='PROJ-B', seq_type='SS',
+            delivery5='', delivery3='', modify_seq='GmCm', linker_seq='GoC',
+        )
+
+        # User with access only to PROJ-A
+        self.user = LmsUser.objects.create_user(
+            username='proj_user', password='pass',
+            user_type='delivery',
+            permissions_project='PROJ-A',
+        )
+        self.client.login(username='proj_user', password='pass')
+
+    def test_restricted_delivery_filtered_out(self):
+        """User requesting BP000002 (PROJ-B) should receive 404 (not found)."""
+        import json
+        response = self.client.post(
+            '/download_selected/',
+            {
+                'selected_ids': json.dumps(['BP000002']),
+                'selected_columns': json.dumps(['duplex_id', 'project']),
+            }
+        )
+        # User has no access to PROJ-B, so the delivery should be filtered out
+        # and the view should return 404
+        self.assertEqual(response.status_code, 404)
+
+    def test_permitted_delivery_included(self):
+        """User requesting BP000001 (PROJ-A) should receive the data row."""
+        import json
+        response = self.client.post(
+            '/download_selected/',
+            {
+                'selected_ids': json.dumps(['BP000001']),
+                'selected_columns': json.dumps(['duplex_id', 'project']),
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode('utf-8-sig')
+        self.assertIn('BP000001', content)

@@ -3357,7 +3357,8 @@ def download_selected(request):
     except json.JSONDecodeError:
         return HttpResponse("参数格式错误", status=400)
 
-    deliveries = Delivery.objects.filter(duplex_id__in=ids)\
+    base_qs = get_permitted_delivery_qs(request.user)
+    deliveries = base_qs.filter(duplex_id__in=ids)\
         .select_related('sequence')\
         .prefetch_related('sequence__target_info')
 
