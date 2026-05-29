@@ -1712,21 +1712,25 @@ def assign_duplex_ids(df, ss_groups, repeated_ids):
     valid_groups = [group for _, _, group in ss_groups if not repeated_ids.intersection(group)]
 
     pattern = re.compile(r"^BP(\d{6})$")
-    existing_ids = Delivery.objects.filter(
-        duplex_id__startswith="BP"
-    ).values_list('duplex_id', flat=True)
 
-    existing_numbers = [
-        int(m.group(1)) for d in existing_ids if (m := pattern.match(d))
-    ]
-    next_number = max(existing_numbers, default=0) + 1
+    with transaction.atomic():
+        existing_ids = (
+            Delivery.objects
+            .select_for_update()
+            .filter(duplex_id__startswith="BP")
+            .values_list('duplex_id', flat=True)
+        )
+        existing_numbers = [
+            int(m.group(1)) for d in existing_ids if (m := pattern.match(d))
+        ]
+        next_number = max(existing_numbers, default=0) + 1
 
-    for group in valid_groups:
-        serial = f"{next_number:06d}"
-        duplex_id = f"BP{serial}"
-        for row_id in group:
-            duplex_id_map[row_id] = duplex_id
-        next_number += 1
+        for group in valid_groups:
+            serial = f"{next_number:06d}"
+            duplex_id = f"BP{serial}"
+            for row_id in group:
+                duplex_id_map[row_id] = duplex_id
+            next_number += 1
 
     return duplex_id_map
 

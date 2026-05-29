@@ -536,3 +536,60 @@ class ASReversalTests(TestCase):
         chars = [t['char'] for t in tokens if t['char'] not in ('s', 'o', '-')]
         self.assertEqual(chars, ['Am', 'Um'],
                          f"SS tokens were incorrectly reversed: {chars}")
+
+
+class AssignDuplexIdTests(TestCase):
+    def _make_groups(self, n_groups):
+        """Build n_groups ss_groups tuples: (project, target, [row_ids])."""
+        groups = []
+        for i in range(n_groups):
+            groups.append((None, f'P{i}', [i * 2, i * 2 + 1]))
+        return groups
+
+    def _make_df(self, n_groups):
+        import pandas as pd
+        rows = []
+        for i in range(n_groups * 2):
+            rows.append({'__row_id': i, 'Seq_type': 'SS' if i % 2 == 0 else 'AS'})
+        df = pd.DataFrame(rows)
+        df.index = df['__row_id'].astype(int)
+        return df
+
+    def test_sequential_calls_generate_unique_ids(self):
+        """Two calls must not generate overlapping IDs when IDs from the first are committed."""
+        from app01.views import assign_duplex_ids
+        Delivery.objects.create(
+            sequence=Sequence.objects.create(seq='AAAA', seq_type='SS'),
+            duplex_id='BP000001', project='P', seq_type='SS',
+            delivery5='', delivery3='', modify_seq='Am', linker_seq='A',
+        )
+        df = self._make_df(2)
+        groups = self._make_groups(2)
+
+        # First call
+        map1 = assign_duplex_ids(df, groups, set())
+
+        # Simulate save_deliveries: commit the assigned IDs to DB
+        for dup_id in set(map1.values()):
+            seq = Sequence.objects.create(seq=f'SIMU{dup_id}', seq_type='SS')
+            Delivery.objects.create(
+                sequence=seq, duplex_id=dup_id, project='P', seq_type='SS',
+                delivery5='', delivery3='', modify_seq='Am', linker_seq='A',
+            )
+
+        # Second call — must see the newly inserted IDs
+        map2 = assign_duplex_ids(df, groups, set())
+        ids1 = set(map1.values())
+        ids2 = set(map2.values())
+        self.assertTrue(ids1.isdisjoint(ids2),
+                        f"Overlapping duplex IDs generated: {ids1 & ids2}")
+
+    def test_id_format_is_bp_six_digits(self):
+        """Generated IDs must match BP######."""
+        import re
+        from app01.views import assign_duplex_ids
+        df = self._make_df(1)
+        groups = self._make_groups(1)
+        id_map = assign_duplex_ids(df, groups, set())
+        for v in id_map.values():
+            self.assertRegex(v, r'^BP\d{6}$')
