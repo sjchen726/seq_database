@@ -1,3 +1,4 @@
+import json
 import pandas as pd
 from django.test import TestCase
 from app01.models import Sequence, SeqModule, DeliveryModule, Delivery, DeliveryProject, LmsUser
@@ -442,7 +443,6 @@ class DownloadSelectedPermissionTests(TestCase):
 
     def test_restricted_delivery_filtered_out(self):
         """User requesting BP000002 (PROJ-B) should receive 404 (not found)."""
-        import json
         response = self.client.post(
             '/download_selected/',
             {
@@ -456,7 +456,6 @@ class DownloadSelectedPermissionTests(TestCase):
 
     def test_permitted_delivery_included(self):
         """User requesting BP000001 (PROJ-A) should receive the data row."""
-        import json
         response = self.client.post(
             '/download_selected/',
             {
