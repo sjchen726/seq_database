@@ -41,10 +41,12 @@
           <td class="cell-mono-dim">{{ module.Strand_MWs|default_if_none:'—' }}</td>
           <td>
             <div class="ds-actions">
-              <a href="{% url 'edit_module' %}?id={{ module.id }}" class="ds-act ds-act-edit">编辑</a>
+              <a href="{% url 'edit_module' %}?id={{ module.id }}&page={{ page_obj.number }}&q={{ q|urlencode }}" class="ds-act ds-act-edit">编辑</a>
               <form method="POST" action="{% url 'delete_module' %}" style="display:inline;" onsubmit="return confirm('确定删除该模块？');">
                 {% csrf_token %}
                 <input type="hidden" name="id" value="{{ module.id }}">
+                <input type="hidden" name="page" value="{{ page_obj.number }}">
+                <input type="hidden" name="q" value="{{ q }}">
                 <button type="submit" class="ds-act ds-act-delete">删除</button>
               </form>
             </div>

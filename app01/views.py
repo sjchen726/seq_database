@@ -3465,7 +3465,9 @@ def edit_module(request):
             # 创建新模块
             new_module = DeliveryModule(keyword=keyword, type_code=type_code, Strand_MWs=Strand_MWs)
             new_module.save()
-            return redirect('/module_list/')
+            page = request.POST.get('page', 1)
+            q = request.POST.get('q', '')
+            return redirect(_module_list_url('/module_list/', page, q))
         else:
             # === 更新模式（通过 GET id 已加载 module） ===
             if keyword != module.keyword and DeliveryModule.objects.filter(keyword=keyword).exists():
@@ -3473,14 +3475,20 @@ def edit_module(request):
                 return render(request, 'edit_module.html', {
                     'module': module,
                     'form_data': {'keyword': keyword, 'type_code': type_code, 'Strand_MWs': Strand_MWs},
+                    'page': request.POST.get('page', 1),
+                    'q': request.POST.get('q', ''),
                 })
             module.keyword = keyword
             module.type_code = type_code
             module.Strand_MWs = Strand_MWs
             module.save()
-            return redirect('/module_list/')
+            page = request.POST.get('page', 1)
+            q = request.POST.get('q', '')
+            return redirect(_module_list_url('/module_list/', page, q))
 
-    return render(request, 'edit_module.html', {'module': module})
+    page = request.GET.get('page', 1)
+    q = request.GET.get('q', '')
+    return render(request, 'edit_module.html', {'module': module, 'page': page, 'q': q})
 
 
 
@@ -3553,7 +3561,9 @@ def delete_module(request):
     try:
         module = DeliveryModule.objects.get(id=module_id)
         module.delete()
-        return redirect('/module_list/')  # 推荐跳回列表页
+        page = request.POST.get('page', 1)
+        q = request.POST.get('q', '')
+        return redirect(_module_list_url('/module_list/', page, q))
     except DeliveryModule.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': '模块不存在'})
     

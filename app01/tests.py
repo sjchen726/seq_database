@@ -593,3 +593,41 @@ class AssignDuplexIdTests(TestCase):
         id_map = assign_duplex_ids(df, groups, set())
         for v in id_map.values():
             self.assertRegex(v, r'^BP\d{6}$')
+
+
+class ModuleListPageParamTests(TestCase):
+    def setUp(self):
+        self.admin = LmsUser.objects.create_user(
+            username='mod_admin', password='pass', user_type='admin',
+            is_admin=True, is_superuser=True,
+        )
+        self.client.login(username='mod_admin', password='pass')
+        self.module = DeliveryModule.objects.create(keyword='TestKW', type_code='test')
+
+    def test_edit_module_redirect_preserves_page_and_q(self):
+        """POST to edit_module should redirect to module_list with page and q params."""
+        response = self.client.post(
+            f'/edit_module/?id={self.module.id}',
+            {
+                'keyword': 'TestKW',
+                'type_code': 'test',
+                'Strand_MWs': '',
+                'page': '3',
+                'q': 'LP',
+            }
+        )
+        self.assertRedirects(
+            response, '/module_list/?page=3&q=LP',
+            fetch_redirect_response=False,
+        )
+
+    def test_delete_module_redirect_preserves_page_and_q(self):
+        """POST to delete_module should redirect to module_list with page and q params."""
+        response = self.client.post(
+            '/delete_module/',
+            {'id': self.module.id, 'page': '2', 'q': 'C16'}
+        )
+        self.assertRedirects(
+            response, '/module_list/?page=2&q=C16',
+            fetch_redirect_response=False,
+        )
