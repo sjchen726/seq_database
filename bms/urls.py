@@ -22,9 +22,8 @@ from app01 import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', views.login_view),                          # 根路径 → 登录页面
+    path('', views.login_view, name='root'),             # 根路径 → 登录页面
     path('login/', views.login_view, name='login'),      # 登录动作
-    path('signup/', views.register_view, name='signup'),     # 用户注册页面
     path('register/', views.register_view, name='register'),     # 用户注册页面
 
     path('seq_list/', views.get_sequence_info, name='seq_list'),         # 序列列表视图
