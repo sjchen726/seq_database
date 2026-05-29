@@ -2663,14 +2663,11 @@ def clone_delivery(request):
 def get_user_default_seq_type(user):
     """
     返回指定用户的默认序列方向（SS / AS）。
-    优先读取数据库中 LmsUser 的 default_seq_type 字段（如有），
-    否则回落到硬编码映射，最终默认 'SS'。
+    读取 LmsUser.default_seq_type 字段，未登录用户或字段为空时回落到 'SS'。
     """
-    user_default_seq_map = {
-        'Y2325': 'AS',
-    }
-    username = user.username if user.is_authenticated else ''
-    return user_default_seq_map.get(username, 'SS')
+    if not user.is_authenticated:
+        return 'SS'
+    return getattr(user, 'default_seq_type', 'SS') or 'SS'
 
 
 def get_permitted_delivery_qs(user):

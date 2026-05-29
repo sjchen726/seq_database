@@ -785,3 +785,25 @@ class RegSeqListPaginationTests(TestCase):
     def test_page_obj_has_correct_count(self):
         response = self.client.get('/reg_seq_list/')
         self.assertEqual(response.context['page_obj'].paginator.count, 25)
+
+
+class DefaultSeqTypeTests(TestCase):
+    def test_default_is_ss_for_new_user(self):
+        """New users default to 'SS' seq type."""
+        from app01.views import get_user_default_seq_type
+        user = LmsUser.objects.create_user(username='newuser', password='pass')
+        self.assertEqual(get_user_default_seq_type(user), 'SS')
+
+    def test_user_with_as_default_returns_as(self):
+        """User with default_seq_type='AS' returns 'AS'."""
+        from app01.views import get_user_default_seq_type
+        user = LmsUser.objects.create_user(
+            username='asuser', password='pass', default_seq_type='AS'
+        )
+        self.assertEqual(get_user_default_seq_type(user), 'AS')
+
+    def test_unauthenticated_returns_ss(self):
+        """Anonymous/unauthenticated user returns 'SS'."""
+        from app01.views import get_user_default_seq_type
+        from django.contrib.auth.models import AnonymousUser
+        self.assertEqual(get_user_default_seq_type(AnonymousUser()), 'SS')

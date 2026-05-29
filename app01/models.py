@@ -171,6 +171,12 @@ class LmsUser(AbstractUser):
         blank=True
     )
 
+    default_seq_type = models.CharField(
+        '默认序列方向',
+        max_length=10,
+        default='SS',
+        choices=[('SS', 'SS'), ('AS', 'AS')],
+    )
 
     class Meta:
         verbose_name = '用户'
