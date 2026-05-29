@@ -163,7 +163,8 @@ class LmsUser(AbstractUser):
 
     is_admin = models.BooleanField('是否为管理员', default=False)
 
-    # 添加权限项目字段
+    # TODO: migrate to ManyToManyField(Project) once a Project model exists;
+    #       current comma-separated CharField is a stopgap.
     permissions_project = models.CharField(
         '可查看的项目号',
         max_length=256,
