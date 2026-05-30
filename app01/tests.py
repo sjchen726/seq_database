@@ -1173,8 +1173,18 @@ class ProfileAndApprovalViewTests(TestCase):
         self.assertIn(r.status_code, [302, 200])
         req.refresh_from_db()
         self.assertEqual(req.status, 'approved')
+        self.assertIsNotNone(req.reviewed_at)
         self.user.refresh_from_db()
         self.assertIn('BPR-350', self.user.permissions_project)
+
+    def test_double_approve_does_not_duplicate_permissions(self):
+        from app01.models import ProjectAccessRequest
+        req = ProjectAccessRequest.objects.create(user=self.user, project_codes='BPR-350')
+        self.client_sa.post(f'/approve_request/{req.id}/', {'action': 'approve', 'review_note': ''})
+        self.client_sa.post(f'/approve_request/{req.id}/', {'action': 'approve', 'review_note': ''})
+        self.user.refresh_from_db()
+        parts = [p for p in (self.user.permissions_project or '').split(',') if p]
+        self.assertEqual(parts.count('BPR-350'), 1)
 
     def test_reject_request_does_not_grant_permissions(self):
         from app01.models import ProjectAccessRequest

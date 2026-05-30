@@ -4959,6 +4959,10 @@ def request_project_access(request):
         return redirect('user_profile')
 
     project_codes = ','.join(p.strip() for p in raw.split(',') if p.strip())
+    # Prevent duplicate pending requests
+    if ProjectAccessRequest.objects.filter(user=request.user, status='pending').exists():
+        messages.warning(request, '您有一个待审批的申请，请等待处理后再提交新申请。')
+        return redirect('user_profile')
     ProjectAccessRequest.objects.create(user=request.user, project_codes=project_codes, note=note)
     messages.success(request, '申请已提交，等待超级管理员审批。')
     return redirect('user_profile')
