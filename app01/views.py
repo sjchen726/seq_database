@@ -2701,6 +2701,8 @@ def get_permitted_delivery_qs(user):
         return Delivery.objects.all()
     allowed = user.get_allowed_projects()
     if allowed:
+        # distinct() required: JOIN across DeliveryProject produces one row per
+        # matching project link, not per Delivery.
         return Delivery.objects.filter(
             project_links__project_code__in=allowed
         ).distinct()
@@ -2723,6 +2725,8 @@ def user_can_edit_delivery(user, delivery):
     delivery_projects = set(
         delivery.project_links.values_list('project_code', flat=True)
     )
+    if not delivery_projects:
+        return False  # delivery with no project links is not editable by sub_admin
     user_projects = set(user.get_allowed_projects())
     return delivery_projects.issubset(user_projects)
 

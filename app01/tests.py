@@ -984,3 +984,65 @@ class PermissionHelperTests(TestCase):
     def test_regular_user_cannot_edit(self):
         from app01.views import user_can_edit_delivery
         self.assertFalse(user_can_edit_delivery(self.regular, self.delivery))
+
+    def test_is_superuser_can_edit_delivery(self):
+        """Django is_superuser flag should grant edit access regardless of user_type."""
+        from app01.views import user_can_edit_delivery
+        django_su = LmsUser.objects.create_user(
+            username='django_su', password='p', user_type='user'
+        )
+        django_su.is_superuser = True
+        django_su.save()
+        self.assertTrue(user_can_edit_delivery(django_su, self.delivery))
+
+    def test_user_can_edit_delivery_with_empty_project_links_returns_false(self):
+        """Delivery with no project_links should not be editable by sub_admin."""
+        from app01.views import user_can_edit_delivery
+        from app01.models import DeliveryProject
+        # Create a delivery with no project links
+        orphan_delivery = Delivery.objects.create(
+            sequence=self.seq,
+            seq_type='SS',
+            modify_seq='AmUmGmCm',
+            linker_seq='AmUmGmCm',
+            project='BPR-350',
+            duplex_id='BP999999',
+        )
+        # Ensure no DeliveryProject rows exist for it
+        DeliveryProject.objects.filter(delivery=orphan_delivery).delete()
+        self.assertFalse(user_can_edit_delivery(self.sub_admin, orphan_delivery))
+
+    def test_get_permitted_delivery_qs_superadmin_gets_all(self):
+        from app01.views import get_permitted_delivery_qs
+        qs = get_permitted_delivery_qs(self.superadmin)
+        self.assertIn(self.delivery, qs)
+
+    def test_get_permitted_delivery_qs_user_with_project(self):
+        from app01.views import get_permitted_delivery_qs
+        qs = get_permitted_delivery_qs(self.sub_admin)
+        self.assertIn(self.delivery, qs)
+
+    def test_get_permitted_delivery_qs_user_no_projects(self):
+        from app01.views import get_permitted_delivery_qs
+        no_project_user = LmsUser.objects.create_user(
+            username='nobody', password='p', user_type='user',
+            permissions_project='',
+        )
+        qs = get_permitted_delivery_qs(no_project_user)
+        self.assertEqual(qs.count(), 0)
+
+    def test_user_can_access_duplex_superadmin(self):
+        from app01.views import _user_can_access_duplex
+        self.assertTrue(_user_can_access_duplex(self.superadmin, 'BP000001'))
+
+    def test_user_can_access_duplex_sub_admin_with_project(self):
+        from app01.views import _user_can_access_duplex
+        self.assertTrue(_user_can_access_duplex(self.sub_admin, 'BP000001'))
+
+    def test_user_can_access_duplex_no_project(self):
+        from app01.views import _user_can_access_duplex
+        no_project_user = LmsUser.objects.create_user(
+            username='nobody2', password='p', user_type='user',
+            permissions_project='',
+        )
+        self.assertFalse(_user_can_access_duplex(no_project_user, 'BP000001'))
