@@ -241,6 +241,39 @@ class ProjectAccessRequest(models.Model):
         return f"{self.user.username} → {self.project_codes} [{self.status}]"
 
 
+class ModulePermissionRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending',  '待审批'),
+        ('approved', '已批准'),
+        ('rejected', '已拒绝'),
+    ]
+
+    user = models.ForeignKey(
+        LmsUser, on_delete=models.CASCADE, related_name='module_requests',
+        verbose_name='申请人',
+    )
+    modules_requested = models.CharField('申请模块', max_length=64)
+    # Comma-separated values from: 'delivery', 'seq', 'linker'
+    note = models.CharField('申请说明', max_length=256, blank=True)
+    requested_at = models.DateTimeField('申请时间', auto_now_add=True)
+    status = models.CharField(
+        '状态', max_length=16, choices=STATUS_CHOICES, default='pending'
+    )
+    reviewed_by = models.ForeignKey(
+        LmsUser, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='reviewed_module_requests', verbose_name='审批人',
+    )
+    reviewed_at = models.DateTimeField('审批时间', null=True, blank=True)
+    review_note = models.CharField('审批备注', max_length=256, blank=True)
+
+    class Meta:
+        verbose_name = '模块权限申请'
+        verbose_name_plural = '模块权限申请'
+        ordering = ['-requested_at']
+
+    def __str__(self):
+        return f"{self.user.username} → {self.modules_requested} [{self.status}]"
+
 
 #注册模块分类
 class DeliveryModule(models.Model):

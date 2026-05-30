@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (
     Sequence, Delivery, SeqInfo, DuplexRelationship,
     DeliveryModule, SeqModule, LinkerModule, LmsUser,
-    ProjectAccessRequest,
+    ProjectAccessRequest, ModulePermissionRequest,
 )
 
 
@@ -65,3 +65,10 @@ class ProjectAccessRequestAdmin(admin.ModelAdmin):
     list_display = ('user', 'project_codes', 'status', 'requested_at', 'reviewed_by')
     list_filter = ('status',)
     search_fields = ('user__username', 'project_codes')
+
+
+@admin.register(ModulePermissionRequest)
+class ModulePermissionRequestAdmin(admin.ModelAdmin):
+    list_display = ('user', 'modules_requested', 'status', 'requested_at', 'reviewed_by')
+    list_filter = ('status',)
+    search_fields = ('user__username', 'modules_requested')

@@ -1211,3 +1211,61 @@ class ProfileAndApprovalViewTests(TestCase):
         self.assertIn(r.status_code, [302, 403])
         req.refresh_from_db()
         self.assertEqual(req.status, 'pending')  # unchanged
+
+
+class ModulePermissionRequestModelTests(TestCase):
+    """ModulePermissionRequest basic model behaviour."""
+
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='requester2', password='pass', user_type='user'
+        )
+        self.admin = LmsUser.objects.create_user(
+            username='sa2', password='pass', user_type='superadmin'
+        )
+
+    def test_create_pending_request(self):
+        from app01.models import ModulePermissionRequest
+        req = ModulePermissionRequest.objects.create(
+            user=self.user,
+            modules_requested='delivery,seq',
+        )
+        self.assertEqual(req.status, 'pending')
+        self.assertIsNone(req.reviewed_by)
+        self.assertIsNone(req.reviewed_at)
+
+    def test_str_includes_username_and_modules(self):
+        from app01.models import ModulePermissionRequest
+        req = ModulePermissionRequest.objects.create(
+            user=self.user, modules_requested='linker'
+        )
+        s = str(req)
+        self.assertIn('requester2', s)
+        self.assertIn('linker', s)
+
+    def test_default_ordering_newest_first(self):
+        from app01.models import ModulePermissionRequest
+        r1 = ModulePermissionRequest.objects.create(
+            user=self.user, modules_requested='delivery'
+        )
+        r2 = ModulePermissionRequest.objects.create(
+            user=self.user, modules_requested='seq'
+        )
+        qs = list(ModulePermissionRequest.objects.all())
+        self.assertEqual(qs[0], r2)
+        self.assertEqual(qs[1], r1)
+
+    def test_reviewed_fields_update(self):
+        from app01.models import ModulePermissionRequest
+        from django.utils import timezone
+        req = ModulePermissionRequest.objects.create(
+            user=self.user, modules_requested='delivery'
+        )
+        req.status = 'approved'
+        req.reviewed_by = self.admin
+        req.reviewed_at = timezone.now()
+        req.save()
+        req.refresh_from_db()
+        self.assertEqual(req.status, 'approved')
+        self.assertEqual(req.reviewed_by, self.admin)
+        self.assertIsNotNone(req.reviewed_at)
