@@ -846,3 +846,91 @@ class BuildComboReTests(TestCase):
         prebuilt = normalize_tmp_seq_with_combo(seq, combo_re=build_combo_re())
         fresh = normalize_tmp_seq_with_combo(seq)
         self.assertEqual(prebuilt, fresh)
+
+
+# ── Permission Redesign: Model Tests ──────────────────────────────────────────
+
+class LmsUserRoleTests(TestCase):
+    """LmsUser new role fields and helper methods."""
+
+    def _make_user(self, username, user_type, module_permissions=''):
+        return LmsUser.objects.create_user(
+            username=username, password='pass',
+            user_type=user_type,
+            module_permissions=module_permissions,
+        )
+
+    def test_superadmin_can_manage_all_modules(self):
+        u = self._make_user('sa', 'superadmin')
+        for m in ('delivery', 'seq', 'linker'):
+            self.assertTrue(u.can_manage_module(m))
+
+    def test_user_without_module_perms_cannot_manage(self):
+        u = self._make_user('u', 'user')
+        for m in ('delivery', 'seq', 'linker'):
+            self.assertFalse(u.can_manage_module(m))
+
+    def test_user_with_delivery_perm_only(self):
+        u = self._make_user('u2', 'user', module_permissions='delivery')
+        self.assertTrue(u.can_manage_module('delivery'))
+        self.assertFalse(u.can_manage_module('seq'))
+        self.assertFalse(u.can_manage_module('linker'))
+
+    def test_sub_admin_with_no_explicit_module_perms(self):
+        u = self._make_user('pi', 'sub_admin')
+        for m in ('delivery', 'seq', 'linker'):
+            self.assertFalse(u.can_manage_module(m))
+
+    def test_is_superuser_flag_overrides_module_check(self):
+        u = self._make_user('django_su', 'user')
+        u.is_superuser = True
+        u.save()
+        self.assertTrue(u.can_manage_module('delivery'))
+
+    def test_user_type_choices_are_three_values(self):
+        choices = dict(LmsUser._meta.get_field('user_type').choices)
+        self.assertEqual(set(choices.keys()), {'superadmin', 'sub_admin', 'user'})
+
+
+class ProjectAccessRequestModelTests(TestCase):
+    """ProjectAccessRequest basic model behaviour."""
+
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='requester', password='pass', user_type='user'
+        )
+        self.admin = LmsUser.objects.create_user(
+            username='sa', password='pass', user_type='superadmin'
+        )
+
+    def test_create_pending_request(self):
+        from app01.models import ProjectAccessRequest
+        req = ProjectAccessRequest.objects.create(
+            user=self.user,
+            project_codes='BPR-350,BPR-3T03',
+            note='need access',
+        )
+        self.assertEqual(req.status, 'pending')
+        self.assertIsNone(req.reviewed_by)
+
+    def test_approve_request_updates_fields(self):
+        from app01.models import ProjectAccessRequest
+        from django.utils import timezone
+        req = ProjectAccessRequest.objects.create(
+            user=self.user, project_codes='BPR-350'
+        )
+        req.status = 'approved'
+        req.reviewed_by = self.admin
+        req.reviewed_at = timezone.now()
+        req.save()
+        req.refresh_from_db()
+        self.assertEqual(req.status, 'approved')
+        self.assertEqual(req.reviewed_by, self.admin)
+
+    def test_default_ordering_newest_first(self):
+        from app01.models import ProjectAccessRequest
+        r1 = ProjectAccessRequest.objects.create(user=self.user, project_codes='A')
+        r2 = ProjectAccessRequest.objects.create(user=self.user, project_codes='B')
+        qs = list(ProjectAccessRequest.objects.all())
+        self.assertEqual(qs[0], r2)
+        self.assertEqual(qs[1], r1)

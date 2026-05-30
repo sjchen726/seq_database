@@ -1,5 +1,9 @@
 from django.contrib import admin
-from .models import Sequence, Delivery, SeqInfo, DuplexRelationship, DeliveryModule, SeqModule, LmsUser
+from .models import (
+    Sequence, Delivery, SeqInfo, DuplexRelationship,
+    DeliveryModule, SeqModule, LinkerModule, LmsUser,
+    ProjectAccessRequest,
+)
 
 
 @admin.register(Sequence)
@@ -43,8 +47,21 @@ class SeqModuleAdmin(admin.ModelAdmin):
     list_filter = ('linker_connector',)
 
 
+@admin.register(LinkerModule)
+class LinkerModuleAdmin(admin.ModelAdmin):
+    list_display = ('keyword', 'description')
+    search_fields = ('keyword',)
+
+
 @admin.register(LmsUser)
 class LmsUserAdmin(admin.ModelAdmin):
-    list_display = ('username', 'user_type', 'is_admin', 'is_superuser', 'permissions_project')
-    list_filter = ('user_type', 'is_admin', 'is_superuser')
+    list_display = ('username', 'user_type', 'module_permissions', 'is_superuser', 'permissions_project')
+    list_filter = ('user_type', 'is_superuser')
     search_fields = ('username', 'email', 'permissions_project')
+
+
+@admin.register(ProjectAccessRequest)
+class ProjectAccessRequestAdmin(admin.ModelAdmin):
+    list_display = ('user', 'project_codes', 'status', 'requested_at', 'reviewed_by')
+    list_filter = ('status',)
+    search_fields = ('user__username', 'project_codes')

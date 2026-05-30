@@ -133,35 +133,22 @@ class DeliveryProject(models.Model):
 
 
 class LmsUser(AbstractUser):
-    # 用户类别常量
-    PROJECT_MANAGEMENT = 'project'
-    DELIVERY = 'delivery'
-    MODIFY = 'modify'
-    GUEST = 'guest'
-    superadmin = 'superadmin'
-    admin = 'admin'
-    data_admin = 'data_admin'
-
     USER_TYPE_CHOICES = [
-        (PROJECT_MANAGEMENT, '项目管理'),
-        (DELIVERY, '递送'),
-        (MODIFY, '修饰'),
-        (GUEST, '访客'),
-        (superadmin, '超级管理员'),
-        (admin, '管理员'),
-        (data_admin, '数据库管理员'),
-        # 其他用户类型可以在这里添加
+        ('superadmin', '超级管理员'),
+        ('sub_admin',  '次级管理员'),
+        ('user',       '普通用户'),
     ]
 
-    # 用户类型字段
     user_type = models.CharField(
         '用户类型',
-        max_length=20,
+        max_length=16,
         choices=USER_TYPE_CHOICES,
-        default=GUEST,
+        default='user',
     )
 
-    is_admin = models.BooleanField('是否为管理员', default=False)
+    # Deprecated — no longer written or read in code; kept for DB compatibility.
+    # Remove in a follow-up migration once confirmed safe.
+    is_admin = models.BooleanField('是否为管理员 (deprecated)', default=False)
 
     # TODO: migrate to ManyToManyField(Project) once a Project model exists;
     #       current comma-separated CharField is a stopgap.
@@ -169,7 +156,7 @@ class LmsUser(AbstractUser):
         '可查看的项目号',
         max_length=256,
         null=True,
-        blank=True
+        blank=True,
     )
 
     default_seq_type = models.CharField(
@@ -179,23 +166,80 @@ class LmsUser(AbstractUser):
         choices=[('SS', 'SS'), ('AS', 'AS')],
     )
 
+    # Comma-separated: 'delivery', 'seq', 'linker'
+    # e.g. "delivery,seq"  or ""  (empty = no module management rights)
+    module_permissions = models.CharField(
+        '模块管理权限',
+        max_length=64,
+        blank=True,
+        default='',
+    )
+
     class Meta:
         verbose_name = '用户'
         verbose_name_plural = '用户'
 
+    # ── helpers ──────────────────────────────────────────────────────────────
+
     def get_allowed_projects(self):
-        """返回该用户有权限查看的项目列表"""
+        """Return list of approved project codes for this user."""
         if not self.permissions_project:
             return []
         return [p.strip() for p in self.permissions_project.split(',') if p.strip()]
 
-    def can_manage_modules(self):
-        """判断该用户是否有权限管理模块"""
-        return self.is_superuser or self.user_type in ('data_admin', 'admin', 'superadmin')
+    def can_manage_module(self, module: str) -> bool:
+        """Return True if user may edit entries in the given module table.
+
+        Args:
+            module: one of 'delivery', 'seq', 'linker'
+        """
+        if self.is_superuser or self.user_type == 'superadmin':
+            return True
+        return module in (self.module_permissions or '').split(',')
+
+    def can_manage_modules(self) -> bool:
+        """Legacy helper — True if user can manage ANY module.
+        Kept so old call sites compile; prefer can_manage_module(name)."""
+        if self.is_superuser or self.user_type == 'superadmin':
+            return True
+        return bool(self.module_permissions)
 
     def __str__(self):
         return f"{self.username} ({self.user_type})"
-    
+
+
+class ProjectAccessRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending',  '待审批'),
+        ('approved', '已批准'),
+        ('rejected', '已拒绝'),
+    ]
+
+    user = models.ForeignKey(
+        LmsUser, on_delete=models.CASCADE, related_name='access_requests',
+        verbose_name='申请人',
+    )
+    project_codes = models.CharField('申请项目号', max_length=512)
+    note = models.CharField('申请说明', max_length=256, blank=True)
+    requested_at = models.DateTimeField('申请时间', auto_now_add=True)
+    status = models.CharField(
+        '状态', max_length=16, choices=STATUS_CHOICES, default='pending'
+    )
+    reviewed_by = models.ForeignKey(
+        LmsUser, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='reviewed_requests', verbose_name='审批人',
+    )
+    reviewed_at = models.DateTimeField('审批时间', null=True, blank=True)
+    review_note = models.CharField('审批备注', max_length=256, blank=True)
+
+    class Meta:
+        verbose_name = '项目权限申请'
+        verbose_name_plural = '项目权限申请'
+        ordering = ['-requested_at']
+
+    def __str__(self):
+        return f"{self.user.username} → {self.project_codes} [{self.status}]"
+
 
 
 #注册模块分类
