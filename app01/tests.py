@@ -1088,6 +1088,27 @@ class ViewPermissionGateTests(TestCase):
         # Must not 200 — either 403 or redirect with error message
         self.assertNotEqual(r.status_code, 200)
 
+    def test_clone_delivery_user_gets_403(self):
+        """user role cannot clone deliveries."""
+        r = self.client_u.get('/clone_delivery/', {'strand_id': 'BP000001'})
+        self.assertEqual(r.status_code, 403)
+
+    def test_clone_delivery_sub_admin_does_not_get_403(self):
+        """sub_admin role should pass the role gate (project check may still reject)."""
+        r = self.client_pi.get('/clone_delivery/', {'strand_id': 'BP000001'})
+        # 403 would mean the role gate rejected; anything else means it passed the gate
+        self.assertNotEqual(r.status_code, 403)
+
+    def test_confirm_share_get_user_redirects(self):
+        """user role cannot view the share confirmation page."""
+        r = self.client_u.get('/confirm_share/')
+        self.assertIn(r.status_code, [302, 403])
+
+    def test_confirm_share_post_user_redirects(self):
+        """user role cannot POST to confirm_share."""
+        r = self.client_u.post('/confirm_share/', {})
+        self.assertIn(r.status_code, [302, 403])
+
     # register sets role to 'user' regardless of POST data
     def test_register_always_creates_user_role(self):
         r = self.client_class().post('/register/', {

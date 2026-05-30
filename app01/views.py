@@ -447,7 +447,6 @@ def author_list(request):
     if not _is_superadmin(request.user):
         messages.error(request, '您没有权限访问用户管理页面。')
         return redirect('seq_list')
-    from .models import ProjectAccessRequest
     pending_count = ProjectAccessRequest.objects.filter(status='pending').count()
     users = LmsUser.objects.all().order_by('username')
     pending_requests = ProjectAccessRequest.objects.filter(
@@ -2242,6 +2241,11 @@ def upload_delivery_info(request):
 
 @login_required
 def confirm_share_deliveries(request):
+    if not (_is_superadmin(request.user) or
+            getattr(request.user, 'user_type', '') == 'sub_admin'):
+        messages.error(request, '您没有权限执行此操作。')
+        return redirect('seq_list')
+
     if request.method == 'GET':
         pending = request.session.get('pending_shares', [])
         if not pending:
@@ -2249,11 +2253,6 @@ def confirm_share_deliveries(request):
         return render(request, 'confirm_share.html', {'pending_shares': pending})
 
     if request.method == 'POST':
-        if not (request.user.is_authenticated and
-                (_is_superadmin(request.user) or
-                 getattr(request.user, 'user_type', '') == 'sub_admin')):
-            messages.error(request, '您没有权限执行此操作。')
-            return redirect('seq_list')
 
         from .models import DeliveryProject
         import pandas as pd
