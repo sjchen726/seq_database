@@ -1269,3 +1269,29 @@ class ModulePermissionRequestModelTests(TestCase):
         self.assertEqual(req.status, 'approved')
         self.assertEqual(req.reviewed_by, self.admin)
         self.assertIsNotNone(req.reviewed_at)
+
+
+class LogoutViewTests(TestCase):
+    """Logout view: POST-only, clears session, redirects to login."""
+
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='logout_test_user', password='pass', user_type='user'
+        )
+
+    def test_get_returns_405(self):
+        self.client.login(username='logout_test_user', password='pass')
+        r = self.client.get('/logout/')
+        self.assertEqual(r.status_code, 405)
+
+    def test_post_redirects_to_login(self):
+        self.client.login(username='logout_test_user', password='pass')
+        r = self.client.post('/logout/')
+        self.assertRedirects(r, '/login/', fetch_redirect_response=False)
+
+    def test_post_clears_authentication(self):
+        self.client.login(username='logout_test_user', password='pass')
+        self.client.post('/logout/')
+        # Subsequent request to a login-required page should redirect
+        r = self.client.get('/profile/')
+        self.assertNotEqual(r.status_code, 200)  # no longer authenticated

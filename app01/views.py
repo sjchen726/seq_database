@@ -558,6 +558,14 @@ def drop_author(request):
         messages.error(request, '用户不存在或已被删除')
         return redirect('/author_list/')
 
+@require_POST
+def logout_view(request):
+    """POST-only logout — clears session and redirects to login."""
+    from django.contrib.auth import logout as auth_logout
+    auth_logout(request)
+    return redirect('login')
+
+
 @login_required
 def change_password(request):
     if request.method == "POST":

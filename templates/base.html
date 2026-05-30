@@ -99,15 +99,29 @@
     {% endif %}{# end is_authenticated #}
 
     <div class="ds-sidebar-footer">
-      <div class="ds-user-card">
-        <div class="ds-user-avatar">{{ request.user.username|first|upper }}</div>
-        <div>
-          <div class="ds-user-name">{{ request.user.username }}</div>
-          <div class="ds-user-role">
-            <span class="ds-online-dot"></span>
-            {{ request.user.user_type|default:"user" }}
+      <div class="ds-user-card" style="justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="ds-user-avatar">{{ request.user.username|first|upper }}</div>
+          <div>
+            <div class="ds-user-name">{{ request.user.username }}</div>
+            <div class="ds-user-role">
+              <span class="ds-online-dot"></span>
+              {{ request.user.user_type|default:"user" }}
+            </div>
           </div>
         </div>
+        {% if request.user.is_authenticated %}
+        <form method="POST" action="{% url 'logout' %}" style="margin:0;">
+          {% csrf_token %}
+          <button type="submit" title="退出登录"
+                  style="background:none;border:none;cursor:pointer;padding:4px 6px;
+                         border-radius:6px;color:#94a3b8;display:flex;align-items:center;"
+                  onmouseover="this.style.color='#ef4444';this.style.background='#fef2f2'"
+                  onmouseout="this.style.color='#94a3b8';this.style.background='none'">
+            <i class="bi bi-box-arrow-right" style="font-size:16px;"></i>
+          </button>
+        </form>
+        {% endif %}
       </div>
     </div>
   </nav>

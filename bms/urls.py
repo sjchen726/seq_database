@@ -78,6 +78,7 @@ urlpatterns = [
 
     #path('test_log/', views.test_log, name='test_log'),
 
+    path('logout/', views.logout_view, name='logout'),
     path('profile/', views.user_profile, name='user_profile'),
     path('request_project/', views.request_project_access, name='request_project_access'),
     path('approve_request/<int:req_id>/', views.approve_project_request, name='approve_project_request'),
