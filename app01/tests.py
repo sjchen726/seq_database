@@ -934,3 +934,53 @@ class ProjectAccessRequestModelTests(TestCase):
         qs = list(ProjectAccessRequest.objects.all())
         self.assertEqual(qs[0], r2)
         self.assertEqual(qs[1], r1)
+
+
+class PermissionHelperTests(TestCase):
+    """user_can_edit_delivery and _is_superadmin helper behaviour."""
+
+    def setUp(self):
+        self.seq = Sequence.objects.create(
+            rm_code='RM0001', seq='AUGC', seq_type='SS'
+        )
+        self.delivery = Delivery.objects.create(
+            sequence=self.seq,
+            seq_type='SS',
+            modify_seq='AmUmGmCm',
+            linker_seq='AmUmGmCm',
+            project='BPR-350',
+            duplex_id='BP000001',
+        )
+        DeliveryProject.objects.get_or_create(delivery=self.delivery, project_code='BPR-350')
+
+        self.superadmin = LmsUser.objects.create_user(
+            username='sa', password='p', user_type='superadmin'
+        )
+        self.sub_admin = LmsUser.objects.create_user(
+            username='pi', password='p', user_type='sub_admin',
+            permissions_project='BPR-350',
+        )
+        self.regular = LmsUser.objects.create_user(
+            username='u', password='p', user_type='user',
+            permissions_project='BPR-350',
+        )
+        self.no_project = LmsUser.objects.create_user(
+            username='nop', password='p', user_type='sub_admin',
+            permissions_project='OTHER',
+        )
+
+    def test_superadmin_can_edit_any_delivery(self):
+        from app01.views import user_can_edit_delivery
+        self.assertTrue(user_can_edit_delivery(self.superadmin, self.delivery))
+
+    def test_sub_admin_can_edit_own_project(self):
+        from app01.views import user_can_edit_delivery
+        self.assertTrue(user_can_edit_delivery(self.sub_admin, self.delivery))
+
+    def test_sub_admin_cannot_edit_other_project(self):
+        from app01.views import user_can_edit_delivery
+        self.assertFalse(user_can_edit_delivery(self.no_project, self.delivery))
+
+    def test_regular_user_cannot_edit(self):
+        from app01.views import user_can_edit_delivery
+        self.assertFalse(user_can_edit_delivery(self.regular, self.delivery))

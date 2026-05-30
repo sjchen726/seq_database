@@ -2685,14 +2685,19 @@ def get_user_default_seq_type(user):
     return getattr(user, 'default_seq_type', 'SS') or 'SS'
 
 
+def _is_superadmin(user) -> bool:
+    """Return True for Django superusers and SeqDB superadmin role."""
+    return user.is_superuser or getattr(user, 'user_type', '') == 'superadmin'
+
+
 def get_permitted_delivery_qs(user):
     """
-    根据用户权限返回可见的 Delivery 查询集：
-    - 超级管理员：全部
-    - 普通用户：仅限 permissions_project 包含的项目（通过 DeliveryProject 关联表查询）
-    - 无权限：空集
+    Return the Delivery queryset visible to this user:
+    - superadmin: all records
+    - sub_admin / user: only records in their approved projects
+    - no approved projects: empty queryset
     """
-    if user.is_superuser:
+    if _is_superadmin(user):
         return Delivery.objects.all()
     allowed = user.get_allowed_projects()
     if allowed:
@@ -2704,11 +2709,17 @@ def get_permitted_delivery_qs(user):
 
 def user_can_edit_delivery(user, delivery):
     """
-    用户必须同时拥有该 Delivery 所属所有项目的权限才能编辑。
-    单一项目权限的用户只能查看跨项目样品。
+    Return True if user may edit/delete/clone this Delivery record.
+
+    Rules:
+    - superadmin: always True
+    - sub_admin: True only when user holds ALL projects the delivery belongs to
+    - user: always False
     """
-    if user.is_superuser or getattr(user, 'user_type', '') in ('admin', 'superadmin', 'data_admin'):
+    if _is_superadmin(user):
         return True
+    if getattr(user, 'user_type', '') != 'sub_admin':
+        return False
     delivery_projects = set(
         delivery.project_links.values_list('project_code', flat=True)
     )
@@ -2717,8 +2728,8 @@ def user_can_edit_delivery(user, delivery):
 
 
 def _user_can_access_duplex(user, duplex_id):
-    """Return True if user has permission to view/edit experiments for duplex_id."""
-    if user.is_superuser or getattr(user, 'user_type', '') in ('admin', 'superadmin', 'data_admin'):
+    """Return True if user can view/edit experiments for this duplex."""
+    if _is_superadmin(user):
         return True
     return get_permitted_delivery_qs(user).filter(duplex_id=duplex_id).exists()
 
