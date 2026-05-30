@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}个人主页{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>个人主页 — {{ profile_user.username }}</h2>
+
+  <section class="mb-4">
+    <h4>已获授权项目</h4>
+    {% if approved_projects %}
+      <ul>
+        {% for p in approved_projects %}<li>{{ p }}</li>{% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-muted">暂无项目权限</p>
+    {% endif %}
+  </section>
+
+  <section class="mb-4">
+    <h4>申请新项目权限</h4>
+    <form method="post" action="{% url 'request_project_access' %}">
+      {% csrf_token %}
+      <div class="mb-3">
+        <label for="project_codes" class="form-label">项目号（逗号分隔）</label>
+        <input type="text" class="form-control" id="project_codes" name="project_codes"
+               placeholder="例如：BPR-350,BPR-3T03">
+      </div>
+      <div class="mb-3">
+        <label for="note" class="form-label">申请说明</label>
+        <textarea class="form-control" id="note" name="note" rows="2"></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">提交申请</button>
+    </form>
+  </section>
+
+  <section>
+    <h4>历史申请记录</h4>
+    {% if access_requests %}
+      <table class="table table-sm">
+        <thead>
+          <tr>
+            <th>项目号</th><th>状态</th><th>申请时间</th><th>说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for req in access_requests %}
+          <tr>
+            <td>{{ req.project_codes }}</td>
+            <td>{{ req.status }}</td>
+            <td>{{ req.requested_at|date:"Y-m-d H:i" }}</td>
+            <td>{{ req.note }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="text-muted">暂无申请记录</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

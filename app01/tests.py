@@ -1121,3 +1121,83 @@ class ViewPermissionGateTests(TestCase):
         u = LmsUser.objects.filter(username='newbie_gate').first()
         self.assertIsNotNone(u)
         self.assertEqual(u.user_type, 'user')
+
+
+class ProfileAndApprovalViewTests(TestCase):
+    """Profile page, project access request, and approval workflow."""
+
+    def setUp(self):
+        self.sa = LmsUser.objects.create_user(
+            username='sa_prof', password='p', user_type='superadmin'
+        )
+        self.user = LmsUser.objects.create_user(
+            username='u_prof', password='p', user_type='user',
+            permissions_project='',
+        )
+        self.client_sa = self.client_class()
+        self.client_u  = self.client_class()
+        self.client_sa.force_login(self.sa)
+        self.client_u.force_login(self.user)
+
+    def test_profile_page_loads_for_regular_user(self):
+        r = self.client_u.get('/profile/')
+        self.assertEqual(r.status_code, 200)
+
+    def test_superadmin_redirected_from_profile(self):
+        r = self.client_sa.get('/profile/')
+        self.assertIn(r.status_code, [302, 200])
+        if r.status_code == 302:
+            self.assertIn('author_list', r['Location'])
+
+    def test_submit_project_request_creates_pending(self):
+        from app01.models import ProjectAccessRequest
+        r = self.client_u.post('/request_project/', {
+            'project_codes': 'BPR-350,BPR-3T03',
+            'note': 'I need access',
+        })
+        self.assertIn(r.status_code, [302, 200])
+        req = ProjectAccessRequest.objects.filter(user=self.user).first()
+        self.assertIsNotNone(req)
+        self.assertEqual(req.status, 'pending')
+        self.assertEqual(req.project_codes, 'BPR-350,BPR-3T03')
+
+    def test_approve_request_updates_permissions_project(self):
+        from app01.models import ProjectAccessRequest
+        req = ProjectAccessRequest.objects.create(
+            user=self.user, project_codes='BPR-350'
+        )
+        r = self.client_sa.post(f'/approve_request/{req.id}/', {
+            'action': 'approve',
+            'review_note': '',
+        })
+        self.assertIn(r.status_code, [302, 200])
+        req.refresh_from_db()
+        self.assertEqual(req.status, 'approved')
+        self.user.refresh_from_db()
+        self.assertIn('BPR-350', self.user.permissions_project)
+
+    def test_reject_request_does_not_grant_permissions(self):
+        from app01.models import ProjectAccessRequest
+        req = ProjectAccessRequest.objects.create(
+            user=self.user, project_codes='BPR-999'
+        )
+        self.client_sa.post(f'/approve_request/{req.id}/', {
+            'action': 'reject',
+            'review_note': 'not authorised',
+        })
+        req.refresh_from_db()
+        self.assertEqual(req.status, 'rejected')
+        self.user.refresh_from_db()
+        self.assertNotIn('BPR-999', self.user.permissions_project or '')
+
+    def test_only_superadmin_can_approve(self):
+        from app01.models import ProjectAccessRequest
+        req = ProjectAccessRequest.objects.create(
+            user=self.user, project_codes='BPR-350'
+        )
+        r = self.client_u.post(f'/approve_request/{req.id}/', {
+            'action': 'approve',
+        })
+        self.assertIn(r.status_code, [302, 403])
+        req.refresh_from_db()
+        self.assertEqual(req.status, 'pending')  # unchanged

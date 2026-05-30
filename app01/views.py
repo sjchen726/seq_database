@@ -4923,3 +4923,84 @@ def delete_linkermodule(request):
     except LinkerModule.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Linker 模块不存在'})
 
+
+# ── Profile & Project Access Request ─────────────────────────────────────────
+
+@login_required
+def user_profile(request):
+    """Personal profile page for non-superadmin users."""
+    if _is_superadmin(request.user):
+        return redirect('author_list')
+
+    user = request.user
+    requests_qs = ProjectAccessRequest.objects.filter(user=user).order_by('-requested_at')
+
+    return render(request, 'profile.html', {
+        'profile_user': user,
+        'access_requests': requests_qs,
+        'approved_projects': user.get_allowed_projects(),
+        'module_perms': [m for m in (user.module_permissions or '').split(',') if m],
+    })
+
+
+@login_required
+@require_POST
+def request_project_access(request):
+    """Submit a new project access request."""
+    if _is_superadmin(request.user):
+        messages.error(request, '超级管理员无需申请项目权限。')
+        return redirect('author_list')
+
+    raw = request.POST.get('project_codes', '').strip()
+    note = request.POST.get('note', '').strip()
+
+    if not raw:
+        messages.error(request, '请填写至少一个项目号。')
+        return redirect('user_profile')
+
+    project_codes = ','.join(p.strip() for p in raw.split(',') if p.strip())
+    ProjectAccessRequest.objects.create(user=request.user, project_codes=project_codes, note=note)
+    messages.success(request, '申请已提交，等待超级管理员审批。')
+    return redirect('user_profile')
+
+
+@login_required
+@require_POST
+def approve_project_request(request, req_id):
+    """Approve or reject a project access request. Superadmin only."""
+    if not _is_superadmin(request.user):
+        messages.error(request, '您没有权限执行此操作。')
+        return redirect('seq_list')
+
+    try:
+        req = ProjectAccessRequest.objects.select_related('user').get(pk=req_id)
+    except ProjectAccessRequest.DoesNotExist:
+        messages.error(request, '申请记录不存在。')
+        return redirect('author_list')
+
+    action = request.POST.get('action')
+    review_note = request.POST.get('review_note', '').strip()
+
+    req.reviewed_by = request.user
+    req.reviewed_at = timezone.now()
+    req.review_note = review_note
+
+    if action == 'approve':
+        req.status = 'approved'
+        user = req.user
+        existing = set(user.get_allowed_projects())
+        new_codes = {p.strip() for p in req.project_codes.split(',') if p.strip()}
+        merged = sorted(existing | new_codes)
+        user.permissions_project = ','.join(merged)
+        user.save(update_fields=['permissions_project'])
+        messages.success(request, f'已批准 {user.username} 的项目权限申请。')
+    elif action == 'reject':
+        req.status = 'rejected'
+        messages.success(request, f'已拒绝申请，备注：{review_note or "无"}。')
+    else:
+        messages.error(request, '无效操作。')
+        return redirect('author_list')
+
+    req.save()
+    return redirect('author_list')
+
