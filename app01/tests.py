@@ -1366,6 +1366,8 @@ class ModuleRequestWorkflowTests(TestCase):
         self.assertIn(r.status_code, [302, 200])
         req.refresh_from_db()
         self.assertEqual(req.status, 'approved')
+        self.assertIsNotNone(req.reviewed_at)
+        self.assertEqual(req.reviewed_by, self.admin)
         self.user.refresh_from_db()
         self.assertIn('delivery', self.user.module_permissions)
         self.assertIn('linker', self.user.module_permissions)
@@ -1408,6 +1410,7 @@ class ModuleRequestWorkflowTests(TestCase):
         })
         req.refresh_from_db()
         self.assertEqual(req.status, 'rejected')
+        self.assertIsNotNone(req.reviewed_at)
         self.user.refresh_from_db()
         self.assertNotIn('seq', self.user.module_permissions or '')
 

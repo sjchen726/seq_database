@@ -79,35 +79,43 @@
     </form>
   </div>
 
-  {# ── Request history ── #}
-  {% if access_requests %}
+  {# ── Request history (combined project + module) ── #}
+  {% if combined_requests %}
   <div class="ds-table-card">
     <div style="padding:9px 14px;font-size:12px;font-weight:600;color:#64748b;border-bottom:1.5px solid #e8edf4;">申请记录</div>
     <div class="ds-table-scroll">
       <table class="ds-table">
         <thead>
           <tr>
-            <th>项目号</th>
+            <th>类型</th>
+            <th>申请内容</th>
             <th>状态</th>
             <th>备注</th>
             <th>时间</th>
           </tr>
         </thead>
         <tbody>
-          {% for req in access_requests %}
+          {% for item in combined_requests %}
           <tr>
-            <td><code style="font-size:11px;">{{ req.project_codes }}</code></td>
             <td>
-              {% if req.status == 'pending' %}
+              {% if item.req_type == '项目' %}
+              <span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">项目</span>
+              {% else %}
+              <span style="background:#f3e8ff;color:#7c3aed;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">模块</span>
+              {% endif %}
+            </td>
+            <td><code style="font-size:11px;">{{ item.content }}</code></td>
+            <td>
+              {% if item.status == 'pending' %}
                 <span style="color:#d97706;font-size:12px;font-weight:600;">⏳ 待审批</span>
-              {% elif req.status == 'approved' %}
+              {% elif item.status == 'approved' %}
                 <span style="color:#16a34a;font-size:12px;font-weight:600;">✅ 已批准</span>
               {% else %}
                 <span style="color:#dc2626;font-size:12px;font-weight:600;">❌ 已拒绝</span>
               {% endif %}
             </td>
-            <td class="cell-dim">{{ req.review_note|default:'—' }}</td>
-            <td class="cell-dim" style="font-size:11.5px;">{{ req.requested_at|date:"Y-m-d H:i" }}</td>
+            <td class="cell-dim">{{ item.review_note|default:'—' }}</td>
+            <td class="cell-dim" style="font-size:11.5px;">{{ item.requested_at|date:"Y-m-d H:i" }}</td>
           </tr>
           {% endfor %}
         </tbody>
