@@ -1,74 +1,112 @@
 {% extends 'base.html' %}
-{% block page_title %} — 项目人员管理{% endblock %}
+{% block page_title %} — 用户管理{% endblock %}
 {% block topbar_content %}
-  <span class="ds-topbar-title">项目人员管理</span>
-  {% if user_list %}
+  <span class="ds-topbar-title">用户管理</span>
   <span class="ds-count-badge">{{ user_list|length }}</span>
-  {% endif %}
   <span class="ds-topbar-spacer"></span>
-  <a href="{% url 'add_author' %}" class="ds-btn ds-btn-primary"><i class="bi bi-person-plus"></i> 新增人员</a>
+  <a href="{% url 'add_author' %}" class="ds-btn ds-btn-primary">
+    <i class="bi bi-person-plus"></i> 新增用户
+  </a>
 {% endblock %}
 {% block content %}
+
+{% if pending_requests %}
+<div class="ds-table-card" style="margin-bottom:16px;">
+  <div style="padding:10px 16px;background:#fef9c3;border-bottom:1.5px solid #fde047;font-size:13px;font-weight:600;color:#854d0e;">
+    ⏳ 待审批的项目权限申请（{{ pending_count }} 条）
+  </div>
+  <div class="ds-table-scroll">
+    <table class="ds-table">
+      <thead>
+        <tr>
+          <th>申请人</th>
+          <th>申请项目</th>
+          <th>说明</th>
+          <th>申请时间</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for req in pending_requests %}
+        <tr>
+          <td><strong>{{ req.user.username }}</strong></td>
+          <td><code style="font-size:11px;">{{ req.project_codes }}</code></td>
+          <td class="cell-dim">{{ req.note|default:'—' }}</td>
+          <td class="cell-dim">{{ req.requested_at|date:"Y-m-d H:i" }}</td>
+          <td>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <form method="POST" action="{% url 'approve_project_request' req.id %}" style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="approve">
+                <button type="submit" class="ds-btn ds-btn-primary" style="height:28px;padding:0 10px;font-size:11.5px;">批准</button>
+              </form>
+              <form method="POST" action="{% url 'approve_project_request' req.id %}" style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="reject">
+                <input type="text" name="review_note" placeholder="拒绝理由（可选）"
+                       style="height:28px;padding:0 8px;font-size:11.5px;border:1px solid #cbd5e1;border-radius:4px;width:140px;">
+                <button type="submit" class="ds-btn ds-btn-ghost" style="height:28px;padding:0 10px;font-size:11.5px;color:#ef4444;">拒绝</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 <div class="ds-table-card">
   <div class="ds-table-scroll">
     <table class="ds-table">
       <thead>
         <tr>
           <th class="ds-th-sort cell-id">#</th>
-          <th class="ds-th-sort">姓名</th>
+          <th class="ds-th-sort">用户名</th>
           <th class="ds-th-sort">邮箱</th>
           <th class="ds-th-sort">角色</th>
           <th class="ds-th-sort">项目权限</th>
+          <th class="ds-th-sort">模块权限</th>
           <th>操作</th>
         </tr>
       </thead>
       <tbody>
-        {% if user_list %}
-          {% for user in user_list %}
-          <tr>
-            <td class="cell-dim">{{ forloop.counter }}</td>
-            <td class="cell-text"><strong>{{ user.username }}</strong></td>
-            <td class="cell-dim">{{ user.email|default:'—' }}</td>
-            <td>
-              <span class="ds-role-badge ds-role-{{ user.user_type }}">
-                {% if user.user_type == "superadmin" %}超级管理员
-                {% elif user.user_type == "admin" %}管理员
-                {% elif user.user_type == "data_admin" %}数据库管理员
-                {% elif user.user_type == "project" %}项目管理
-                {% elif user.user_type == "modify" %}修饰
-                {% elif user.user_type == "delivery" %}递送
-                {% elif user.user_type == "guest" %}访客
-                {% else %}{{ user.user_type }}
-                {% endif %}
-              </span>
-            </td>
-            <td class="cell-dim" style="max-width:200px;word-break:break-word;">{{ user.permissions_project|default:'—' }}</td>
-            <td>
-              <div class="ds-actions">
-                <a class="ds-act ds-act-edit" href="{% url 'edit_author' %}?id={{ user.id }}" title="编辑">&#9998;</a>
-                <form method="POST" action="{% url 'drop_author' %}" style="display:inline;"
-                      onsubmit="return confirm('确定删除用户 {{ user.username|escapejs }}？');">
-                  {% csrf_token %}
-                  <input type="hidden" name="id" value="{{ user.id }}">
-                  <button type="submit" class="ds-act" style="color:#ef4444;background:none;border:none;cursor:pointer;" title="删除">&#128465;</button>
-                </form>
-              </div>
-            </td>
-          </tr>
-          {% endfor %}
-        {% else %}
-          <tr><td colspan="6" class="ds-empty-state">暂无用户数据</td></tr>
-        {% endif %}
+        {% for user in user_list %}
+        <tr>
+          <td class="cell-dim">{{ forloop.counter }}</td>
+          <td class="cell-text"><strong>{{ user.username }}</strong></td>
+          <td class="cell-dim">{{ user.email|default:'—' }}</td>
+          <td>
+            <span class="ds-role-badge ds-role-{{ user.user_type }}">
+              {% if user.user_type == 'superadmin' %}超级管理员
+              {% elif user.user_type == 'sub_admin' %}次级管理员
+              {% else %}普通用户{% endif %}
+            </span>
+          </td>
+          <td class="cell-dim" style="max-width:180px;word-break:break-word;">
+            {{ user.permissions_project|default:'—' }}
+          </td>
+          <td class="cell-dim" style="font-size:11px;">
+            {% if user.module_permissions %}{{ user.module_permissions }}{% else %}—{% endif %}
+          </td>
+          <td>
+            <div class="ds-actions">
+              <a class="ds-act ds-act-edit" href="{% url 'edit_author' %}?id={{ user.id }}">编辑</a>
+              <form method="POST" action="{% url 'drop_author' %}" style="display:inline;"
+                    onsubmit="return confirm('确定删除用户 {{ user.username|escapejs }}？');">
+                {% csrf_token %}
+                <input type="hidden" name="id" value="{{ user.id }}">
+                <button type="submit" class="ds-act ds-act-delete">删除</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="ds-empty-state">暂无用户数据</td></tr>
+        {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
-{% endblock %}
-{% block extra_scripts %}
-<div id="msg-toast-container" style="position:fixed;top:20px;right:20px;z-index:9999;"></div>
-<script>
-{% if messages %}{% for message in messages %}
-(function(){var l='{{ message.tags }}';if(l==='error')l='error';else if(l==='warning')l='warning';else if(l==='success')l='success';else l='info';if(typeof showToast==='function')showToast('{{ message|escapejs }}',l);})();
-{% endfor %}{% endif %}
-</script>
 {% endblock %}

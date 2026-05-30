@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
-{% block page_title %} — 编辑人员信息{% endblock %}
+{% block page_title %} — 编辑用户{% endblock %}
 {% block topbar_content %}
-  <span class="ds-topbar-title">编辑人员信息</span>
+  <span class="ds-topbar-title">编辑用户 — {{ user.username }}</span>
   <span class="ds-topbar-spacer"></span>
   <a href="{% url 'author_list' %}" class="ds-btn ds-btn-ghost">返回列表</a>
 {% endblock %}
@@ -12,30 +12,45 @@
     <form method="POST" action="{% url 'edit_author' %}?id={{ user.id }}">
       {% csrf_token %}
       <div class="ds-form-row">
-        <label class="ds-form-label" for="edit_username">姓名</label>
-        <input class="ds-form-control" id="edit_username" placeholder="姓名" name="edit_username" value="{{ user.username }}">
+        <label class="ds-form-label" for="edit_username">用户名</label>
+        <input class="ds-form-control" id="edit_username" name="edit_username" value="{{ user.username }}">
       </div>
       <div class="ds-form-row">
         <label class="ds-form-label" for="edit_email">邮箱</label>
-        <input class="ds-form-control" id="edit_email" placeholder="邮箱" name="edit_email" value="{{ user.email }}">
+        <input class="ds-form-control" id="edit_email" name="edit_email" type="email" value="{{ user.email }}">
       </div>
       <div class="ds-form-row">
-        <label class="ds-form-label" for="edit_user_type">角色分类</label>
+        <label class="ds-form-label" for="edit_user_type">角色</label>
         <select class="ds-form-control" id="edit_user_type" name="edit_user_type">
-          <option value="superadmin" {% if user.user_type == "superadmin" %}selected{% endif %}>超级管理员</option>
-          <option value="admin" {% if user.user_type == "admin" %}selected{% endif %}>管理员</option>
-          <option value="data_admin" {% if user.user_type == "data_admin" %}selected{% endif %}>数据库管理员</option>
-          <option value="project" {% if user.user_type == "project" %}selected{% endif %}>项目管理</option>
-          <option value="delivery" {% if user.user_type == "delivery" %}selected{% endif %}>递送</option>
-          <option value="modify" {% if user.user_type == "modify" %}selected{% endif %}>修饰</option>
-          <option value="guest" {% if user.user_type == "guest" %}selected{% endif %}>访客</option>
+          <option value="superadmin" {% if user.user_type == 'superadmin' %}selected{% endif %}>超级管理员</option>
+          <option value="sub_admin"  {% if user.user_type == 'sub_admin'  %}selected{% endif %}>次级管理员</option>
+          <option value="user"       {% if user.user_type == 'user'       %}selected{% endif %}>普通用户</option>
         </select>
       </div>
       <div class="ds-form-row">
         <label class="ds-form-label" for="edit_permissions_project">项目权限</label>
         <input class="ds-form-control" id="edit_permissions_project" name="edit_permissions_project"
-               type="text" placeholder="负责项目 (格式: BPR-3M01,BPR-3M02)" value="{{ user.permissions_project }}">
+               type="text" placeholder="BPR-3M01,BPR-3M02" value="{{ user.permissions_project|default:'' }}">
         <p class="ds-form-hint">多个项目用逗号分隔。</p>
+      </div>
+      <div class="ds-form-row">
+        <label class="ds-form-label">模块管理权限</label>
+        <div style="display:flex;gap:16px;margin-top:6px;">
+          {% with mp=user.module_permissions|default:'' %}
+          <label style="font-size:13px;display:flex;align-items:center;gap:6px;">
+            <input type="checkbox" name="module_permissions" value="delivery"
+                   {% if 'delivery' in mp %}checked{% endif %}> Delivery 模块
+          </label>
+          <label style="font-size:13px;display:flex;align-items:center;gap:6px;">
+            <input type="checkbox" name="module_permissions" value="seq"
+                   {% if 'seq' in mp %}checked{% endif %}> 修饰模块
+          </label>
+          <label style="font-size:13px;display:flex;align-items:center;gap:6px;">
+            <input type="checkbox" name="module_permissions" value="linker"
+                   {% if 'linker' in mp %}checked{% endif %}> Linker 模块
+          </label>
+          {% endwith %}
+        </div>
       </div>
       <div style="margin-top:24px;display:flex;justify-content:flex-end;gap:10px;">
         <a href="{% url 'author_list' %}" class="ds-btn ds-btn-ghost">返回</a>
