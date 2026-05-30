@@ -1,61 +1,120 @@
-{% extends "base.html" %}
-{% block title %}个人主页{% endblock %}
-
+{% extends 'base.html' %}
+{% block page_title %} — 我的资料{% endblock %}
+{% block topbar_content %}
+  <span class="ds-topbar-title">我的资料</span>
+{% endblock %}
 {% block content %}
-<div class="container mt-4">
-  <h2>个人主页 — {{ profile_user.username }}</h2>
+<div class="ds-form-page" style="max-width:640px;">
 
-  <section class="mb-4">
-    <h4>已获授权项目</h4>
-    {% if approved_projects %}
-      <ul>
-        {% for p in approved_projects %}<li>{{ p }}</li>{% endfor %}
-      </ul>
-    {% else %}
-      <p class="text-muted">暂无项目权限</p>
+  {# ── Basic info ── #}
+  <div class="ds-form-card" style="margin-bottom:16px;">
+    <div class="ds-form-card-title">基本信息</div>
+    <div class="ds-form-row">
+      <label class="ds-form-label">用户名</label>
+      <span style="font-size:14px;color:#1e293b;font-weight:600;">{{ profile_user.username }}</span>
+    </div>
+    <div class="ds-form-row">
+      <label class="ds-form-label">角色</label>
+      <span class="ds-role-badge ds-role-{{ profile_user.user_type }}">
+        {% if profile_user.user_type == 'sub_admin' %}次级管理员{% else %}普通用户{% endif %}
+      </span>
+    </div>
+    <div class="ds-form-row">
+      <label class="ds-form-label">已批准项目</label>
+      {% if approved_projects %}
+        {% for p in approved_projects %}<code style="background:#f1f5f9;padding:2px 7px;border-radius:4px;font-size:11px;margin-right:4px;">{{ p }}</code>{% endfor %}
+      {% else %}
+        <span style="color:#94a3b8;font-size:13px;">暂无</span>
+      {% endif %}
+    </div>
+    {% if module_perms %}
+    <div class="ds-form-row">
+      <label class="ds-form-label">模块管理权</label>
+      {% for m in module_perms %}<code style="background:#dbeafe;color:#1d4ed8;padding:2px 7px;border-radius:4px;font-size:11px;margin-right:4px;">{{ m }}</code>{% endfor %}
+    </div>
     {% endif %}
-  </section>
+  </div>
 
-  <section class="mb-4">
-    <h4>申请新项目权限</h4>
-    <form method="post" action="{% url 'request_project_access' %}">
+  {# ── Change password ── #}
+  <div class="ds-form-card" style="margin-bottom:16px;">
+    <div class="ds-form-card-title">修改密码</div>
+    <form method="POST" action="{% url 'change_password' %}">
       {% csrf_token %}
-      <div class="mb-3">
-        <label for="project_codes" class="form-label">项目号（逗号分隔）</label>
-        <input type="text" class="form-control" id="project_codes" name="project_codes"
-               placeholder="例如：BPR-350,BPR-3T03">
+      <div class="ds-form-row">
+        <label class="ds-form-label" for="old_password">当前密码</label>
+        <input class="ds-form-control" id="old_password" name="old_password" type="password" required>
       </div>
-      <div class="mb-3">
-        <label for="note" class="form-label">申请说明</label>
-        <textarea class="form-control" id="note" name="note" rows="2"></textarea>
+      <div class="ds-form-row">
+        <label class="ds-form-label" for="new_password1">新密码</label>
+        <input class="ds-form-control" id="new_password1" name="new_password1" type="password" required>
       </div>
-      <button type="submit" class="btn btn-primary">提交申请</button>
+      <div class="ds-form-row">
+        <label class="ds-form-label" for="new_password2">确认新密码</label>
+        <input class="ds-form-control" id="new_password2" name="new_password2" type="password" required>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+        <button type="submit" class="ds-btn ds-btn-primary">修改密码</button>
+      </div>
     </form>
-  </section>
+  </div>
 
-  <section>
-    <h4>历史申请记录</h4>
-    {% if access_requests %}
-      <table class="table table-sm">
+  {# ── Project access requests ── #}
+  <div class="ds-form-card" style="margin-bottom:16px;">
+    <div class="ds-form-card-title">申请项目权限</div>
+    <form method="POST" action="{% url 'request_project_access' %}">
+      {% csrf_token %}
+      <div class="ds-form-row">
+        <label class="ds-form-label" for="project_codes">项目号</label>
+        <input class="ds-form-control" id="project_codes" name="project_codes"
+               placeholder="BPR-350,BPR-3T03" required>
+        <p class="ds-form-hint">多个项目用逗号分隔</p>
+      </div>
+      <div class="ds-form-row">
+        <label class="ds-form-label" for="note">申请说明</label>
+        <input class="ds-form-control" id="note" name="note" placeholder="（选填）说明申请原因">
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+        <button type="submit" class="ds-btn ds-btn-primary">提交申请</button>
+      </div>
+    </form>
+  </div>
+
+  {# ── Request history ── #}
+  {% if access_requests %}
+  <div class="ds-table-card">
+    <div style="padding:9px 14px;font-size:12px;font-weight:600;color:#64748b;border-bottom:1.5px solid #e8edf4;">申请记录</div>
+    <div class="ds-table-scroll">
+      <table class="ds-table">
         <thead>
           <tr>
-            <th>项目号</th><th>状态</th><th>申请时间</th><th>说明</th>
+            <th>项目号</th>
+            <th>状态</th>
+            <th>备注</th>
+            <th>时间</th>
           </tr>
         </thead>
         <tbody>
           {% for req in access_requests %}
           <tr>
-            <td>{{ req.project_codes }}</td>
-            <td>{{ req.status }}</td>
-            <td>{{ req.requested_at|date:"Y-m-d H:i" }}</td>
-            <td>{{ req.note }}</td>
+            <td><code style="font-size:11px;">{{ req.project_codes }}</code></td>
+            <td>
+              {% if req.status == 'pending' %}
+                <span style="color:#d97706;font-size:12px;font-weight:600;">⏳ 待审批</span>
+              {% elif req.status == 'approved' %}
+                <span style="color:#16a34a;font-size:12px;font-weight:600;">✅ 已批准</span>
+              {% else %}
+                <span style="color:#dc2626;font-size:12px;font-weight:600;">❌ 已拒绝</span>
+              {% endif %}
+            </td>
+            <td class="cell-dim">{{ req.review_note|default:'—' }}</td>
+            <td class="cell-dim" style="font-size:11.5px;">{{ req.requested_at|date:"Y-m-d H:i" }}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
-    {% else %}
-      <p class="text-muted">暂无申请记录</p>
-    {% endif %}
-  </section>
+    </div>
+  </div>
+  {% endif %}
+
 </div>
 {% endblock %}

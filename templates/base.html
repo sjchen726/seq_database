@@ -62,21 +62,37 @@
 
     <div class="ds-nav-divider"></div>
     <div class="ds-nav-section">模块管理</div>
+    {% if 'delivery' in request.user.module_permissions or request.user.user_type == 'superadmin' or request.user.is_superuser %}
     <a href="{% url 'module_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'module_list' or request.resolver_match.url_name == 'edit_module' %}active{% endif %}">
       <i class="bi bi-box-seam ds-nav-icon"></i> Delivery 模块
     </a>
+    {% endif %}
+    {% if 'seq' in request.user.module_permissions or request.user.user_type == 'superadmin' or request.user.is_superuser %}
     <a href="{% url 'seqmodule_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'seqmodule_list' or request.resolver_match.url_name == 'edit_seqmodule' %}active{% endif %}">
       <i class="bi bi-check2-square ds-nav-icon"></i> 序列修饰模块
     </a>
+    {% endif %}
+    {% if 'linker' in request.user.module_permissions or request.user.user_type == 'superadmin' or request.user.is_superuser %}
     <a href="{% url 'linkermodule_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'linkermodule_list' or request.resolver_match.url_name == 'edit_linkermodule' %}active{% endif %}">
       <i class="bi bi-link-45deg ds-nav-icon"></i> Linker 模块
     </a>
+    {% endif %}
 
-    {% if request.user.user_type in 'admin,superadmin' or request.user.is_superuser %}
+    {% if request.user.user_type == 'superadmin' or request.user.is_superuser %}
     <div class="ds-nav-divider"></div>
     <div class="ds-nav-section">系统</div>
     <a href="{% url 'author_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'author_list' or request.resolver_match.url_name == 'add_author' or request.resolver_match.url_name == 'edit_author' %}active{% endif %}">
       <i class="bi bi-people ds-nav-icon"></i> 用户管理
+      {% if pending_approval_count > 0 %}
+      <span style="background:#ef4444;color:#fff;border-radius:10px;font-size:10px;padding:1px 6px;margin-left:auto;">{{ pending_approval_count }}</span>
+      {% endif %}
+    </a>
+    {% endif %}
+
+    {% if not request.user.is_superuser and request.user.user_type != 'superadmin' %}
+    <div class="ds-nav-divider"></div>
+    <a href="{% url 'user_profile' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'user_profile' %}active{% endif %}">
+      <i class="bi bi-person-circle ds-nav-icon"></i> 我的资料
     </a>
     {% endif %}
 
