@@ -583,8 +583,10 @@ def change_password(request):
         # 更新 session，避免修改密码后被登出
         update_session_auth_hash(request, user)
 
-        messages.success(request, '密码修改成功，请重新登录！')
-        return redirect('/login/')
+        messages.success(request, '密码修改成功。')
+        if _is_superadmin(request.user):
+            return redirect('seq_list')
+        return redirect('user_profile')
     
     return render(request, 'change_password.html')
 

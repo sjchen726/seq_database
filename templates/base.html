@@ -60,6 +60,7 @@
       <i class="bi bi-search ds-nav-icon"></i> 多序列比对
     </a>
 
+    {% if request.user.is_authenticated %}
     <div class="ds-nav-divider"></div>
     <div class="ds-nav-section">模块管理</div>
     {% if 'delivery' in request.user.module_permissions or request.user.user_type == 'superadmin' or request.user.is_superuser %}
@@ -95,6 +96,7 @@
       <i class="bi bi-person-circle ds-nav-icon"></i> 我的资料
     </a>
     {% endif %}
+    {% endif %}{# end is_authenticated #}
 
     <div class="ds-sidebar-footer">
       <div class="ds-user-card">
