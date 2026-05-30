@@ -682,6 +682,7 @@ def edit_author(request):
 
     return render(request, 'auth_edit.html', {
         'user': edit_obj,
+        'module_perms_list': [m for m in (edit_obj.module_permissions or '').split(',') if m],
     })
 
 @login_required

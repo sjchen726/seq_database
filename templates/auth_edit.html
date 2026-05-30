@@ -36,20 +36,18 @@
       <div class="ds-form-row">
         <label class="ds-form-label">模块管理权限</label>
         <div style="display:flex;gap:16px;margin-top:6px;">
-          {% with mp=user.module_permissions|default:'' %}
           <label style="font-size:13px;display:flex;align-items:center;gap:6px;">
             <input type="checkbox" name="module_permissions" value="delivery"
-                   {% if 'delivery' in mp %}checked{% endif %}> Delivery 模块
+                   {% if 'delivery' in module_perms_list %}checked{% endif %}> Delivery 模块
           </label>
           <label style="font-size:13px;display:flex;align-items:center;gap:6px;">
             <input type="checkbox" name="module_permissions" value="seq"
-                   {% if 'seq' in mp %}checked{% endif %}> 修饰模块
+                   {% if 'seq' in module_perms_list %}checked{% endif %}> 修饰模块
           </label>
           <label style="font-size:13px;display:flex;align-items:center;gap:6px;">
             <input type="checkbox" name="module_permissions" value="linker"
-                   {% if 'linker' in mp %}checked{% endif %}> Linker 模块
+                   {% if 'linker' in module_perms_list %}checked{% endif %}> Linker 模块
           </label>
-          {% endwith %}
         </div>
       </div>
       <div style="margin-top:24px;display:flex;justify-content:flex-end;gap:10px;">
