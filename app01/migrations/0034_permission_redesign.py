@@ -71,6 +71,7 @@ class Migration(migrations.Migration):
                 'ordering': ['-requested_at'],
             },
         ),
+        # noop: role remapping is one-way; old values cannot be recovered on rollback
         migrations.RunPython(
             migrate_roles_and_module_perms,
             migrations.RunPython.noop,

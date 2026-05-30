@@ -195,7 +195,7 @@ class LmsUser(AbstractUser):
         """
         if self.is_superuser or self.user_type == 'superadmin':
             return True
-        return module in (self.module_permissions or '').split(',')
+        return module in [p for p in (self.module_permissions or '').split(',') if p]
 
     def can_manage_modules(self) -> bool:
         """Legacy helper — True if user can manage ANY module.
