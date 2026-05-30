@@ -418,11 +418,6 @@ def register_view(request):
         username = data.get("username")
         email = data.get("email")
         password = data.get("password")
-        user_type = data.get("user_type")  # 获取用户类型
-        raw_premissions_projects = data.get('permissions_project')
-        # 将选中的项目转换为逗号分隔的字符串
-        new_author_permissions_project = ','.join([proj.strip() for proj in raw_premissions_projects.split(',') if proj.strip()])
-        
 
         # 检查用户名和邮箱是否已存在
         if LmsUser.objects.filter(username=username).exists():
@@ -433,14 +428,13 @@ def register_view(request):
             messages.error(request, '邮箱已注册！')
             return redirect('/register/')
 
-        # 创建用户并保存用户类型
+        # 自注册用户固定为 'user' 角色，不接受前端传入的 user_type
         LmsUser.objects.create(
             username=username,
             email=email,
-            user_type=user_type,  # 保存用户类型
-            permissions_project=new_author_permissions_project,  # 存储逗号分隔字符串
+            user_type='user',           # always 'user' on self-registration
+            permissions_project='',     # starts with no projects
             password=setPassword(password)  # 保存加密后的密码
-            
         )
 
         return redirect('/login/')  # 注册成功后跳转到登录页面
@@ -450,38 +444,54 @@ def register_view(request):
 # 项目人员视图
 @login_required
 def author_list(request):
-    user = LmsUser.objects.all()
-    return render(request, 'auth_list.html', {'user_list': user})
+    if not _is_superadmin(request.user):
+        messages.error(request, '您没有权限访问用户管理页面。')
+        return redirect('seq_list')
+    from .models import ProjectAccessRequest
+    pending_count = ProjectAccessRequest.objects.filter(status='pending').count()
+    users = LmsUser.objects.all().order_by('username')
+    pending_requests = ProjectAccessRequest.objects.filter(
+        status='pending'
+    ).select_related('user')
+    return render(request, 'auth_list.html', {
+        'user_list': users,
+        'pending_requests': pending_requests,
+        'pending_count': pending_count,
+    })
 
 # 添加用户
 @login_required
 def add_author(request):
+    if not _is_superadmin(request.user):
+        messages.error(request, '您没有权限添加用户。')
+        return redirect('author_list')
+
     if request.method == 'POST':
-        new_author_name = request.POST.get('username')
-        new_author_email = request.POST.get('email')
-        new_author_user_type = request.POST.get('user_type')
-        
-
-        raw_premissions_projects = request.POST.get('permissions_project')
-    #    print(raw_premissions_projects)
-        # 将选中的项目转换为逗号分隔的字符串
-        new_author_permissions_project = ','.join([proj.strip() for proj in raw_premissions_projects.split(',') if proj.strip()])
-        
-
-         # 设置默认密码
-        default_password = 'Bt123456'
-        password = setPassword(default_password)  # 加密密码
-
-        # 创建新的用户
-        models.LmsUser.objects.create(
-            username=new_author_name,
-            email=new_author_email,
-            user_type=new_author_user_type,
-            permissions_project=new_author_permissions_project,  # 存储逗号分隔字符串
-            password=password
+        username = request.POST.get('username', '').strip()
+        email = request.POST.get('email', '').strip()
+        user_type = request.POST.get('user_type', 'user')
+        raw_projects = request.POST.get('permissions_project', '')
+        permissions_project = ','.join(
+            p.strip() for p in raw_projects.split(',') if p.strip()
         )
+        raw_module_perms = request.POST.getlist('module_permissions')
+        module_permissions = ','.join(raw_module_perms)
 
-        return redirect('/author_list/')
+        if LmsUser.objects.filter(username=username).exists():
+            messages.error(request, '用户名已存在！')
+            return redirect('add_author')
+
+        default_password = 'Bt123456'
+        LmsUser.objects.create(
+            username=username,
+            email=email,
+            user_type=user_type,
+            permissions_project=permissions_project,
+            module_permissions=module_permissions,
+            password=setPassword(default_password),
+        )
+        messages.success(request, f'用户 {username} 已创建，默认密码 Bt123456')
+        return redirect('author_list')
 
     # 获取项目列表（从 DeliveryProject 取，含共享项目）
     project_list = list(
@@ -497,9 +507,9 @@ def add_author(request):
 @login_required
 @require_POST
 def drop_author(request):
-    if not request.user.is_authenticated or (not request.user.is_superuser and not request.user.is_admin):
+    if not _is_superadmin(request.user):
         messages.error(request, '您没有权限删除用户信息！')
-        return redirect('/author_list/')
+        return redirect('author_list')
 
     drop_id = request.POST.get('id')
 
@@ -509,10 +519,10 @@ def drop_author(request):
         if str(request.user.id) == drop_id:
             messages.error(request, '不能删除当前登录的管理员账户！')
             return redirect('/author_list/')
-        # 不能删除任何管理员账号（is_superuser 或 is_admin）
-        if drop_obj.is_superuser or getattr(drop_obj, 'is_admin', False):
-            messages.error(request, '不能删除管理员账号！')
-            return redirect('/author_list/')
+        # 不能删除超级管理员账号
+        if drop_obj.user_type == 'superadmin' or drop_obj.is_superuser:
+            messages.error(request, '不能删除超级管理员账号！')
+            return redirect('author_list')
         # 删除用户之前记录日志
         # 获取当前时间
         delete_datetime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -582,10 +592,10 @@ def change_password(request):
 # 编辑用户
 @login_required
 def edit_author(request):
-    # 非管理员禁止访问
-    if not request.user.is_authenticated or (not request.user.is_superuser and not request.user.is_admin):
+    # 非超级管理员禁止访问
+    if not _is_superadmin(request.user):
         messages.error(request, '您没有权限编辑用户信息！')
-        return redirect('/author_list/')
+        return redirect('author_list')
 
     # 获取用户对象
     edit_id = request.GET.get('id')
@@ -624,6 +634,8 @@ def edit_author(request):
         edit_obj.email = new_author_email
         edit_obj.user_type = new_author_user_type
         edit_obj.permissions_project = new_author_permissions_project_str  # 存储逗号分隔的字符串
+        raw_module_perms = request.POST.getlist('module_permissions')
+        edit_obj.module_permissions = ','.join(raw_module_perms)
         edit_obj.save()
 
         # 获取当前时间
@@ -2237,6 +2249,12 @@ def confirm_share_deliveries(request):
         return render(request, 'confirm_share.html', {'pending_shares': pending})
 
     if request.method == 'POST':
+        if not (request.user.is_authenticated and
+                (_is_superadmin(request.user) or
+                 getattr(request.user, 'user_type', '') == 'sub_admin')):
+            messages.error(request, '您没有权限执行此操作。')
+            return redirect('seq_list')
+
         from .models import DeliveryProject
         import pandas as pd
 
@@ -2545,6 +2563,11 @@ def clone_delivery(request):
     """GET: return JSON of deliveries for given strand_id (duplex_id)
        POST: accept JSON list of edited delivery rows and create cloned Delivery records
     """
+    # Role guard: only superadmin or sub_admin may clone
+    if not (_is_superadmin(request.user) or
+            getattr(request.user, 'user_type', '') == 'sub_admin'):
+        return JsonResponse({'error': '权限不足'}, status=403)
+
     # GET: fetch deliveries
     if request.method == 'GET':
         strand_id = request.GET.get('strand_id')
@@ -3478,7 +3501,7 @@ def module_list(request):
 @login_required
 def edit_module(request):
 
-    if not request.user.is_authenticated or not request.user.can_manage_modules():
+    if not request.user.can_manage_module('delivery'):
         messages.error(request, '您没有操作权限！')
         return redirect('/module_list/')
 
@@ -3538,7 +3561,7 @@ def edit_module(request):
 def upload_modules(request):
 
     # 权限控制
-    if not request.user.is_authenticated or not request.user.can_manage_modules():
+    if not request.user.can_manage_module('delivery'):
         messages.error(request, '您没有操作权限！')
         return redirect('/module_list/')
 
@@ -3595,7 +3618,7 @@ def upload_modules(request):
 @require_POST
 def delete_module(request):
 
-    if not request.user.is_authenticated or not request.user.can_manage_modules():
+    if not request.user.can_manage_module('delivery'):
         messages.error(request, '您没有权限删除模块！')
         return redirect('/module_list/')
 
@@ -3633,7 +3656,7 @@ def seqmodule_list(request):
 
 @login_required
 def edit_seqmodule(request):
-    if not request.user.is_authenticated or not request.user.can_manage_modules():
+    if not request.user.can_manage_module('seq'):
         messages.error(request, '您没有操作权限！')
         return redirect('/seqmodule_list/')
 
@@ -3707,7 +3730,7 @@ def edit_seqmodule(request):
 @login_required
 @require_POST
 def delete_seqmodule(request):
-    if not request.user.is_authenticated or not request.user.can_manage_modules():
+    if not request.user.can_manage_module('seq'):
         messages.error(request, '您没有权限删除修饰模块！')
         return redirect('/seqmodule_list/')
 
@@ -3724,7 +3747,7 @@ def delete_seqmodule(request):
 
 @login_required
 def upload_seqmodules(request):
-    if not request.user.is_authenticated or not request.user.can_manage_modules():
+    if not request.user.can_manage_module('seq'):
         messages.error(request, '您没有操作权限！')
         return redirect('/seqmodule_list/')
 
@@ -4609,8 +4632,8 @@ def delete_experiment(request, exp_id):
     from django.http import HttpResponseNotAllowed
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
-    if not (request.user.is_superuser or
-            getattr(request.user, 'user_type', '') in ('data_admin', 'admin', 'superadmin')):
+    if not (_is_superadmin(request.user) or
+            getattr(request.user, 'user_type', '') == 'sub_admin'):
         messages.error(request, '您没有权限删除实验记录。')
         return redirect('seq_list')
     try:
@@ -4837,7 +4860,7 @@ def linkermodule_list(request):
 
 @login_required
 def edit_linkermodule(request):
-    if not request.user.can_manage_modules():
+    if not request.user.can_manage_module('linker'):
         messages.error(request, '您没有操作权限！')
         return redirect('/linkermodule_list/')
 
@@ -4887,7 +4910,7 @@ def edit_linkermodule(request):
 @login_required
 @require_POST
 def delete_linkermodule(request):
-    if not request.user.can_manage_modules():
+    if not request.user.can_manage_module('linker'):
         messages.error(request, '您没有权限删除 Linker 模块！')
         return redirect('/linkermodule_list/')
 

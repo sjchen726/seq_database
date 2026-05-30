@@ -1046,3 +1046,57 @@ class PermissionHelperTests(TestCase):
             permissions_project='',
         )
         self.assertFalse(_user_can_access_duplex(no_project_user, 'BP000001'))
+
+
+class ViewPermissionGateTests(TestCase):
+    """Ensure view guards enforce the new 3-role model."""
+
+    def setUp(self):
+        self.client_sa = self.client_class()
+        self.client_pi = self.client_class()
+        self.client_u  = self.client_class()
+
+        self.sa = LmsUser.objects.create_user(
+            username='sa_gate', password='p', user_type='superadmin'
+        )
+        self.pi = LmsUser.objects.create_user(
+            username='pi_gate', password='p', user_type='sub_admin'
+        )
+        self.u = LmsUser.objects.create_user(
+            username='u_gate', password='p', user_type='user'
+        )
+        self.client_sa.force_login(self.sa)
+        self.client_pi.force_login(self.pi)
+        self.client_u.force_login(self.u)
+
+    # author_list — superadmin only
+    def test_author_list_superadmin_200(self):
+        r = self.client_sa.get('/author_list/')
+        self.assertEqual(r.status_code, 200)
+
+    def test_author_list_sub_admin_redirects(self):
+        r = self.client_pi.get('/author_list/')
+        self.assertIn(r.status_code, [302, 403])
+
+    def test_author_list_user_redirects(self):
+        r = self.client_u.get('/author_list/')
+        self.assertIn(r.status_code, [302, 403])
+
+    # delete_experiment — sub_admin+
+    def test_delete_experiment_user_redirects(self):
+        r = self.client_u.post('/experiment/delete/9999/')
+        # Must not 200 — either 403 or redirect with error message
+        self.assertNotEqual(r.status_code, 200)
+
+    # register sets role to 'user' regardless of POST data
+    def test_register_always_creates_user_role(self):
+        r = self.client_class().post('/register/', {
+            'username': 'newbie_gate',
+            'email': 'newbie_gate@test.com',
+            'password': 'pass123',
+            'user_type': 'superadmin',   # should be ignored
+            'permissions_project': '',
+        })
+        u = LmsUser.objects.filter(username='newbie_gate').first()
+        self.assertIsNotNone(u)
+        self.assertEqual(u.user_type, 'user')
