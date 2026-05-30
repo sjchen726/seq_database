@@ -1295,3 +1295,130 @@ class LogoutViewTests(TestCase):
         # Subsequent request to a login-required page should redirect
         r = self.client.get('/profile/')
         self.assertNotEqual(r.status_code, 200)  # no longer authenticated
+
+
+class ModuleRequestWorkflowTests(TestCase):
+    """request_module_access and approve_module_request views."""
+
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='mod_requester', password='pass', user_type='user',
+            module_permissions='',
+        )
+        self.admin = LmsUser.objects.create_user(
+            username='mod_sa', password='pass', user_type='superadmin',
+        )
+        self.client_u = self.client_class()
+        self.client_u.login(username='mod_requester', password='pass')
+        self.client_sa = self.client_class()
+        self.client_sa.login(username='mod_sa', password='pass')
+
+    def test_user_can_submit_module_request(self):
+        from app01.models import ModulePermissionRequest
+        r = self.client_u.post('/request_module/', {
+            'modules_requested': ['delivery', 'seq'],
+            'note': 'need access',
+        })
+        self.assertIn(r.status_code, [302, 200])
+        req = ModulePermissionRequest.objects.filter(user=self.user).first()
+        self.assertIsNotNone(req)
+        self.assertEqual(req.status, 'pending')
+        self.assertIn('delivery', req.modules_requested)
+
+    def test_duplicate_pending_blocked(self):
+        from app01.models import ModulePermissionRequest
+        ModulePermissionRequest.objects.create(
+            user=self.user, modules_requested='delivery'
+        )
+        r = self.client_u.post('/request_module/', {
+            'modules_requested': ['seq'],
+        })
+        self.assertIn(r.status_code, [302, 200])
+        # Still only one pending request
+        self.assertEqual(
+            ModulePermissionRequest.objects.filter(user=self.user, status='pending').count(),
+            1,
+        )
+
+    def test_empty_modules_rejected(self):
+        from app01.models import ModulePermissionRequest
+        r = self.client_u.post('/request_module/', {'modules_requested': []})
+        self.assertIn(r.status_code, [302, 200])
+        self.assertEqual(ModulePermissionRequest.objects.filter(user=self.user).count(), 0)
+
+    def test_superadmin_cannot_submit_module_request(self):
+        from app01.models import ModulePermissionRequest
+        r = self.client_sa.post('/request_module/', {
+            'modules_requested': ['delivery'],
+        })
+        self.assertIn(r.status_code, [302, 200])
+        self.assertEqual(ModulePermissionRequest.objects.filter(user=self.admin).count(), 0)
+
+    def test_approve_module_request_grants_permissions(self):
+        from app01.models import ModulePermissionRequest
+        req = ModulePermissionRequest.objects.create(
+            user=self.user, modules_requested='delivery,linker'
+        )
+        r = self.client_sa.post(f'/approve_module_request/{req.id}/', {
+            'action': 'approve',
+            'review_note': '',
+        })
+        self.assertIn(r.status_code, [302, 200])
+        req.refresh_from_db()
+        self.assertEqual(req.status, 'approved')
+        self.user.refresh_from_db()
+        self.assertIn('delivery', self.user.module_permissions)
+        self.assertIn('linker', self.user.module_permissions)
+
+    def test_approve_merges_with_existing_permissions(self):
+        from app01.models import ModulePermissionRequest
+        self.user.module_permissions = 'seq'
+        self.user.save()
+        req = ModulePermissionRequest.objects.create(
+            user=self.user, modules_requested='delivery'
+        )
+        self.client_sa.post(f'/approve_module_request/{req.id}/', {
+            'action': 'approve',
+            'review_note': '',
+        })
+        self.user.refresh_from_db()
+        mods = {m for m in self.user.module_permissions.split(',') if m}
+        self.assertIn('seq', mods)
+        self.assertIn('delivery', mods)
+
+    def test_double_approve_no_duplicate_modules(self):
+        from app01.models import ModulePermissionRequest
+        req = ModulePermissionRequest.objects.create(
+            user=self.user, modules_requested='delivery'
+        )
+        self.client_sa.post(f'/approve_module_request/{req.id}/', {'action': 'approve', 'review_note': ''})
+        self.client_sa.post(f'/approve_module_request/{req.id}/', {'action': 'approve', 'review_note': ''})
+        self.user.refresh_from_db()
+        mods = [m for m in self.user.module_permissions.split(',') if m]
+        self.assertEqual(mods.count('delivery'), 1)
+
+    def test_reject_does_not_grant_permissions(self):
+        from app01.models import ModulePermissionRequest
+        req = ModulePermissionRequest.objects.create(
+            user=self.user, modules_requested='seq'
+        )
+        self.client_sa.post(f'/approve_module_request/{req.id}/', {
+            'action': 'reject',
+            'review_note': 'not approved',
+        })
+        req.refresh_from_db()
+        self.assertEqual(req.status, 'rejected')
+        self.user.refresh_from_db()
+        self.assertNotIn('seq', self.user.module_permissions or '')
+
+    def test_non_superadmin_cannot_approve(self):
+        from app01.models import ModulePermissionRequest
+        req = ModulePermissionRequest.objects.create(
+            user=self.user, modules_requested='delivery'
+        )
+        r = self.client_u.post(f'/approve_module_request/{req.id}/', {
+            'action': 'approve',
+        })
+        self.assertIn(r.status_code, [302, 403])
+        req.refresh_from_db()
+        self.assertEqual(req.status, 'pending')

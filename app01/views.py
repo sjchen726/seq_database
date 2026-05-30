@@ -4944,11 +4944,32 @@ def user_profile(request):
         return redirect('author_list')
 
     user = request.user
-    requests_qs = ProjectAccessRequest.objects.filter(user=user).order_by('-requested_at')
+    project_reqs = ProjectAccessRequest.objects.filter(user=user).order_by('-requested_at')
+    module_reqs = ModulePermissionRequest.objects.filter(user=user).order_by('-requested_at')
+
+    # Merge both request types into a single sorted list for combined history table
+    combined = []
+    for r in project_reqs:
+        combined.append({
+            'req_type': '项目',
+            'content': r.project_codes,
+            'status': r.status,
+            'review_note': r.review_note,
+            'requested_at': r.requested_at,
+        })
+    for r in module_reqs:
+        combined.append({
+            'req_type': '模块',
+            'content': r.modules_requested,
+            'status': r.status,
+            'review_note': r.review_note,
+            'requested_at': r.requested_at,
+        })
+    combined.sort(key=lambda x: x['requested_at'], reverse=True)
 
     return render(request, 'profile.html', {
         'profile_user': user,
-        'access_requests': requests_qs,
+        'combined_requests': combined,
         'approved_projects': user.get_allowed_projects(),
         'module_perms': [m for m in (user.module_permissions or '').split(',') if m],
     })
@@ -5009,6 +5030,79 @@ def approve_project_request(request, req_id):
         user.permissions_project = ','.join(merged)
         user.save(update_fields=['permissions_project'])
         messages.success(request, f'已批准 {user.username} 的项目权限申请。')
+    elif action == 'reject':
+        req.status = 'rejected'
+        messages.success(request, f'已拒绝申请，备注：{review_note or "无"}。')
+    else:
+        messages.error(request, '无效操作。')
+        return redirect('author_list')
+
+    req.save()
+    return redirect('author_list')
+
+
+@login_required
+@require_POST
+def request_module_access(request):
+    """Submit a new module permission request."""
+    if _is_superadmin(request.user):
+        messages.error(request, '超级管理员无需申请模块权限。')
+        return redirect('author_list')
+
+    modules = request.POST.getlist('modules_requested')
+    note = request.POST.get('note', '').strip()
+
+    # Only accept known valid values
+    valid = {'delivery', 'seq', 'linker'}
+    modules = [m for m in modules if m in valid]
+
+    if not modules:
+        messages.error(request, '请至少选择一个模块。')
+        return redirect('user_profile')
+
+    if ModulePermissionRequest.objects.filter(user=request.user, status='pending').exists():
+        messages.warning(request, '您有一个待审批的模块权限申请，请等待处理后再提交新申请。')
+        return redirect('user_profile')
+
+    ModulePermissionRequest.objects.create(
+        user=request.user,
+        modules_requested=','.join(sorted(modules)),
+        note=note,
+    )
+    messages.success(request, '模块权限申请已提交，等待超级管理员审批。')
+    return redirect('user_profile')
+
+
+@login_required
+@require_POST
+def approve_module_request(request, req_id):
+    """Approve or reject a module permission request. Superadmin only."""
+    if not _is_superadmin(request.user):
+        messages.error(request, '您没有权限执行此操作。')
+        return redirect('seq_list')
+
+    try:
+        req = ModulePermissionRequest.objects.select_related('user').get(pk=req_id)
+    except ModulePermissionRequest.DoesNotExist:
+        messages.error(request, '申请记录不存在。')
+        return redirect('author_list')
+
+    action = request.POST.get('action')
+    review_note = request.POST.get('review_note', '').strip()
+
+    req.reviewed_by = request.user
+    req.reviewed_at = timezone.now()
+    req.review_note = review_note
+
+    if action == 'approve':
+        req.status = 'approved'
+        user = req.user
+        existing = {m for m in (user.module_permissions or '').split(',') if m}
+        new_mods = {m for m in req.modules_requested.split(',') if m}
+        merged = sorted(existing | new_mods)
+        user.module_permissions = ','.join(merged)
+        user.save(update_fields=['module_permissions'])
+        messages.success(request, f'已批准 {user.username} 的模块权限申请。')
     elif action == 'reject':
         req.status = 'rejected'
         messages.success(request, f'已拒绝申请，备注：{review_note or "无"}。')
