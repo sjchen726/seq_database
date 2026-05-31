@@ -5,7 +5,7 @@ from django.http import  HttpResponse, Http404, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth import authenticate, login, get_user_model, update_session_auth_hash
+from django.contrib.auth import authenticate, login, logout as auth_logout, get_user_model, update_session_auth_hash
 from django.contrib.auth.hashers import make_password, check_password   
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
@@ -563,9 +563,9 @@ def drop_author(request):
         return redirect('/author_list/')
 
 @require_POST
+@login_required
 def logout_view(request):
     """POST-only logout — clears session and redirects to login."""
-    from django.contrib.auth import logout as auth_logout
     auth_logout(request)
     return redirect('login')
 
@@ -5018,6 +5018,10 @@ def approve_project_request(request, req_id):
         messages.error(request, '申请记录不存在。')
         return redirect('author_list')
 
+    if req.status != 'pending':
+        messages.warning(request, f'该申请已处理（当前状态：{req.get_status_display()}）。')
+        return redirect('author_list')
+
     action = request.POST.get('action')
     review_note = request.POST.get('review_note', '').strip()
 
@@ -5089,6 +5093,10 @@ def approve_module_request(request, req_id):
         req = ModulePermissionRequest.objects.select_related('user').get(pk=req_id)
     except ModulePermissionRequest.DoesNotExist:
         messages.error(request, '申请记录不存在。')
+        return redirect('author_list')
+
+    if req.status != 'pending':
+        messages.warning(request, f'该申请已处理（当前状态：{req.get_status_display()}）。')
         return redirect('author_list')
 
     action = request.POST.get('action')
