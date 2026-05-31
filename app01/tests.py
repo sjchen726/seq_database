@@ -1558,3 +1558,25 @@ class CorSeqPermissionTests(TestCase):
         url = f'/cor_seq/?id={self.delivery.id}&seq_type=AS'
         r = self.client.get(url)
         self.assertEqual(r.status_code, 200)
+
+
+class SequenceCreatedAtTests(TestCase):
+    """Sequence.created_at must auto-populate on creation."""
+
+    def test_created_at_auto_populated(self):
+        """New Sequence must have a non-null created_at after save."""
+        seq = Sequence.objects.create(seq='AUGUAGU', seq_type='SS')
+        seq.refresh_from_db()
+        self.assertIsNotNone(seq.created_at,
+                             "created_at should be set automatically on creation")
+
+    def test_created_at_not_changed_on_update(self):
+        """created_at must not change when the row is updated (auto_now_add, not auto_now)."""
+        seq = Sequence.objects.create(seq='CCUUAAGG', seq_type='AS')
+        seq.refresh_from_db()
+        original_ts = seq.created_at
+        seq.seq = 'CCUUAAGG'  # no-op update
+        seq.save(update_fields=['seq'])
+        seq.refresh_from_db()
+        self.assertEqual(seq.created_at, original_ts,
+                         "created_at must not change on update")

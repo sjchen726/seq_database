@@ -24,7 +24,7 @@ class Sequence(models.Model):
     rm_code = models.CharField('RM_Code', max_length=6, primary_key=True, unique=True, default=generate_random_code)  # RM_6编号
     seq = models.CharField('Sequence', max_length=500, null=True)  # 存储序列（如 AUGC）
     seq_type = models.CharField('Sequence Type', max_length=10, choices=SEQUENCE_TYPE_CHOICES)  # duplex, AS, SS
-    created_at = models.DateTimeField('Created At',  blank=True, null=True)  # 创建时间
+    created_at = models.DateTimeField('Created At', auto_now_add=True, null=True)  # 创建时间
 
     class Meta:
         indexes = [
