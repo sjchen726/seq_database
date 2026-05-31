@@ -1458,3 +1458,14 @@ class AuthorListContextTests(TestCase):
         )
         r = self.client.get('/author_list/')
         self.assertEqual(len(r.context['pending_module_requests']), 1)
+
+    def test_project_request_appears_in_pending_project_requests(self):
+        from app01.models import ProjectAccessRequest
+        requester = LmsUser.objects.create_user(
+            username='ctx_proj_req', password='pass', user_type='user'
+        )
+        ProjectAccessRequest.objects.create(
+            user=requester, project_codes='BPR-TEST'
+        )
+        r = self.client.get('/author_list/')
+        self.assertEqual(len(r.context['pending_project_requests']), 1)
