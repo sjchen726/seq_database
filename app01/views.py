@@ -447,15 +447,19 @@ def author_list(request):
     if not _is_superadmin(request.user):
         messages.error(request, '您没有权限访问用户管理页面。')
         return redirect('seq_list')
-    pending_count = ProjectAccessRequest.objects.filter(status='pending').count()
+
     users = LmsUser.objects.all().order_by('username')
-    pending_requests = ProjectAccessRequest.objects.filter(
+    pending_project_requests = ProjectAccessRequest.objects.filter(
         status='pending'
     ).select_related('user')
+    pending_module_requests = ModulePermissionRequest.objects.filter(
+        status='pending'
+    ).select_related('user')
+
     return render(request, 'auth_list.html', {
         'user_list': users,
-        'pending_requests': pending_requests,
-        'pending_count': pending_count,
+        'pending_project_requests': pending_project_requests,
+        'pending_module_requests': pending_module_requests,
     })
 
 # 添加用户

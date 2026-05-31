@@ -1425,3 +1425,36 @@ class ModuleRequestWorkflowTests(TestCase):
         self.assertIn(r.status_code, [302, 403])
         req.refresh_from_db()
         self.assertEqual(req.status, 'pending')
+
+
+class AuthorListContextTests(TestCase):
+    """author_list view passes correct context keys after refactor."""
+
+    def setUp(self):
+        self.admin = LmsUser.objects.create_user(
+            username='ctx_sa', password='pass', user_type='superadmin'
+        )
+        self.client.login(username='ctx_sa', password='pass')
+
+    def test_context_has_pending_project_requests_key(self):
+        r = self.client.get('/author_list/')
+        self.assertIn('pending_project_requests', r.context)
+
+    def test_context_has_pending_module_requests_key(self):
+        r = self.client.get('/author_list/')
+        self.assertIn('pending_module_requests', r.context)
+
+    def test_context_does_not_have_old_pending_requests_key(self):
+        r = self.client.get('/author_list/')
+        self.assertNotIn('pending_requests', r.context)
+
+    def test_module_request_appears_in_pending_module_requests(self):
+        from app01.models import ModulePermissionRequest
+        requester = LmsUser.objects.create_user(
+            username='ctx_req', password='pass', user_type='user'
+        )
+        ModulePermissionRequest.objects.create(
+            user=requester, modules_requested='delivery'
+        )
+        r = self.client.get('/author_list/')
+        self.assertEqual(len(r.context['pending_module_requests']), 1)
