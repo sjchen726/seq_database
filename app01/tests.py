@@ -1608,13 +1608,19 @@ class PreflightSessionGuardTests(TestCase):
             self.assertIn('/seq_delivery/', r['Location'])
 
     def test_post_with_corrupted_preflight_redirects(self):
-        """POST with preflight_result set to a non-dict → redirect with error, not 500."""
+        """POST with preflight_result set to a non-dict → isinstance guard redirects, not 500.
+
+        Both df_json and clean_groups_json are truthy so guard 2 cannot intercept;
+        only the isinstance guard at guard 1 prevents the AttributeError on preflight.get().
+        """
         session = self.client.session
-        session['preflight_result'] = 'corrupted_string'
-        session['preflight_df_json'] = 'not valid json'
-        session['preflight_clean_groups'] = None
+        session['preflight_result'] = 'corrupted_string'   # truthy non-dict → triggers guard 1
+        session['preflight_df_json'] = '[{"col": 1}]'       # truthy → guard 2 passes through
+        session['preflight_clean_groups'] = '[]'             # truthy → guard 2 passes through
         session.save()
 
         r = self.client.post('/confirm_upload_preflight/', {})
         self.assertIn(r.status_code, [302, 200],
                       "Corrupted session must not return 500")
+        if r.status_code == 302:
+            self.assertIn('/seq_delivery/', r['Location'])
