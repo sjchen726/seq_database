@@ -1521,3 +1521,40 @@ class ProfilePageTests(TestCase):
         r = self.client.get('/profile/')
         self.assertContains(r, 'request_module_access')
         self.assertContains(r, '申请模块权限')
+
+
+class CorSeqPermissionTests(TestCase):
+    """cor_seq must not return deliveries outside the user's permitted projects."""
+
+    def setUp(self):
+        # A user with NO project permissions
+        self.user = LmsUser.objects.create_user(
+            username='noperm_user', password='p',
+            user_type='sub_admin',
+            permissions_project='',
+        )
+        self.client.force_login(self.user)
+
+        # A sequence + delivery in project 'PRJ-SECRET'
+        self.seq = Sequence.objects.create(seq='AACCGGUU', seq_type='AS')
+        self.delivery = Delivery.objects.create(
+            sequence=self.seq,
+            seq_type='AS',
+            duplex_id='BP_PERM_TEST',
+            project='PRJ-SECRET',
+        )
+        # DeliveryProject is auto-created by signal handler
+
+    def test_unpermitted_user_gets_404(self):
+        """A user with no project permissions must receive 404, not the delivery page."""
+        url = f'/cor_seq/?id={self.delivery.id}&seq_type=AS'
+        r = self.client.get(url)
+        self.assertEqual(r.status_code, 404)
+
+    def test_permitted_user_gets_200(self):
+        """A user with the correct project permission must reach the page."""
+        self.user.permissions_project = 'PRJ-SECRET'
+        self.user.save()
+        url = f'/cor_seq/?id={self.delivery.id}&seq_type=AS'
+        r = self.client.get(url)
+        self.assertEqual(r.status_code, 200)

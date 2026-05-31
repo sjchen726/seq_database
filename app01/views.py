@@ -3205,7 +3205,7 @@ def cor_seq(request):
     visible_seq_ids = base_delivery_qs.values_list('sequence_id', flat=True)
     
     # 获取 Delivery 对象并获取 sequence_id
-    delivery = get_object_or_404(Delivery, Q(id=query_id_tmp)&Q(seq_type=seq_type))  # 根据 query_id 获取 Delivery 对象
+    delivery = get_object_or_404(base_delivery_qs, Q(id=query_id_tmp)&Q(seq_type=seq_type))  # 根据 query_id 获取 Delivery 对象
     query_id = delivery.sequence_id  # 获取该 Delivery 对应的 sequence_id
 
     # 根据前缀查双链关系
