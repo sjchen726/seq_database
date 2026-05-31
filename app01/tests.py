@@ -1580,3 +1580,41 @@ class SequenceCreatedAtTests(TestCase):
         seq.refresh_from_db()
         self.assertEqual(seq.created_at, original_ts,
                          "created_at must not change on update")
+
+
+class PreflightSessionGuardTests(TestCase):
+    """confirm_upload_preflight must redirect gracefully when session data is missing."""
+
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='preflight_user', password='p',
+            user_type='sub_admin',
+            permissions_project='PRJ-X',
+        )
+        self.client.force_login(self.user)
+
+    def test_get_with_empty_session_redirects(self):
+        """GET with no preflight_result in session → redirect to seq_delivery."""
+        r = self.client.get('/confirm_upload_preflight/')
+        self.assertRedirects(r, '/seq_delivery/', fetch_redirect_response=False)
+
+    def test_post_with_empty_session_redirects_with_error(self):
+        """POST with no session data → redirect to seq_delivery, not a 500."""
+        r = self.client.post('/confirm_upload_preflight/', {})
+        # Must not crash — expect redirect
+        self.assertIn(r.status_code, [302, 200],
+                      "Empty session POST must not return 500")
+        if r.status_code == 302:
+            self.assertIn('/seq_delivery/', r['Location'])
+
+    def test_post_with_corrupted_preflight_redirects(self):
+        """POST with preflight_result set to a non-dict → redirect with error, not 500."""
+        session = self.client.session
+        session['preflight_result'] = 'corrupted_string'
+        session['preflight_df_json'] = 'not valid json'
+        session['preflight_clean_groups'] = None
+        session.save()
+
+        r = self.client.post('/confirm_upload_preflight/', {})
+        self.assertIn(r.status_code, [302, 200],
+                      "Corrupted session must not return 500")

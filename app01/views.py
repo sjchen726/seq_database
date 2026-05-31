@@ -2376,7 +2376,11 @@ def confirm_upload_preflight(request):
             df_json = request.session.get('preflight_df_json', None)
             clean_groups_json = request.session.get('preflight_clean_groups', None)
 
-            if not df_json or clean_groups_json is None:
+            if not isinstance(preflight, dict):
+                messages.error(request, "会话数据已损坏，请重新上传文件")
+                return redirect('seq_delivery')
+
+            if not df_json or not clean_groups_json:
                 messages.error(request, "会话已过期，请重新上传文件")
                 return redirect('seq_delivery')
 
