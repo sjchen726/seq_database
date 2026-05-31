@@ -1624,3 +1624,15 @@ class PreflightSessionGuardTests(TestCase):
                       "Corrupted session must not return 500")
         if r.status_code == 302:
             self.assertIn('/seq_delivery/', r['Location'])
+
+    def test_get_with_corrupted_preflight_redirects(self):
+        """GET with preflight_result set to a non-dict → isinstance guard redirects, not 500."""
+        session = self.client.session
+        session['preflight_result'] = 'corrupted_string'   # truthy non-dict
+        session.save()
+
+        r = self.client.get('/confirm_upload_preflight/')
+        self.assertIn(r.status_code, [302, 200],
+                      "Corrupted session GET must not return 500")
+        if r.status_code == 302:
+            self.assertIn('/seq_delivery/', r['Location'])

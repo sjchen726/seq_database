@@ -2344,6 +2344,9 @@ def confirm_upload_preflight(request):
         preflight = request.session.get('preflight_result')
         if not preflight:
             return redirect('seq_delivery')
+        if not isinstance(preflight, dict):
+            messages.error(request, "会话数据已损坏，请重新上传文件")
+            return redirect('seq_delivery')
         return render(request, 'confirm_upload_preflight.html', {
             'auto_register_pairs': preflight.get('auto_register_pairs', []),
             'unknown_module_pairs': preflight.get('unknown_module_pairs', []),
