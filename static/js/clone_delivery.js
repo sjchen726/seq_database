@@ -4,6 +4,22 @@ $(document).ready(function() {
         return $("input[name=csrfmiddlewaretoken]").first().val();
     }
 
+    // Helper: create a labeled input cell
+    function makeField(labelText, name, value, readOnly) {
+        var wrapper = document.createElement('div');
+        var lbl = document.createElement('label');
+        lbl.className = 'ds-form-label';
+        lbl.textContent = labelText;
+        var inp = document.createElement('input');
+        inp.name = name;
+        inp.className = 'ds-form-control';
+        inp.value = value || '';
+        if (readOnly) inp.readOnly = true;
+        wrapper.appendChild(lbl);
+        wrapper.appendChild(inp);
+        return wrapper;
+    }
+
     // open modal and load deliveries (works for any page where .clone-seq-btn exists)
     $('body').on('click', '.clone-seq-btn', function(e) {
         e.preventDefault();
@@ -28,22 +44,6 @@ $(document).ready(function() {
                 }
                 h6.textContent = 'Record ' + (idx + 1) + ' - ' + (r.Seq_type || '');
                 rowDiv.appendChild(h6);
-
-                // Helper: create a labeled input cell
-                function makeField(labelText, name, value, readOnly) {
-                    var wrapper = document.createElement('div');
-                    var lbl = document.createElement('label');
-                    lbl.className = 'ds-form-label';
-                    lbl.textContent = labelText;
-                    var inp = document.createElement('input');
-                    inp.name = name;
-                    inp.className = 'ds-form-control';
-                    inp.value = value || '';
-                    if (readOnly) inp.readOnly = true;
-                    wrapper.appendChild(lbl);
-                    wrapper.appendChild(inp);
-                    return wrapper;
-                }
 
                 // Row 1: Project, Target, Seq_type (readonly)
                 var row1 = document.createElement('div');
