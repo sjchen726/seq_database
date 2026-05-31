@@ -4,85 +4,167 @@
   <span class="ds-topbar-title">我的资料</span>
 {% endblock %}
 {% block content %}
-<div class="ds-form-page" style="max-width:640px;">
+<div style="max-width:960px;margin:0 auto;">
 
-  {# ── Basic info ── #}
-  <div class="ds-form-card" style="margin-bottom:16px;">
-    <div class="ds-form-card-title">基本信息</div>
-    <div class="ds-form-row">
-      <label class="ds-form-label">用户名</label>
-      <span style="font-size:14px;color:#1e293b;font-weight:600;">{{ profile_user.username }}</span>
-    </div>
-    <div class="ds-form-row">
-      <label class="ds-form-label">角色</label>
-      <span class="ds-role-badge ds-role-{{ profile_user.user_type }}">
-        {% if profile_user.user_type == 'sub_admin' %}次级管理员{% else %}普通用户{% endif %}
-      </span>
-    </div>
-    <div class="ds-form-row">
-      <label class="ds-form-label">已批准项目</label>
-      {% if approved_projects %}
-        {% for p in approved_projects %}<code style="background:#f1f5f9;padding:2px 7px;border-radius:4px;font-size:11px;margin-right:4px;">{{ p }}</code>{% endfor %}
-      {% else %}
-        <span style="color:#94a3b8;font-size:13px;">暂无</span>
-      {% endif %}
-    </div>
-    {% if module_perms %}
-    <div class="ds-form-row">
-      <label class="ds-form-label">模块管理权</label>
-      {% for m in module_perms %}<code style="background:#dbeafe;color:#1d4ed8;padding:2px 7px;border-radius:4px;font-size:11px;margin-right:4px;">{{ m }}</code>{% endfor %}
-    </div>
-    {% endif %}
-  </div>
+  {# ── Two-column grid ── #}
+  <div style="display:grid;grid-template-columns:320px 1fr;gap:20px;align-items:start;">
 
-  {# ── Change password ── #}
-  <div class="ds-form-card" style="margin-bottom:16px;">
-    <div class="ds-form-card-title">修改密码</div>
-    <form method="POST" action="{% url 'change_password' %}">
-      {% csrf_token %}
-      <div class="ds-form-row">
-        <label class="ds-form-label" for="old_password">当前密码</label>
-        <input class="ds-form-control" id="old_password" name="old_password" type="password" required>
-      </div>
-      <div class="ds-form-row">
-        <label class="ds-form-label" for="new_password1">新密码</label>
-        <input class="ds-form-control" id="new_password1" name="new_password1" type="password" required>
-      </div>
-      <div class="ds-form-row">
-        <label class="ds-form-label" for="new_password2">确认新密码</label>
-        <input class="ds-form-control" id="new_password2" name="new_password2" type="password" required>
-      </div>
-      <div style="display:flex;justify-content:flex-end;margin-top:16px;">
-        <button type="submit" class="ds-btn ds-btn-primary">修改密码</button>
-      </div>
-    </form>
-  </div>
+    {# ── LEFT COLUMN ── #}
+    <div>
 
-  {# ── Project access requests ── #}
-  <div class="ds-form-card" style="margin-bottom:16px;">
-    <div class="ds-form-card-title">申请项目权限</div>
-    <form method="POST" action="{% url 'request_project_access' %}">
-      {% csrf_token %}
-      <div class="ds-form-row">
-        <label class="ds-form-label" for="project_codes">项目号</label>
-        <input class="ds-form-control" id="project_codes" name="project_codes"
-               placeholder="BPR-350,BPR-3T03" required>
-        <p class="ds-form-hint">多个项目用逗号分隔</p>
+      {# Info card #}
+      <div class="ds-form-card" style="margin-bottom:16px;text-align:center;">
+        <div style="width:60px;height:60px;border-radius:50%;
+                    background:linear-gradient(135deg,#6366f1,#8b5cf6);
+                    color:#fff;font-size:24px;font-weight:700;
+                    display:flex;align-items:center;justify-content:center;
+                    margin:0 auto 12px;">
+          {{ profile_user.username|first|upper }}
+        </div>
+        <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:6px;">
+          {{ profile_user.username }}
+        </div>
+        <span class="ds-role-badge ds-role-{{ profile_user.user_type }}">
+          {% if profile_user.user_type == 'sub_admin' %}次级管理员{% else %}普通用户{% endif %}
+        </span>
+        {% if profile_user.email %}
+        <div style="font-size:12px;color:#94a3b8;margin-top:8px;">{{ profile_user.email }}</div>
+        {% endif %}
       </div>
-      <div class="ds-form-row">
-        <label class="ds-form-label" for="note">申请说明</label>
-        <input class="ds-form-control" id="note" name="note" placeholder="（选填）说明申请原因">
-      </div>
-      <div style="display:flex;justify-content:flex-end;margin-top:16px;">
-        <button type="submit" class="ds-btn ds-btn-primary">提交申请</button>
-      </div>
-    </form>
-  </div>
 
-  {# ── Request history (combined project + module) ── #}
+      {# Project permissions card #}
+      <div class="ds-form-card" style="margin-bottom:16px;">
+        <div class="ds-form-card-title">我的项目权限</div>
+        {% if approved_projects %}
+          {% for p in approved_projects %}
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;
+                      background:#f8fafc;border-radius:6px;margin-bottom:4px;">
+            <span style="color:#16a34a;font-size:12px;">●</span>
+            <span style="font-weight:600;font-size:13px;color:#1e293b;">{{ p }}</span>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div style="color:#94a3b8;font-size:13px;text-align:center;padding:12px 0;">
+            <i class="bi bi-folder-x" style="font-size:18px;display:block;margin-bottom:4px;"></i>
+            暂无已批准项目
+          </div>
+        {% endif %}
+      </div>
+
+      {# Module permissions card #}
+      <div class="ds-form-card">
+        <div class="ds-form-card-title">我的模块权限</div>
+        {% if module_perms %}
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
+            {% if 'delivery' in module_perms %}
+            <span style="background:#dcfce7;color:#16a34a;padding:4px 12px;
+                         border-radius:12px;font-size:12px;font-weight:600;">Delivery</span>
+            {% endif %}
+            {% if 'seq' in module_perms %}
+            <span style="background:#ede9fe;color:#7c3aed;padding:4px 12px;
+                         border-radius:12px;font-size:12px;font-weight:600;">修饰</span>
+            {% endif %}
+            {% if 'linker' in module_perms %}
+            <span style="background:#fff7ed;color:#ea580c;padding:4px 12px;
+                         border-radius:12px;font-size:12px;font-weight:600;">Linker</span>
+            {% endif %}
+          </div>
+        {% else %}
+          <div style="color:#94a3b8;font-size:13px;text-align:center;padding:12px 0;">
+            <i class="bi bi-shield-x" style="font-size:18px;display:block;margin-bottom:4px;"></i>
+            暂无模块管理权限
+          </div>
+        {% endif %}
+      </div>
+
+    </div>{# /left column #}
+
+    {# ── RIGHT COLUMN ── #}
+    <div>
+
+      {# Change password card #}
+      <div class="ds-form-card" style="margin-bottom:16px;">
+        <div class="ds-form-card-title">修改密码</div>
+        <form method="POST" action="{% url 'change_password' %}">
+          {% csrf_token %}
+          <div class="ds-form-row">
+            <label class="ds-form-label" for="old_password">当前密码</label>
+            <input class="ds-form-control" id="old_password" name="old_password" type="password" required>
+          </div>
+          <div class="ds-form-row">
+            <label class="ds-form-label" for="new_password1">新密码</label>
+            <input class="ds-form-control" id="new_password1" name="new_password1" type="password" required>
+          </div>
+          <div class="ds-form-row">
+            <label class="ds-form-label" for="new_password2">确认新密码</label>
+            <input class="ds-form-control" id="new_password2" name="new_password2" type="password" required>
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+            <button type="submit" class="ds-btn ds-btn-primary">修改密码</button>
+          </div>
+        </form>
+      </div>
+
+      {# Request project access card #}
+      <div class="ds-form-card" style="margin-bottom:16px;">
+        <div class="ds-form-card-title">申请项目权限</div>
+        <form method="POST" action="{% url 'request_project_access' %}">
+          {% csrf_token %}
+          <div class="ds-form-row">
+            <label class="ds-form-label" for="project_codes">项目号</label>
+            <input class="ds-form-control" id="project_codes" name="project_codes"
+                   placeholder="BPR-350,BPR-3T03" required>
+            <p class="ds-form-hint">多个项目用逗号分隔</p>
+          </div>
+          <div class="ds-form-row">
+            <label class="ds-form-label" for="note">申请说明</label>
+            <input class="ds-form-control" id="note" name="note" placeholder="（选填）说明申请原因">
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+            <button type="submit" class="ds-btn ds-btn-primary">提交申请</button>
+          </div>
+        </form>
+      </div>
+
+      {# Request module access card #}
+      <div class="ds-form-card">
+        <div class="ds-form-card-title">申请模块权限</div>
+        <form method="POST" action="{% url 'request_module_access' %}" name="request_module_access">
+          {% csrf_token %}
+          <div class="ds-form-row">
+            <label class="ds-form-label">申请模块</label>
+            <div style="display:flex;gap:16px;margin-top:6px;flex-wrap:wrap;">
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                <input type="checkbox" name="modules_requested" value="delivery"> Delivery 模块
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                <input type="checkbox" name="modules_requested" value="seq"> 修饰模块
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                <input type="checkbox" name="modules_requested" value="linker"> Linker 模块
+              </label>
+            </div>
+          </div>
+          <div class="ds-form-row">
+            <label class="ds-form-label" for="module_note">申请说明</label>
+            <input class="ds-form-control" id="module_note" name="note" placeholder="（选填）说明申请原因">
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+            <button type="submit" class="ds-btn ds-btn-primary">提交申请</button>
+          </div>
+        </form>
+      </div>
+
+    </div>{# /right column #}
+
+  </div>{# /two-column grid #}
+
+  {# ── Full-width bottom: combined request history ── #}
   {% if combined_requests %}
-  <div class="ds-table-card">
-    <div style="padding:9px 14px;font-size:12px;font-weight:600;color:#64748b;border-bottom:1.5px solid #e8edf4;">申请记录</div>
+  <div class="ds-table-card" style="margin-top:20px;">
+    <div style="padding:9px 14px;font-size:12px;font-weight:600;color:#64748b;border-bottom:1.5px solid #e8edf4;">
+      申请记录
+    </div>
     <div class="ds-table-scroll">
       <table class="ds-table">
         <thead>
@@ -90,7 +172,7 @@
             <th>类型</th>
             <th>申请内容</th>
             <th>状态</th>
-            <th>备注</th>
+            <th>审批备注</th>
             <th>时间</th>
           </tr>
         </thead>

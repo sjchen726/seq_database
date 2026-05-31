@@ -1469,3 +1469,53 @@ class AuthorListContextTests(TestCase):
         )
         r = self.client.get('/author_list/')
         self.assertEqual(len(r.context['pending_project_requests']), 1)
+
+
+class ProfilePageTests(TestCase):
+    """Profile page renders two-column layout and combined history."""
+
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='profile_user', password='pass', user_type='user',
+            permissions_project='BPR-350',
+            module_permissions='delivery',
+        )
+        self.client.login(username='profile_user', password='pass')
+
+    def test_profile_page_loads(self):
+        r = self.client.get('/profile/')
+        self.assertEqual(r.status_code, 200)
+
+    def test_profile_shows_approved_projects(self):
+        r = self.client.get('/profile/')
+        self.assertContains(r, 'BPR-350')
+
+    def test_profile_shows_module_perms(self):
+        r = self.client.get('/profile/')
+        self.assertContains(r, 'delivery')
+
+    def test_profile_combined_history_shows_both_types(self):
+        from app01.models import ProjectAccessRequest, ModulePermissionRequest
+        ProjectAccessRequest.objects.create(
+            user=self.user, project_codes='BPR-999'
+        )
+        ModulePermissionRequest.objects.create(
+            user=self.user, modules_requested='seq'
+        )
+        r = self.client.get('/profile/')
+        self.assertContains(r, '项目')
+        self.assertContains(r, '模块')
+
+    def test_superadmin_redirected_from_profile(self):
+        admin = LmsUser.objects.create_user(
+            username='profile_sa', password='pass', user_type='superadmin'
+        )
+        c = self.client_class()
+        c.login(username='profile_sa', password='pass')
+        r = c.get('/profile/')
+        self.assertEqual(r.status_code, 302)
+
+    def test_module_request_form_present(self):
+        r = self.client.get('/profile/')
+        self.assertContains(r, 'request_module_access')
+        self.assertContains(r, '申请模块权限')
