@@ -16,37 +16,64 @@ $(document).ready(function() {
             if (resp.error) { alert(resp.error); return; }
             var rows = resp.deliveries;
             rows.forEach(function(r, idx) {
-                var html = '';
-                html += '<div class="ds-clone-row">';
+                var rowDiv = document.createElement('div');
+                rowDiv.className = 'ds-clone-row';
+
+                // Heading
+                var h6 = document.createElement('h6');
                 var seqType = (r.Seq_type || '').toString().toUpperCase();
-                var headingStyle = '';
                 if (seqType === 'AS' || seqType === 'SS') {
-                    headingStyle = 'style="font-size:1.25rem; font-weight:600;"';
+                    h6.style.fontSize = '1.25rem';
+                    h6.style.fontWeight = '600';
                 }
-                html += '<h6 ' + headingStyle + '>Record ' + (idx + 1) + ' - ' + (r.Seq_type || '') + '</h6>';
-                // first row: Project, Target, Seq_type
-                html += '<div class="ds-form-3col">';
-                html += '<div><label class="ds-form-label">Project</label><input name="Project" class="ds-form-control" value="' + (r.Project || '') + '" readonly /></div>';
-                html += '<div><label class="ds-form-label">Target</label><input name="Target" class="ds-form-control" value="' + (r.Target || '') + '" readonly /></div>';
-                html += '<div><label class="ds-form-label">Seq_type</label><input name="Seq_type" class="ds-form-control" value="' + (r.Seq_type || '') + '" readonly /></div>';
-                html += '</div>';
-                // second row: Modify_seq occupies full width
-                html += '<div>';
-                html += '<div><label class="ds-form-label">Modify_seq</label><input name="Modify_seq" class="ds-form-control" value="' + (r.Modify_seq || '') + '" /></div>';
-                html += '</div>';
-                // third row: delivery5 and delivery3 share the row
-                html += '<div class="ds-form-2col">';
-                html += '<div><label class="ds-form-label">delivery5</label><input name="delivery5" class="ds-form-control" value="' + (r.delivery5 || '') + '" /></div>';
-                html += '<div><label class="ds-form-label">delivery3</label><input name="delivery3" class="ds-form-control" value="' + (r.delivery3 || '') + '" /></div>';
-                html += '</div>';
-                // fourth row: Strand_MWs, Parents, Remark share a single row (3 columns)
-                html += '<div class="ds-form-3col">';
-                html += '<div><label class="ds-form-label">Strand_MWs</label><input name="Strand_MWs" class="ds-form-control" value="' + (r.Strand_MWs || '') + '" /></div>';
-                html += '<div><label class="ds-form-label">Parents</label><input name="Parents" class="ds-form-control" value="' + (r.Parents || '') + '" /></div>';
-                html += '<div><label class="ds-form-label">Remark</label><input name="Remark" class="ds-form-control" value="' + (r.Remark || '') + '" /></div>';
-                html += '</div>';
-                html += '</div>';
-                $('#cloneRowsContainer').append(html);
+                h6.textContent = 'Record ' + (idx + 1) + ' - ' + (r.Seq_type || '');
+                rowDiv.appendChild(h6);
+
+                // Helper: create a labeled input cell
+                function makeField(labelText, name, value, readOnly) {
+                    var wrapper = document.createElement('div');
+                    var lbl = document.createElement('label');
+                    lbl.className = 'ds-form-label';
+                    lbl.textContent = labelText;
+                    var inp = document.createElement('input');
+                    inp.name = name;
+                    inp.className = 'ds-form-control';
+                    inp.value = value || '';
+                    if (readOnly) inp.readOnly = true;
+                    wrapper.appendChild(lbl);
+                    wrapper.appendChild(inp);
+                    return wrapper;
+                }
+
+                // Row 1: Project, Target, Seq_type (readonly)
+                var row1 = document.createElement('div');
+                row1.className = 'ds-form-3col';
+                row1.appendChild(makeField('Project',  'Project',  r.Project,  true));
+                row1.appendChild(makeField('Target',   'Target',   r.Target,   true));
+                row1.appendChild(makeField('Seq_type', 'Seq_type', r.Seq_type, true));
+                rowDiv.appendChild(row1);
+
+                // Row 2: Modify_seq (full width, editable)
+                var row2 = document.createElement('div');
+                row2.appendChild(makeField('Modify_seq', 'Modify_seq', r.Modify_seq, false));
+                rowDiv.appendChild(row2);
+
+                // Row 3: delivery5, delivery3 (editable)
+                var row3 = document.createElement('div');
+                row3.className = 'ds-form-2col';
+                row3.appendChild(makeField('delivery5', 'delivery5', r.delivery5, false));
+                row3.appendChild(makeField('delivery3', 'delivery3', r.delivery3, false));
+                rowDiv.appendChild(row3);
+
+                // Row 4: Strand_MWs, Parents, Remark (editable)
+                var row4 = document.createElement('div');
+                row4.className = 'ds-form-3col';
+                row4.appendChild(makeField('Strand_MWs', 'Strand_MWs', r.Strand_MWs, false));
+                row4.appendChild(makeField('Parents',    'Parents',    r.Parents,    false));
+                row4.appendChild(makeField('Remark',     'Remark',     r.Remark,     false));
+                rowDiv.appendChild(row4);
+
+                $('#cloneRowsContainer').append(rowDiv);
             });
             // ensure divider sits between Record 1 and Record 2 (insert after first record)
             if (rows.length > 1) {
