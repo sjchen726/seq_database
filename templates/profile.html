@@ -54,7 +54,7 @@
       {# Module permissions card #}
       <div class="ds-form-card">
         <div class="ds-form-card-title">我的模块权限</div>
-        {% if module_perms %}
+        {% if 'delivery' in module_perms or 'seq' in module_perms or 'linker' in module_perms %}
           <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
             {% if 'delivery' in module_perms %}
             <span style="background:#dcfce7;color:#16a34a;padding:4px 12px;

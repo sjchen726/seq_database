@@ -1492,7 +1492,8 @@ class ProfilePageTests(TestCase):
 
     def test_profile_shows_module_perms(self):
         r = self.client.get('/profile/')
-        self.assertContains(r, 'delivery')
+        # The 'Delivery' chip (capitalized) only appears when user has delivery permission
+        self.assertContains(r, 'Delivery</span>')
 
     def test_profile_combined_history_shows_both_types(self):
         from app01.models import ProjectAccessRequest, ModulePermissionRequest
@@ -1503,8 +1504,9 @@ class ProfilePageTests(TestCase):
             user=self.user, modules_requested='seq'
         )
         r = self.client.get('/profile/')
-        self.assertContains(r, '项目')
-        self.assertContains(r, '模块')
+        # Assert the actual request content appears in the history table
+        self.assertContains(r, 'BPR-999')
+        self.assertContains(r, '>seq<')  # content column in the history table
 
     def test_superadmin_redirected_from_profile(self):
         admin = LmsUser.objects.create_user(
