@@ -1706,3 +1706,8 @@ class SecurityHeaderTests(TestCase):
         """X-Content-Type-Options: nosniff must be present on all responses."""
         r = self.client.get('/seq_list/')
         self.assertEqual(r.get('X-Content-Type-Options'), 'nosniff')
+
+    def test_referrer_policy_same_origin(self):
+        """Referrer-Policy: same-origin must be present on all responses."""
+        r = self.client.get('/seq_list/')
+        self.assertEqual(r.get('Referrer-Policy'), 'same-origin')

@@ -170,7 +170,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 ENTREZ_EMAIL = 'admin@seqdb.local'   # NCBI Entrez 必填邮箱
 SW_SCORE_THRESHOLD = 15              # Smith-Waterman 最低得分阈值
 
-# ── Security headers (injected by SecurityMiddleware) ──────────────────────
+# ── Security headers (injected by SecurityMiddleware / XFrameOptionsMiddleware) ──
 # HTTPS-specific settings (SECURE_SSL_REDIRECT, SESSION_COOKIE_SECURE,
 # CSRF_COOKIE_SECURE, SECURE_HSTS_SECONDS) are intentionally omitted:
 # this application runs on an internal HTTP network only.
