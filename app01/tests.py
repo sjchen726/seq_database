@@ -1636,3 +1636,50 @@ class PreflightSessionGuardTests(TestCase):
                       "Corrupted session GET must not return 500")
         if r.status_code == 302:
             self.assertIn('/seq_delivery/', r['Location'])
+
+
+class EditSeqPermissionTests(TestCase):
+    """edit_seq must not expose deliveries outside the user's permitted projects."""
+
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='editseq_noperm',
+            password='p',
+            user_type='sub_admin',
+            permissions_project='',
+        )
+        self.client.force_login(self.user)
+
+        self.seq = Sequence.objects.create(seq='GCGCGCGC', seq_type='AS')
+        SeqInfo.objects.create(
+            sequence=self.seq,
+            project='PRJ-HIDDEN',
+            Pos='1',
+            Transcript='NM_EDIT',
+            Remark='',
+        )
+        self.delivery = Delivery.objects.create(
+            sequence=self.seq,
+            seq_type='AS',
+            duplex_id='BP_EDITSEQ_TEST',
+            project='PRJ-HIDDEN',
+            Strand_MWs='1234.5',
+        )
+        DeliveryProject.objects.get_or_create(
+            delivery=self.delivery,
+            project_code='PRJ-HIDDEN',
+        )
+
+    def test_unpermitted_user_gets_404(self):
+        """User with no permitted projects must get 404, not 200."""
+        url = f'/edit_seq/?id={self.delivery.id}&strand_MWs=1234.5'
+        r = self.client.get(url)
+        self.assertEqual(r.status_code, 404)
+
+    def test_permitted_user_gets_200(self):
+        """User with matching project permission must reach the edit page."""
+        self.user.permissions_project = 'PRJ-HIDDEN'
+        self.user.save()
+        url = f'/edit_seq/?id={self.delivery.id}&strand_MWs=1234.5'
+        r = self.client.get(url)
+        self.assertEqual(r.status_code, 200)

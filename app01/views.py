@@ -716,7 +716,7 @@ def edit_seq(request):
    #print(seq_id_query)
 
    # 根据 seq_id 查询 Delivery 对象
-    delivery = get_object_or_404(Delivery, Q(id=seq_id) & Q(Strand_MWs=seq_Strand_MWs))
+    delivery = get_object_or_404(get_permitted_delivery_qs(request.user), Q(id=seq_id) & Q(Strand_MWs=seq_Strand_MWs))
 
     # 提取 delivery 对象中的 sequence_id
     delivery_sequence_id = delivery.sequence_id
