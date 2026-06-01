@@ -1683,3 +1683,26 @@ class EditSeqPermissionTests(TestCase):
         url = f'/edit_seq/?id={self.delivery.id}&strand_MWs=1234.5'
         r = self.client.get(url)
         self.assertEqual(r.status_code, 200)
+
+
+class SecurityHeaderTests(TestCase):
+    """SecurityMiddleware must inject the configured headers on every response."""
+
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='sec_header_user',
+            password='p',
+            user_type='sub_admin',
+            permissions_project='',
+        )
+        self.client.force_login(self.user)
+
+    def test_x_frame_options_deny(self):
+        """X-Frame-Options: DENY must be present on all responses."""
+        r = self.client.get('/seq_list/')
+        self.assertEqual(r.get('X-Frame-Options'), 'DENY')
+
+    def test_content_type_nosniff(self):
+        """X-Content-Type-Options: nosniff must be present on all responses."""
+        r = self.client.get('/seq_list/')
+        self.assertEqual(r.get('X-Content-Type-Options'), 'nosniff')

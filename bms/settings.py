@@ -169,3 +169,11 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # ── 转录本定位工具 ──────────────────────────────────────────────────
 ENTREZ_EMAIL = 'admin@seqdb.local'   # NCBI Entrez 必填邮箱
 SW_SCORE_THRESHOLD = 15              # Smith-Waterman 最低得分阈值
+
+# ── Security headers (injected by SecurityMiddleware) ──────────────────────
+# HTTPS-specific settings (SECURE_SSL_REDIRECT, SESSION_COOKIE_SECURE,
+# CSRF_COOKIE_SECURE, SECURE_HSTS_SECONDS) are intentionally omitted:
+# this application runs on an internal HTTP network only.
+X_FRAME_OPTIONS = 'DENY'            # Prevent clickjacking via iframe embedding
+SECURE_CONTENT_TYPE_NOSNIFF = True  # Prevent MIME-type sniffing (nosniff header)
+REFERRER_POLICY = 'same-origin'     # Do not send Referer on cross-origin requests
