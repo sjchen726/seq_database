@@ -176,4 +176,4 @@ SW_SCORE_THRESHOLD = 15              # Smith-Waterman 最低得分阈值
 # this application runs on an internal HTTP network only.
 X_FRAME_OPTIONS = 'DENY'            # Prevent clickjacking via iframe embedding
 SECURE_CONTENT_TYPE_NOSNIFF = True  # Prevent MIME-type sniffing (nosniff header)
-REFERRER_POLICY = 'same-origin'     # Do not send Referer on cross-origin requests
+SECURE_REFERRER_POLICY = 'same-origin'  # Do not send Referer on cross-origin requests
