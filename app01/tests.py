@@ -1711,3 +1711,76 @@ class SecurityHeaderTests(TestCase):
         """Referrer-Policy: same-origin must be present on all responses."""
         r = self.client.get('/seq_list/')
         self.assertEqual(r.get('Referrer-Policy'), 'same-origin')
+
+
+# ── Prism Upload Tests ────────────────────────────────────────────────────────
+
+from io import BytesIO
+from app01.prism_upload import parse_prism_file  # noqa: E402 – placed here intentionally
+
+
+class PrismParseTests(TestCase):
+    """Unit tests for parse_prism_file() in app01/prism_upload.py."""
+
+    def setUp(self):
+        self.seq = Sequence.objects.create(rm_code='PP0001', seq='AUGC', seq_type='AS')
+        self.delivery = Delivery.objects.create(
+            sequence=self.seq,
+            seq_type='AS',
+            duplex_id='BP000099',
+        )
+
+    @staticmethod
+    def _f(content, name='test.csv'):
+        return BytesIO(content if isinstance(content, bytes) else content.encode())
+
+    def test_csv_basic_parsing(self):
+        content = b',BP000099,BP000099,BP000099,NOPE\n-7,0.0,0.0,0.0,1.0\n14,-95.67,-94.49,-95.24,1.5\n'
+        r = parse_prism_file(self._f(content), 'test.csv')
+        self.assertIn('BP000099', r['matched'])
+        self.assertEqual(r['x_values'], [-7.0, 14.0])
+        self.assertIn('NOPE', r['skipped_cols'])
+        rows = r['matched']['BP000099']['rows']
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]['replicates'], [0.0, 0.0, 0.0])
+
+    def test_txt_tab_separated(self):
+        content = b'\tBP000099\tBP000099\tBP000099\n14\t-95.67\t-94.49\t-95.24\n'
+        r = parse_prism_file(BytesIO(content), 'test.txt')
+        self.assertIn('BP000099', r['matched'])
+        self.assertEqual(r['x_values'], [14.0])
+
+    def test_asterisk_marks_excluded(self):
+        content = b',BP000099,BP000099,BP000099\n14,-95.67,-94.49*,-95.24\n'
+        r = parse_prism_file(self._f(content), 'test.csv')
+        row = r['matched']['BP000099']['rows'][0]
+        self.assertAlmostEqual(row['replicates'][1], -94.49)
+        self.assertTrue(row['excluded'][1])
+        self.assertFalse(row['excluded'][0])
+
+    def test_empty_cell_is_none(self):
+        content = b',BP000099,BP000099,BP000099\n14,-95.67,,-95.24\n'
+        r = parse_prism_file(self._f(content), 'test.csv')
+        self.assertIsNone(r['matched']['BP000099']['rows'][0]['replicates'][1])
+
+    def test_unsupported_extension_raises(self):
+        with self.assertRaises(ValueError):
+            parse_prism_file(BytesIO(b'data'), 'test.xls')
+
+    def test_no_matching_duplexes_returns_empty(self):
+        content = b',MISSING,MISSING,MISSING\n14,1.0,2.0,3.0\n'
+        r = parse_prism_file(self._f(content), 'test.csv')
+        self.assertEqual(r['matched'], {})
+        self.assertIn('MISSING', r['skipped_cols'])
+
+    def test_invalid_x_value_skipped_with_warning(self):
+        content = b',BP000099,BP000099,BP000099\nbadval,-95.67,-94.49,-95.24\n14,-90.0,-91.0,-92.0\n'
+        r = parse_prism_file(self._f(content), 'test.csv')
+        self.assertEqual(r['x_values'], [14.0])
+        self.assertEqual(len(r['warnings']), 1)
+        self.assertIn('badval', r['warnings'][0])
+
+    def test_column_name_whitespace_stripped(self):
+        content = b',"BP000099 ","BP000099 ","BP000099 "\n14,-95.0,-94.0,-93.0\n'
+        r = parse_prism_file(self._f(content), 'test.csv')
+        self.assertIn('BP000099', r['matched'])
