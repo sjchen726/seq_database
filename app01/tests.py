@@ -1783,3 +1783,54 @@ class PrismParseTests(TestCase):
         content = b',"BP000099 ","BP000099 ","BP000099 "\n14,-95.0,-94.0,-93.0\n'
         r = parse_prism_file(self._f(content), 'test.csv')
         self.assertIn('BP000099', r['matched'])
+
+
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+
+class PrismUploadViewTests(TestCase):
+    """Integration tests for upload_prism_preview and upload_prism_confirm views."""
+
+    CSV_CONTENT = b',BP000077,BP000077,BP000077\n14,-95.67,-94.49,-95.24\n28,-97.16,-96.57,-93.37\n'
+
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='prism_tester', password='x', user_type='admin',
+            permissions_project='',
+        )
+        self.client.force_login(self.user)
+        seq = Sequence.objects.create(rm_code='PP0002', seq='AUGC', seq_type='AS')
+        Delivery.objects.create(sequence=seq, seq_type='AS', duplex_id='BP000077')
+
+    # ── preview tests ────────────────────────────────────────────────────────
+
+    def test_preview_get_redirects(self):
+        r = self.client.get('/upload_prism_preview/')
+        self.assertRedirects(r, '/upload_experiment/')
+
+    def test_preview_post_no_file_redirects(self):
+        r = self.client.post('/upload_prism_preview/')
+        self.assertRedirects(r, '/upload_experiment/')
+
+    def test_preview_post_invalid_extension_redirects(self):
+        f = SimpleUploadedFile('data.xls', b'data', content_type='application/octet-stream')
+        r = self.client.post('/upload_prism_preview/', {'prism_file': f})
+        self.assertRedirects(r, '/upload_experiment/')
+
+    def test_preview_post_valid_csv_renders_preview(self):
+        f = SimpleUploadedFile('data.csv', self.CSV_CONTENT, content_type='text/csv')
+        r = self.client.post('/upload_prism_preview/', {'prism_file': f})
+        self.assertEqual(r.status_code, 200)
+        self.assertTemplateUsed(r, 'upload_prism_preview.html')
+        self.assertContains(r, 'BP000077')
+
+    def test_preview_post_no_matching_duplexes_redirects(self):
+        f = SimpleUploadedFile('data.csv', b',NOPE,NOPE,NOPE\n14,1.0,2.0,3.0\n', content_type='text/csv')
+        r = self.client.post('/upload_prism_preview/', {'prism_file': f})
+        self.assertRedirects(r, '/upload_experiment/')
+
+    def test_preview_stores_parsed_in_session(self):
+        f = SimpleUploadedFile('data.csv', self.CSV_CONTENT, content_type='text/csv')
+        self.client.post('/upload_prism_preview/', {'prism_file': f})
+        self.assertIn('prism_parsed', self.client.session)
+        self.assertIn('BP000077', self.client.session['prism_parsed']['matched'])

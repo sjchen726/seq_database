@@ -5132,3 +5132,56 @@ def approve_module_request(request, req_id):
     req.save()
     return redirect('author_list')
 
+
+@login_required
+def upload_prism_preview(request):
+    """Step 1 of Prism upload: parse file, store in session, render preview."""
+    if request.method != 'POST':
+        return redirect('upload_experiment')
+
+    file_obj = request.FILES.get('prism_file')
+    if not file_obj:
+        messages.error(request, "请选择文件")
+        return redirect('upload_experiment')
+
+    filename = file_obj.name
+    if not (filename.lower().endswith('.csv') or filename.lower().endswith('.txt')):
+        messages.error(request, "仅支持 .csv 或 .txt 格式")
+        return redirect('upload_experiment')
+
+    try:
+        from app01.prism_upload import parse_prism_file
+        result = parse_prism_file(file_obj, filename)
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect('upload_experiment')
+
+    if not result['matched']:
+        messages.error(request, "文件中没有可识别的 duplex ID，请检查列标题")
+        return redirect('upload_experiment')
+
+    request.session['prism_parsed'] = result
+
+    total_points = sum(
+        len(d['rows']) * (len(d['rows'][0]['replicates']) if d['rows'] else 0)
+        for d in result['matched'].values()
+    )
+    excluded_count = sum(
+        sum(1 for ex in row['excluded'] if ex)
+        for d in result['matched'].values()
+        for row in d['rows']
+    )
+
+    return render(request, 'upload_prism_preview.html', {
+        'matched_ids': list(result['matched'].keys()),
+        'x_values': result['x_values'],
+        'skipped_cols': result['skipped_cols'],
+        'warnings': result['warnings'],
+        'total_points': total_points,
+        'excluded_count': excluded_count,
+        'exp_type_choices': Experiment.EXP_TYPE_CHOICES,
+        'assay_type_choices': Experiment.ASSAY_TYPE_CHOICES,
+        'readout_type_choices': DataPoint.READOUT_TYPE_CHOICES,
+        'conc_unit_choices': DataPoint.CONC_UNIT_CHOICES,
+    })
+
