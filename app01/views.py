@@ -5163,8 +5163,9 @@ def upload_prism_preview(request):
     request.session['prism_parsed'] = result
 
     total_points = sum(
-        len(d['rows']) * (len(d['rows'][0]['replicates']) if d['rows'] else 0)
+        sum(1 for rep in row['replicates'] if rep is not None)
         for d in result['matched'].values()
+        for row in d['rows']
     )
     excluded_count = sum(
         sum(1 for ex in row['excluded'] if ex)
