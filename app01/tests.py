@@ -1,4 +1,5 @@
 import json
+from io import BytesIO
 import pandas as pd
 from django.test import TestCase
 from app01.models import Sequence, SeqModule, DeliveryModule, Delivery, DeliveryProject, LmsUser
@@ -8,6 +9,7 @@ from app01.views import (
     build_combo_re, normalize_tmp_seq_with_combo,
 )
 from app01.models import DuplexRelationship, SeqInfo
+from app01.prism_upload import parse_prism_file
 
 
 class NormalizeMiddleBracketsTests(TestCase):
@@ -1714,9 +1716,6 @@ class SecurityHeaderTests(TestCase):
 
 
 # ── Prism Upload Tests ────────────────────────────────────────────────────────
-
-from io import BytesIO
-from app01.prism_upload import parse_prism_file  # noqa: E402 – placed here intentionally
 
 
 class PrismParseTests(TestCase):

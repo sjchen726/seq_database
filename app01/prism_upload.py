@@ -21,7 +21,13 @@ def parse_prism_file(file_obj, filename):
 
     raw = file_obj.read()
     if isinstance(raw, bytes):
-        raw = raw.decode('utf-8-sig')
+        try:
+            raw = raw.decode('utf-8-sig')
+        except UnicodeDecodeError:
+            try:
+                raw = raw.decode('latin-1')
+            except UnicodeDecodeError:
+                raise ValueError("文件编码无法识别，请另存为 UTF-8 格式后重试")
 
     lines = [ln for ln in raw.splitlines() if ln.strip()]
     if not lines:
@@ -73,6 +79,8 @@ def parse_prism_file(file_obj, filename):
         if x not in seen_x:
             seen_x.add(x)
             x_values.append(x)
+        else:
+            warnings.append(f"第 {line_no} 行：X 轴值 {x!r} 重复，后续值将覆盖之前的数据")
 
         data_cols = row[1:]
         for col_idx, (duplex_id, rep_idx, matched) in enumerate(col_mapping):
