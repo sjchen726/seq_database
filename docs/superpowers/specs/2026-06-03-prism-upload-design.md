@@ -80,7 +80,7 @@ X 轴值：-7, 0, 14, 28, ... （K 个）
 总数据点：N × K × 3 = P 个（含 Q 个 excluded 标注）
 ```
 
-解析结果以 JSON 存入 Django session（key: `prism_parsed`），session 过期时间沿用默认值。
+解析结果以 JSON 存入 Django session（key: `prism_parsed`），session 过期时间沿用默认值。项目使用 DB-backed session（`django.contrib.sessions.backends.db`），无大小限制；若为 cookie-based session，则在解析步骤加 50 KB 原始文件大小上限，超出时提示用户拆分文件。
 
 ## 元数据表单
 
