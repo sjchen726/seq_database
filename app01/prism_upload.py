@@ -80,7 +80,8 @@ def parse_prism_file(file_obj, filename):
             seen_x.add(x)
             x_values.append(x)
         else:
-            warnings.append(f"第 {line_no} 行：X 轴值 {x!r} 重复，后续值将覆盖之前的数据")
+            warnings.append(f"第 {line_no} 行：X 轴值 {x!r} 重复，已跳过")
+            continue
 
         data_cols = row[1:]
         for col_idx, (duplex_id, rep_idx, matched) in enumerate(col_mapping):

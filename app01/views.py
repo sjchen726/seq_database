@@ -5239,6 +5239,9 @@ def upload_prism_confirm(request):
     if x_axis_type == 'concentration' and conc_unit not in valid_conc_units:
         messages.error(request, f"无效的浓度单位：{conc_unit}")
         return redirect('upload_experiment')
+    if x_axis_type not in ('timepoint', 'concentration'):
+        messages.error(request, f"无效的 X 轴类型：{x_axis_type}")
+        return redirect('upload_experiment')
 
     created_exp = 0
     created_dp = 0
