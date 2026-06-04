@@ -89,5 +89,6 @@ function switchTab(tab) {
   document.getElementById('tab-prism-btn').style.color = csvActive ? '#64748b' : '#3b82f6';
   document.getElementById('tab-prism-btn').style.fontWeight = csvActive ? 'normal' : '600';
 }
+if (new URLSearchParams(window.location.search).get('tab') === 'prism') switchTab('prism');
 </script>
 {% endblock %}
