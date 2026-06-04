@@ -2122,6 +2122,17 @@ class ExperimentDetailSingleTests(TestCase):
             user_type='superadmin',
         )
         self.client.force_login(self.user)
+        # Create a Sequence and Delivery for BP000004 in PROJECT_A so that
+        # _user_can_access_duplex can filter by project for non-superadmin users.
+        self.seq = Sequence.objects.create(seq='AUGCAUGCAU', seq_type='SS')
+        self.delivery = Delivery.objects.create(
+            sequence=self.seq,
+            duplex_id='BP000004',
+            seq_type='SS',
+            modify_seq='AmUmGmCmAmUmGmCmAmUm',
+            project='PROJECT_A',
+        )
+        # DeliveryProject is auto-created by the post_save signal on Delivery
         from app01.models import Experiment
         self.exp = Experiment.objects.create(
             duplex_id='BP000004',
@@ -2140,16 +2151,25 @@ class ExperimentDetailSingleTests(TestCase):
         )
 
     def test_detail_page_returns_200(self):
-        resp = self.client.get(f'/experiment/BP000004/{self.exp.id}/')
+        resp = self.client.get(
+            reverse('experiment_detail_single',
+                    kwargs={'duplex_id': 'BP000004', 'exp_id': self.exp.id})
+        )
         self.assertEqual(resp.status_code, 200)
 
     def test_detail_page_shows_metadata(self):
-        resp = self.client.get(f'/experiment/BP000004/{self.exp.id}/')
+        resp = self.client.get(
+            reverse('experiment_detail_single',
+                    kwargs={'duplex_id': 'BP000004', 'exp_id': self.exp.id})
+        )
         self.assertContains(resp, 'HeLa')
         self.assertContains(resp, 'B004')
 
     def test_detail_page_shows_pivot_table(self):
-        resp = self.client.get(f'/experiment/BP000004/{self.exp.id}/')
+        resp = self.client.get(
+            reverse('experiment_detail_single',
+                    kwargs={'duplex_id': 'BP000004', 'exp_id': self.exp.id})
+        )
         self.assertContains(resp, 'Day 7')
         self.assertContains(resp, '75.0')
 
@@ -2158,11 +2178,19 @@ class ExperimentDetailSingleTests(TestCase):
         self.assertEqual(resp.status_code, 404)
 
     def test_detail_page_wrong_duplex_returns_404(self):
-        resp = self.client.get(f'/experiment/BPWRONG/{self.exp.id}/')
+        resp = self.client.get(
+            reverse('experiment_detail_single',
+                    kwargs={'duplex_id': 'BPWRONG', 'exp_id': self.exp.id})
+        )
         self.assertEqual(resp.status_code, 404)
 
     def test_detail_page_unauthorized_returns_404(self):
-        """User without project access to the duplex gets 404."""
+        """User without project access to BP000004 (PROJECT_A) gets 404.
+
+        The Delivery for BP000004 is linked to PROJECT_A via DeliveryProject.
+        A user with permissions_project='OTHER_PROJECT' cannot see that delivery,
+        so _user_can_access_duplex returns False and the view raises Http404.
+        """
         restricted_user = LmsUser.objects.create_user(
             username='restricted_test_single',
             password='pass',

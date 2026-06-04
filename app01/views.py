@@ -4532,6 +4532,7 @@ def experiment_detail(request, duplex_id):
     })
 
 
+@login_required
 def experiment_detail_single(request, duplex_id, exp_id):
     """Dedicated detail page for a single experiment record."""
     from .models import Experiment
