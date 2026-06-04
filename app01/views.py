@@ -5408,7 +5408,6 @@ def upload_prism_confirm(request):
     if not readout_type:
         messages.error(request, "读数类型不能为空")
         return redirect('upload_experiment')
-    readout_type = readout_type[:32]
     if x_axis_type == 'concentration' and conc_unit not in valid_conc_units:
         messages.error(request, f"无效的浓度单位：{conc_unit}")
         return redirect('upload_experiment')

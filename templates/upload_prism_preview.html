@@ -160,7 +160,7 @@ function toggleConcUnit() {
     }
   });
   // Resolve on submit — copy custom value to select before form posts
-  document.querySelector('form').addEventListener('submit', function () {
+  inp.closest('form').addEventListener('submit', function () {
     if (sel.value === '__custom__') {
       sel.value = inp.value.trim() || '';
     }
