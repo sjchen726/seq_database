@@ -4530,8 +4530,8 @@ def experiment_detail(request, duplex_id):
     vivo_rows  = [r for r in all_rows if r['exp'].exp_type == 'in_vivo']
 
     can_edit = (
-        request.user.is_superuser or
-        getattr(request.user, 'user_type', '') in ('data_admin', 'admin', 'superadmin')
+        _is_superadmin(request.user) or
+        getattr(request.user, 'user_type', '') == 'sub_admin'
     )
 
     return render(request, 'experiment_detail.html', {
@@ -4559,8 +4559,8 @@ def experiment_detail_single(request, duplex_id, exp_id):
         raise Http404
 
     can_edit = (
-        request.user.is_superuser or
-        getattr(request.user, 'user_type', '') in ('data_admin', 'admin', 'superadmin')
+        _is_superadmin(request.user) or
+        getattr(request.user, 'user_type', '') == 'sub_admin'
     )
 
     non_excl_dps = [dp for dp in exp.datapoints.all() if dp.replicate != 'excluded']
