@@ -5223,6 +5223,23 @@ def upload_prism_confirm(request):
             messages.error(request, f"日期格式错误：{raw_date!r}，请使用 YYYY-MM-DD")
             return redirect('upload_experiment')
 
+    valid_exp_types = {c[0] for c in Experiment.EXP_TYPE_CHOICES}
+    valid_assay_types = {c[0] for c in Experiment.ASSAY_TYPE_CHOICES}
+    valid_readout_types = {c[0] for c in DataPoint.READOUT_TYPE_CHOICES}
+    valid_conc_units = {c[0] for c in DataPoint.CONC_UNIT_CHOICES}
+    if exp_type not in valid_exp_types:
+        messages.error(request, f"无效的实验类型：{exp_type}")
+        return redirect('upload_experiment')
+    if assay_type not in valid_assay_types:
+        messages.error(request, f"无效的 Assay 类型：{assay_type}")
+        return redirect('upload_experiment')
+    if readout_type not in valid_readout_types:
+        messages.error(request, f"无效的读数类型：{readout_type}")
+        return redirect('upload_experiment')
+    if x_axis_type == 'concentration' and conc_unit not in valid_conc_units:
+        messages.error(request, f"无效的浓度单位：{conc_unit}")
+        return redirect('upload_experiment')
+
     created_exp = 0
     created_dp = 0
     skipped_dup = 0
