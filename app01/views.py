@@ -5186,3 +5186,105 @@ def upload_prism_preview(request):
         'conc_unit_choices': DataPoint.CONC_UNIT_CHOICES,
     })
 
+
+@login_required
+def upload_prism_confirm(request):
+    """Step 2 of Prism upload: read session data, apply metadata, write to DB."""
+    if request.method != 'POST':
+        return redirect('upload_experiment')
+
+    parsed = request.session.get('prism_parsed')
+    if not isinstance(parsed, dict) or 'matched' not in parsed:
+        messages.error(request, "会话已过期，请重新上传文件")
+        return redirect('upload_experiment')
+
+    batch = request.POST.get('batch', '').strip()
+    if not batch:
+        messages.error(request, "批次不能为空")
+        return redirect('upload_experiment')
+
+    exp_type      = request.POST.get('exp_type', 'in_vitro')
+    assay_type    = request.POST.get('assay_type', 'single_point')
+    readout_type  = request.POST.get('readout_type', 'mRNA_remaining')
+    x_axis_type   = request.POST.get('x_axis_type', 'timepoint')
+    conc_unit     = request.POST.get('conc_unit', 'nM')
+    cell_line     = request.POST.get('cell_line', '').strip() or None
+    animal_species = request.POST.get('animal_species', '').strip() or None
+    route         = request.POST.get('route', '').strip() or None
+    notes         = request.POST.get('notes', '').strip() or None
+
+    from datetime import date as _date
+    exp_date = None
+    raw_date = request.POST.get('exp_date', '').strip()
+    if raw_date:
+        try:
+            exp_date = _date.fromisoformat(raw_date)
+        except ValueError:
+            messages.error(request, f"日期格式错误：{raw_date!r}，请使用 YYYY-MM-DD")
+            return redirect('upload_experiment')
+
+    created_exp = 0
+    created_dp = 0
+    skipped_dup = 0
+
+    with transaction.atomic():
+        for duplex_id, dp_data in parsed['matched'].items():
+            if Experiment.objects.filter(
+                duplex_id=duplex_id,
+                exp_type=exp_type,
+                assay_type=assay_type,
+                batch=batch,
+            ).exists():
+                skipped_dup += 1
+                continue
+
+            exp = Experiment.objects.create(
+                duplex_id=duplex_id,
+                exp_type=exp_type,
+                assay_type=assay_type,
+                batch=batch,
+                exp_date=exp_date,
+                cell_line=cell_line,
+                animal_species=animal_species,
+                route=route,
+                notes=notes,
+                created_by=request.user.username,
+            )
+            created_exp += 1
+
+            for row in dp_data['rows']:
+                x = row['x']
+                for rep_idx, val in enumerate(row['replicates']):
+                    if val is None:
+                        continue
+                    replicate = 'excluded' if row['excluded'][rep_idx] else str(rep_idx + 1)
+                    if x_axis_type == 'concentration':
+                        DataPoint.objects.create(
+                            experiment=exp,
+                            concentration_or_dose=x,
+                            conc_unit=conc_unit,
+                            timepoint=None,
+                            readout_type=readout_type,
+                            value=val,
+                            replicate=replicate,
+                        )
+                    else:
+                        DataPoint.objects.create(
+                            experiment=exp,
+                            concentration_or_dose=None,
+                            conc_unit=None,
+                            timepoint=f"Day {x:g}",
+                            readout_type=readout_type,
+                            value=val,
+                            replicate=replicate,
+                        )
+                    created_dp += 1
+
+    request.session.pop('prism_parsed', None)
+
+    parts = [f"成功导入 {created_exp} 个实验、{created_dp} 个数据点"]
+    if skipped_dup:
+        parts.append(f"跳过 {skipped_dup} 个重复记录")
+    messages.success(request, "；".join(parts))
+    return redirect('upload_experiment')
+

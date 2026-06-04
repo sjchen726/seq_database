@@ -76,6 +76,7 @@ urlpatterns = [
     path('download_experiment_template/', views.download_experiment_template, name='download_experiment_template'),
     path('experiment/<str:duplex_id>/', views.experiment_detail, name='experiment_detail'),
     path('upload_prism_preview/', views.upload_prism_preview, name='upload_prism_preview'),
+    path('upload_prism_confirm/', views.upload_prism_confirm, name='upload_prism_confirm'),
 
     #path('test_log/', views.test_log, name='test_log'),
 

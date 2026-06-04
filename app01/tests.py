@@ -2,7 +2,7 @@ import json
 from io import BytesIO
 import pandas as pd
 from django.test import TestCase
-from app01.models import Sequence, SeqModule, DeliveryModule, Delivery, DeliveryProject, LmsUser
+from app01.models import Sequence, SeqModule, DeliveryModule, Delivery, DeliveryProject, LmsUser, Experiment, DataPoint
 from app01.views import (
     normalize_middle_brackets, run_preflight_check, group_sequences,
     auto_register_bare_sequences, check_duplicates,
@@ -1834,3 +1834,102 @@ class PrismUploadViewTests(TestCase):
         self.client.post('/upload_prism_preview/', {'prism_file': f})
         self.assertIn('prism_parsed', self.client.session)
         self.assertIn('BP000077', self.client.session['prism_parsed']['matched'])
+
+    # ── confirm tests ────────────────────────────────────────────────────────
+
+    def _set_session(self, rows=None):
+        if rows is None:
+            rows = [
+                {'x': 14.0, 'replicates': [-95.67, -94.49, -95.24], 'excluded': [False, False, False]},
+                {'x': 28.0, 'replicates': [-97.16, None, -93.37],   'excluded': [False, False, False]},
+            ]
+        session = self.client.session
+        session['prism_parsed'] = {
+            'matched': {'BP000077': {'rows': rows}},
+            'x_values': [r['x'] for r in rows],
+            'skipped_cols': [],
+            'warnings': [],
+        }
+        session.save()
+
+    def _confirm_post(self, extra=None):
+        data = {
+            'batch': 'B-Test',
+            'exp_type': 'in_vivo',
+            'assay_type': 'in_vivo_efficacy',
+            'readout_type': 'knockdown_pct',
+            'x_axis_type': 'timepoint',
+        }
+        if extra:
+            data.update(extra)
+        return self.client.post('/upload_prism_confirm/', data)
+
+    def test_confirm_get_redirects(self):
+        r = self.client.get('/upload_prism_confirm/')
+        self.assertRedirects(r, '/upload_experiment/')
+
+    def test_confirm_no_session_redirects(self):
+        r = self._confirm_post()
+        self.assertRedirects(r, '/upload_experiment/')
+
+    def test_confirm_creates_experiment_and_datapoints(self):
+        self._set_session()
+        r = self._confirm_post({'batch': 'BatchA'})
+        self.assertRedirects(r, '/upload_experiment/')
+        exp = Experiment.objects.get(duplex_id='BP000077', batch='BatchA')
+        # 2 rows × 3 reps = 6 slots; 1 is None → 5 DataPoints
+        self.assertEqual(exp.datapoints.count(), 5)
+
+    def test_confirm_timepoint_format(self):
+        self._set_session()
+        self._confirm_post({'batch': 'BatchTP'})
+        exp = Experiment.objects.get(duplex_id='BP000077', batch='BatchTP')
+        timepoints = set(exp.datapoints.values_list('timepoint', flat=True))
+        self.assertIn('Day 14', timepoints)
+        self.assertIn('Day 28', timepoints)
+
+    def test_confirm_concentration_mode(self):
+        self._set_session(rows=[
+            {'x': 10.0, 'replicates': [-95.0, -94.0, -93.0], 'excluded': [False, False, False]},
+        ])
+        self._confirm_post({
+            'batch': 'BatchConc',
+            'exp_type': 'in_vitro',
+            'assay_type': 'dose_response',
+            'readout_type': 'mRNA_remaining',
+            'x_axis_type': 'concentration',
+            'conc_unit': 'nM',
+        })
+        exp = Experiment.objects.get(duplex_id='BP000077', batch='BatchConc')
+        dp = exp.datapoints.first()
+        self.assertEqual(dp.concentration_or_dose, 10.0)
+        self.assertEqual(dp.conc_unit, 'nM')
+        self.assertIsNone(dp.timepoint)
+
+    def test_confirm_excluded_replicate_label(self):
+        self._set_session(rows=[
+            {'x': 14.0, 'replicates': [-95.0, -94.0, -93.0], 'excluded': [False, True, False]},
+        ])
+        self._confirm_post({'batch': 'BatchExcl'})
+        exp = Experiment.objects.get(duplex_id='BP000077', batch='BatchExcl')
+        excluded_dp = exp.datapoints.get(value=-94.0)
+        self.assertEqual(excluded_dp.replicate, 'excluded')
+        normal_dp = exp.datapoints.get(value=-95.0)
+        self.assertEqual(normal_dp.replicate, '1')
+
+    def test_confirm_skips_duplicate_experiment(self):
+        self._set_session()
+        Experiment.objects.create(
+            duplex_id='BP000077', exp_type='in_vivo',
+            assay_type='in_vivo_efficacy', batch='DupBatch',
+            created_by='prism_tester',
+        )
+        self._confirm_post({'batch': 'DupBatch'})
+        self.assertEqual(
+            Experiment.objects.filter(duplex_id='BP000077', batch='DupBatch').count(), 1
+        )
+
+    def test_confirm_clears_session(self):
+        self._set_session()
+        self._confirm_post({'batch': 'BatchClr'})
+        self.assertNotIn('prism_parsed', self.client.session)
