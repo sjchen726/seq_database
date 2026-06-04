@@ -7,6 +7,7 @@ from app01.views import (
     normalize_middle_brackets, run_preflight_check, group_sequences,
     auto_register_bare_sequences, check_duplicates,
     build_combo_re, normalize_tmp_seq_with_combo,
+    build_pivot_table,
 )
 from app01.models import DuplexRelationship, SeqInfo
 from app01.prism_upload import parse_prism_file
@@ -1964,3 +1965,91 @@ class ReadoutTypeModelTests(TestCase):
         )
         dp.refresh_from_db()
         self.assertEqual(dp.readout_type, long_val)
+
+
+class BuildPivotTableTests(TestCase):
+    def setUp(self):
+        from app01.models import Experiment
+        from app01.views import build_pivot_table
+        self.build_pivot_table = build_pivot_table
+        self.exp = Experiment.objects.create(
+            duplex_id='BP000002',
+            exp_type='in_vitro',
+            assay_type='single_point',
+            batch='B002',
+            created_by='test',
+        )
+
+    def _dp(self, timepoint=None, conc=None, conc_unit=None, readout_type='KD%',
+            value=50.0, replicate='1'):
+        return DataPoint.objects.create(
+            experiment=self.exp,
+            timepoint=timepoint,
+            concentration_or_dose=conc,
+            conc_unit=conc_unit,
+            readout_type=readout_type,
+            value=value,
+            replicate=replicate,
+        )
+
+    def test_empty_experiment_returns_empty_list(self):
+        result = self.build_pivot_table(self.exp)
+        self.assertEqual(result, [])
+
+    def test_three_replicates_one_timepoint(self):
+        self._dp(timepoint='Day 7', value=80.0, replicate='1')
+        self._dp(timepoint='Day 7', value=82.0, replicate='2')
+        self._dp(timepoint='Day 7', value=78.0, replicate='3')
+        result = self.build_pivot_table(self.exp)
+        self.assertEqual(len(result), 1)
+        pt = result[0]
+        self.assertEqual(pt['readout_type'], 'KD%')
+        self.assertEqual(pt['x_label'], '时间点')
+        self.assertEqual(len(pt['rows']), 1)
+        row = pt['rows'][0]
+        self.assertEqual(row['x'], 'Day 7')
+        self.assertEqual(row['reps'], [80.0, 82.0, 78.0])
+        self.assertAlmostEqual(row['mean'], 80.0, places=1)
+        self.assertIsNotNone(row['sd'])
+
+    def test_excluded_replicate_not_counted_in_mean(self):
+        self._dp(timepoint='Day 7', value=80.0, replicate='1')
+        self._dp(timepoint='Day 7', value=82.0, replicate='2')
+        self._dp(timepoint='Day 7', value=999.0, replicate='excluded')
+        result = self.build_pivot_table(self.exp)
+        row = result[0]['rows'][0]
+        self.assertEqual(row['reps'], [80.0, 82.0, None])
+        self.assertAlmostEqual(row['mean'], 81.0, places=1)
+
+    def test_single_replicate_no_sd(self):
+        self._dp(timepoint='Day 7', value=80.0, replicate='1')
+        result = self.build_pivot_table(self.exp)
+        row = result[0]['rows'][0]
+        self.assertEqual(row['mean'], 80.0)
+        self.assertIsNone(row['sd'])
+
+    def test_timepoints_sorted_numerically(self):
+        self._dp(timepoint='Day 14', value=60.0, replicate='1')
+        self._dp(timepoint='Day 7', value=80.0, replicate='1')
+        self._dp(timepoint='Day 28', value=40.0, replicate='1')
+        result = self.build_pivot_table(self.exp)
+        xs = [row['x'] for row in result[0]['rows']]
+        self.assertEqual(xs, ['Day 7', 'Day 14', 'Day 28'])
+
+    def test_multiple_readout_types_separate_pivot_dicts(self):
+        self._dp(timepoint='Day 7', value=80.0, replicate='1', readout_type='KD%')
+        self._dp(timepoint='Day 7', value=22.0, replicate='1', readout_type='体重')
+        result = self.build_pivot_table(self.exp)
+        self.assertEqual(len(result), 2)
+        readout_types = {pt['readout_type'] for pt in result}
+        self.assertIn('KD%', readout_types)
+        self.assertIn('体重', readout_types)
+
+    def test_concentration_x_axis(self):
+        self._dp(conc=10.0, conc_unit='nM', value=90.0, replicate='1')
+        self._dp(conc=100.0, conc_unit='nM', value=50.0, replicate='1')
+        result = self.build_pivot_table(self.exp)
+        self.assertEqual(result[0]['x_label'], '浓度/剂量')
+        xs = [row['x'] for row in result[0]['rows']]
+        self.assertIn('10 nM', xs)
+        self.assertIn('100 nM', xs)

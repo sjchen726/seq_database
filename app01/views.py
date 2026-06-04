@@ -4394,6 +4394,64 @@ def get_experiment_summary(duplex_ids):
     return result
 
 
+def build_pivot_table(experiment):
+    """Return list of pivot dicts (one per distinct readout_type).
+
+    Each dict: {'readout_type': str, 'x_label': str, 'rows': [{'x', 'reps', 'mean', 'sd'}]}
+    reps is always a list of 3 elements (None where missing).
+    Excluded replicates are omitted from reps slots and not counted in mean/sd.
+    """
+    import statistics as _stats
+    import re
+    from collections import OrderedDict
+
+    datapoints = list(experiment.datapoints.all())
+    if not datapoints:
+        return []
+
+    use_timepoint = any(dp.timepoint for dp in datapoints)
+    x_label = '时间点' if use_timepoint else '浓度/剂量'
+
+    pivot_by_readout = OrderedDict()  # readout_type → OrderedDict[x_str → [None, None, None]]
+
+    for dp in datapoints:
+        if dp.replicate == 'excluded':
+            continue
+        if use_timepoint:
+            x = dp.timepoint or '—'
+        else:
+            x = (f"{dp.concentration_or_dose:g} {dp.conc_unit}"
+                 if dp.concentration_or_dose is not None else '—')
+
+        rt = dp.readout_type or ''
+        if rt not in pivot_by_readout:
+            pivot_by_readout[rt] = OrderedDict()
+        if x not in pivot_by_readout[rt]:
+            pivot_by_readout[rt][x] = [None, None, None]
+
+        if dp.replicate in ('1', '2', '3'):
+            pivot_by_readout[rt][x][int(dp.replicate) - 1] = dp.value
+
+    def _x_sort_key(x_val):
+        m = re.search(r'[\d.]+', x_val)
+        return float(m.group()) if m else float('inf')
+
+    result = []
+    for rt, x_map in pivot_by_readout.items():
+        ordered_items = sorted(x_map.items(), key=lambda kv: _x_sort_key(kv[0]))
+
+        rows = []
+        for x, reps in ordered_items:
+            valid = [v for v in reps if v is not None]
+            mean_val = round(_stats.mean(valid), 2) if valid else None
+            sd_val = round(_stats.stdev(valid), 2) if len(valid) >= 2 else None
+            rows.append({'x': x, 'reps': reps, 'mean': mean_val, 'sd': sd_val})
+
+        result.append({'readout_type': rt, 'x_label': x_label, 'rows': rows})
+
+    return result
+
+
 @login_required
 def experiment_detail(request, duplex_id):
     """展示某个 duplex_id 的所有实验记录，按 exp_type 分组。"""
