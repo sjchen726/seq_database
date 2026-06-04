@@ -4532,6 +4532,35 @@ def experiment_detail(request, duplex_id):
     })
 
 
+def experiment_detail_single(request, duplex_id, exp_id):
+    """Dedicated detail page for a single experiment record."""
+    from .models import Experiment
+    from django.http import Http404
+
+    if not _user_can_access_duplex(request.user, duplex_id):
+        raise Http404
+
+    try:
+        exp = (Experiment.objects
+               .prefetch_related('datapoints', 'attachments')
+               .get(pk=exp_id, duplex_id=duplex_id))
+    except Experiment.DoesNotExist:
+        raise Http404
+
+    can_edit = (
+        request.user.is_superuser or
+        getattr(request.user, 'user_type', '') in ('data_admin', 'admin', 'superadmin')
+    )
+
+    return render(request, 'experiment_detail_single.html', {
+        'duplex_id':   duplex_id,
+        'exp':         exp,
+        'pivot':       build_pivot_table(exp),
+        'attachments': list(exp.attachments.all()),
+        'can_edit':    can_edit,
+    })
+
+
 @login_required
 def add_experiment(request):
     """手动录入实验记录 + 数据点 + 附件。"""

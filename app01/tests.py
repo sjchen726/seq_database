@@ -2112,3 +2112,50 @@ class ExperimentListViewTests(TestCase):
         resp = self.client.get('/experiment/BP000003/')
         self.assertContains(resp, '体外实验')
         self.assertContains(resp, '体内实验')
+
+
+class ExperimentDetailSingleTests(TestCase):
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='testadmin2', password='pass',
+            user_type='superadmin',
+        )
+        self.client.force_login(self.user)
+        from app01.models import Experiment
+        self.exp = Experiment.objects.create(
+            duplex_id='BP000004',
+            exp_type='in_vitro',
+            assay_type='single_point',
+            cell_line='HeLa',
+            batch='B004',
+            created_by='testadmin2',
+        )
+        DataPoint.objects.create(
+            experiment=self.exp,
+            timepoint='Day 7',
+            readout_type='KD%',
+            value=75.0,
+            replicate='1',
+        )
+
+    def test_detail_page_returns_200(self):
+        resp = self.client.get(f'/experiment/BP000004/{self.exp.id}/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_detail_page_shows_metadata(self):
+        resp = self.client.get(f'/experiment/BP000004/{self.exp.id}/')
+        self.assertContains(resp, 'HeLa')
+        self.assertContains(resp, 'B004')
+
+    def test_detail_page_shows_pivot_table(self):
+        resp = self.client.get(f'/experiment/BP000004/{self.exp.id}/')
+        self.assertContains(resp, 'Day 7')
+        self.assertContains(resp, '75.0')
+
+    def test_detail_page_wrong_exp_id_returns_404(self):
+        resp = self.client.get(f'/experiment/BP000004/99999/')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_detail_page_wrong_duplex_returns_404(self):
+        resp = self.client.get(f'/experiment/BPWRONG/{self.exp.id}/')
+        self.assertEqual(resp.status_code, 404)
