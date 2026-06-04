@@ -34,6 +34,7 @@
       {% if exp.animal_species %}<div><strong>动物种属：</strong>{{ exp.animal_species }}</div>{% endif %}
       {% if exp.transfection_reagent %}<div><strong>转染试剂：</strong>{{ exp.transfection_reagent }}</div>{% endif %}
       {% if exp.route %}<div><strong>给药途径：</strong>{{ exp.route }}</div>{% endif %}
+      <div><strong>读数类型：</strong>{{ readout_types }}</div>
       <div><strong>批次：</strong>{{ exp.batch }}</div>
       <div><strong>实验日期：</strong>{{ exp.exp_date|default:"—" }}</div>
       <div><strong>录入人：</strong>{{ exp.created_by }}</div>

@@ -2,6 +2,7 @@ import json
 from io import BytesIO
 import pandas as pd
 from django.test import TestCase
+from django.urls import reverse
 from app01.models import Sequence, SeqModule, DeliveryModule, Delivery, DeliveryProject, LmsUser, Experiment, DataPoint
 from app01.views import (
     normalize_middle_brackets, run_preflight_check, group_sequences,
@@ -2159,3 +2160,30 @@ class ExperimentDetailSingleTests(TestCase):
     def test_detail_page_wrong_duplex_returns_404(self):
         resp = self.client.get(f'/experiment/BPWRONG/{self.exp.id}/')
         self.assertEqual(resp.status_code, 404)
+
+    def test_detail_page_unauthorized_returns_404(self):
+        """User without project access to the duplex gets 404."""
+        restricted_user = LmsUser.objects.create_user(
+            username='restricted_test_single',
+            password='pass',
+            user_type='delivery',
+            permissions_project='OTHER_PROJECT',
+        )
+        self.client.login(username='restricted_test_single', password='pass')
+        resp = self.client.get(
+            reverse('experiment_detail_single',
+                    kwargs={'duplex_id': 'BP000004', 'exp_id': self.exp.pk})
+        )
+        self.assertEqual(resp.status_code, 404)
+
+    def test_detail_page_context_keys(self):
+        """Response context contains pivot, attachments, and can_edit keys."""
+        resp = self.client.get(
+            reverse('experiment_detail_single',
+                    kwargs={'duplex_id': 'BP000004', 'exp_id': self.exp.pk})
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('pivot', resp.context)
+        self.assertIn('attachments', resp.context)
+        self.assertIn('can_edit', resp.context)
+        self.assertTrue(resp.context['can_edit'])  # superadmin

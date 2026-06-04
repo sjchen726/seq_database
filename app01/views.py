@@ -4552,12 +4552,18 @@ def experiment_detail_single(request, duplex_id, exp_id):
         getattr(request.user, 'user_type', '') in ('data_admin', 'admin', 'superadmin')
     )
 
+    non_excl_dps = [dp for dp in exp.datapoints.all() if dp.replicate != 'excluded']
+    readout_types_str = ' / '.join(dict.fromkeys(
+        dp.readout_type for dp in non_excl_dps if dp.readout_type
+    )) or '—'
+
     return render(request, 'experiment_detail_single.html', {
-        'duplex_id':   duplex_id,
-        'exp':         exp,
-        'pivot':       build_pivot_table(exp),
-        'attachments': list(exp.attachments.all()),
-        'can_edit':    can_edit,
+        'duplex_id':     duplex_id,
+        'exp':           exp,
+        'pivot':         build_pivot_table(exp),
+        'attachments':   list(exp.attachments.all()),
+        'can_edit':      can_edit,
+        'readout_types': readout_types_str,
     })
 
 
