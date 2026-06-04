@@ -53,6 +53,9 @@
     <a href="{% url 'seq_delivery' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'seq_delivery' %}active{% endif %}">
       <i class="bi bi-cloud-upload ds-nav-icon"></i> 序列上传
     </a>
+    <a href="{% url 'upload_experiment' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'upload_experiment' or request.resolver_match.url_name == 'upload_prism_preview' %}active{% endif %}">
+      <i class="bi bi-bar-chart-line ds-nav-icon"></i> 实验数据上传
+    </a>
 
     <div class="ds-nav-divider"></div>
     <div class="ds-nav-section">BLAST</div>

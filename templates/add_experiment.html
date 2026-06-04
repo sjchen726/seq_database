@@ -6,7 +6,6 @@
   <span class="ds-topbar-title">{% if editing_exp_id %}编辑实验数据{% else %}添加实验数据{% endif %}</span>
   <span style="font-family:'DM Mono',monospace;font-size:12px;color:#94a3b8;margin-left:6px;">{{ duplex_id }}</span>
   <span class="ds-topbar-spacer"></span>
-  <a href="{% url 'upload_experiment' %}?tab=prism" class="ds-btn ds-btn-ghost" style="font-size:12px;">↑ Prism 批量导入</a>
   {% if duplex_id %}
     <a href="/experiment/{{ duplex_id }}/" class="ds-btn ds-btn-ghost">← 取消</a>
   {% else %}
