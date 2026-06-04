@@ -1,4 +1,136 @@
 {% extends 'base.html' %}
+
+{% block page_title %} — Prism 数据预览{% endblock %}
+
+{% block topbar_content %}
+  <span class="ds-topbar-title">Prism 数据导入预览</span>
+  <span class="ds-topbar-spacer"></span>
+  <a href="{% url 'upload_experiment' %}" class="ds-btn ds-btn-ghost">← 取消</a>
+{% endblock %}
+
 {% block content %}
-<p>{{ matched_ids|join:", " }}</p>
+<div class="ds-form-page">
+  <div class="ds-form-card">
+
+    <div class="ds-form-card-title">解析结果</div>
+    <div style="font-size:13px;line-height:2;margin-bottom:16px;">
+      <div style="color:#15803d;">✓ 识别到 {{ matched_ids|length }} 个 duplex：{{ matched_ids|join:", " }}</div>
+      {% if skipped_cols %}
+      <div style="color:#b45309;">✗ 跳过 {{ skipped_cols|length }} 列（未匹配）：{{ skipped_cols|join:", " }}</div>
+      {% endif %}
+      <div style="color:#475569;">X 轴值（{{ x_values|length }} 个）：{{ x_values|join:", " }}</div>
+      <div style="color:#475569;">
+        预计写入 {{ total_points }} 个数据点{% if excluded_count %}（含 {{ excluded_count }} 个 excluded 标注）{% endif %}
+      </div>
+    </div>
+
+    {% if warnings %}
+    <div style="background:#fef9c3;border-radius:6px;padding:8px 12px;margin-bottom:16px;font-size:12px;color:#854d0e;">
+      {% for w in warnings %}<div>⚠ {{ w }}</div>{% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="ds-form-card-title" style="margin-top:20px;">实验元数据</div>
+
+    <form method="POST" action="{% url 'upload_prism_confirm' %}">
+      {% csrf_token %}
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+
+        <div>
+          <label class="ds-form-label">实验类型 *</label>
+          <select name="exp_type" id="id_exp_type" class="ds-form-control" required onchange="toggleBioFields()">
+            {% for val, label in exp_type_choices %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="ds-form-label">Assay 类型 *</label>
+          <select name="assay_type" class="ds-form-control" required>
+            {% for val, label in assay_type_choices %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="ds-form-label">读数类型 *</label>
+          <select name="readout_type" class="ds-form-control" required>
+            {% for val, label in readout_type_choices %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="ds-form-label">X 轴含义 *</label>
+          <select name="x_axis_type" id="id_x_axis_type" class="ds-form-control" required onchange="toggleConcUnit()">
+            <option value="timepoint">时间点（天）</option>
+            <option value="concentration">浓度 / 剂量</option>
+          </select>
+        </div>
+
+        <div id="conc_unit_row" style="display:none;">
+          <label class="ds-form-label">浓度单位</label>
+          <select name="conc_unit" class="ds-form-control">
+            {% for val, label in conc_unit_choices %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="ds-form-label">批次 *</label>
+          <input type="text" name="batch" class="ds-form-control" required placeholder="如 Batch-001">
+        </div>
+
+        <div>
+          <label class="ds-form-label">实验日期</label>
+          <input type="date" name="exp_date" class="ds-form-control">
+        </div>
+
+        <div id="cell_line_row">
+          <label class="ds-form-label">细胞系</label>
+          <input type="text" name="cell_line" class="ds-form-control" placeholder="如 HepG2">
+        </div>
+
+        <div id="animal_species_row" style="display:none;">
+          <label class="ds-form-label">动物种属</label>
+          <input type="text" name="animal_species" class="ds-form-control" placeholder="如 mouse">
+        </div>
+
+        <div>
+          <label class="ds-form-label">给药途径</label>
+          <input type="text" name="route" class="ds-form-control" placeholder="如 SC、IV">
+        </div>
+
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <label class="ds-form-label">备注</label>
+        <textarea name="notes" class="ds-form-control" rows="2" style="resize:vertical;"></textarea>
+      </div>
+
+      <div style="display:flex;gap:8px;">
+        <button type="submit" class="ds-btn ds-btn-primary">确认导入</button>
+        <a href="{% url 'upload_experiment' %}" class="ds-btn ds-btn-ghost">取消</a>
+      </div>
+    </form>
+
+  </div>
+</div>
+
+<script>
+function toggleBioFields() {
+  var t = document.getElementById('id_exp_type').value;
+  document.getElementById('cell_line_row').style.display = (t === 'in_vitro') ? '' : 'none';
+  document.getElementById('animal_species_row').style.display = (t === 'in_vivo') ? '' : 'none';
+}
+function toggleConcUnit() {
+  var t = document.getElementById('id_x_axis_type').value;
+  document.getElementById('conc_unit_row').style.display = (t === 'concentration') ? '' : 'none';
+}
+</script>
 {% endblock %}
