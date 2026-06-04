@@ -1933,3 +1933,34 @@ class PrismUploadViewTests(TestCase):
         self._set_session()
         self._confirm_post({'batch': 'BatchClr'})
         self.assertNotIn('prism_parsed', self.client.session)
+
+
+class ReadoutTypeModelTests(TestCase):
+    def setUp(self):
+        from app01.models import Experiment
+        self.exp = Experiment.objects.create(
+            duplex_id='BP000001',
+            exp_type='in_vitro',
+            assay_type='single_point',
+            batch='B001',
+            created_by='test',
+        )
+
+    def test_arbitrary_readout_type_saves_without_error(self):
+        dp = DataPoint.objects.create(
+            experiment=self.exp,
+            readout_type='体重',
+            value=22.5,
+        )
+        dp.refresh_from_db()
+        self.assertEqual(dp.readout_type, '体重')
+
+    def test_long_custom_readout_type_up_to_32_chars(self):
+        long_val = 'A' * 32
+        dp = DataPoint.objects.create(
+            experiment=self.exp,
+            readout_type=long_val,
+            value=1.0,
+        )
+        dp.refresh_from_db()
+        self.assertEqual(dp.readout_type, long_val)

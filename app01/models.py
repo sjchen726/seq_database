@@ -370,7 +370,7 @@ class DataPoint(models.Model):
     concentration_or_dose = models.FloatField('浓度/剂量', null=True, blank=True)
     conc_unit = models.CharField('单位', max_length=20, choices=CONC_UNIT_CHOICES, null=True, blank=True)
     timepoint = models.CharField('时间点', max_length=32, null=True, blank=True)
-    readout_type = models.CharField('终点类型', max_length=32, choices=READOUT_TYPE_CHOICES)
+    readout_type = models.CharField('终点类型', max_length=32)
     value = models.FloatField('数值')
     value_unit = models.CharField('数值单位', max_length=20, null=True, blank=True)
     replicate = models.CharField('重复', max_length=32, null=True, blank=True)
