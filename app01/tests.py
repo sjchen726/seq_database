@@ -2272,3 +2272,47 @@ class AddExperimentReadoutTests(TestCase):
         ).first()
         self.assertIsNotNone(dp2)
         self.assertEqual(dp2.readout_type, '自定义类型')
+
+
+class PrismConfirmCustomReadoutTests(TestCase):
+    def setUp(self):
+        from app01.models import Sequence, Delivery
+        self.user = LmsUser.objects.create_user(
+            username='testadmin4', password='pass',
+            user_type='superadmin',
+        )
+        self.client.force_login(self.user)
+        seq = Sequence.objects.create(seq='CCCC', seq_type='SS')
+        Delivery.objects.create(
+            sequence=seq,
+            duplex_id='BP000006',
+            project='P001',
+        )
+        # Set up session with parsed prism data
+        session = self.client.session
+        session['prism_parsed'] = {
+            'matched': {
+                'BP000006': {
+                    'rows': [{'x': 7, 'replicates': [80.0, 82.0, 78.0], 'excluded': [False, False, False]}]
+                }
+            },
+            'x_values': [7],
+            'skipped_cols': [],
+            'warnings': [],
+        }
+        session.save()
+
+    def test_custom_readout_type_accepted_by_confirm(self):
+        resp = self.client.post('/upload_prism_confirm/', {
+            'batch': 'B007',
+            'exp_type': 'in_vitro',
+            'assay_type': 'single_point',
+            'readout_type': '细胞活力',   # not in old READOUT_TYPE_CHOICES
+            'x_axis_type': 'timepoint',
+            'conc_unit': 'nM',
+        })
+        # Should redirect, not error
+        self.assertEqual(resp.status_code, 302)
+        dp = DataPoint.objects.filter(experiment__duplex_id='BP000006').first()
+        self.assertIsNotNone(dp)
+        self.assertEqual(dp.readout_type, '细胞活力')

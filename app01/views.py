@@ -5349,7 +5349,10 @@ def upload_prism_preview(request):
         'excluded_count': excluded_count,
         'exp_type_choices': Experiment.EXP_TYPE_CHOICES,
         'assay_type_choices': Experiment.ASSAY_TYPE_CHOICES,
-        'readout_type_choices': DataPoint.READOUT_TYPE_CHOICES,
+        'readout_type_presets': READOUT_TYPE_PRESETS,
+        'readout_type_suggestions': list(
+            DataPoint.objects.values_list('readout_type', flat=True).distinct()[:50]
+        ),
         'conc_unit_choices': DataPoint.CONC_UNIT_CHOICES,
     })
 
@@ -5373,6 +5376,9 @@ def upload_prism_confirm(request):
     exp_type      = request.POST.get('exp_type', 'in_vitro')
     assay_type    = request.POST.get('assay_type', 'single_point')
     readout_type  = request.POST.get('readout_type', 'mRNA_remaining')
+    if readout_type == '__custom__':
+        readout_type = request.POST.get('readout_type_custom', '').strip()
+    readout_type = readout_type[:32]
     x_axis_type   = request.POST.get('x_axis_type', 'timepoint')
     conc_unit     = request.POST.get('conc_unit', 'nM')
     cell_line     = request.POST.get('cell_line', '').strip() or None
@@ -5392,7 +5398,6 @@ def upload_prism_confirm(request):
 
     valid_exp_types = {c[0] for c in Experiment.EXP_TYPE_CHOICES}
     valid_assay_types = {c[0] for c in Experiment.ASSAY_TYPE_CHOICES}
-    valid_readout_types = {c[0] for c in DataPoint.READOUT_TYPE_CHOICES}
     valid_conc_units = {c[0] for c in DataPoint.CONC_UNIT_CHOICES}
     if exp_type not in valid_exp_types:
         messages.error(request, f"无效的实验类型：{exp_type}")
@@ -5400,9 +5405,10 @@ def upload_prism_confirm(request):
     if assay_type not in valid_assay_types:
         messages.error(request, f"无效的 Assay 类型：{assay_type}")
         return redirect('upload_experiment')
-    if readout_type not in valid_readout_types:
-        messages.error(request, f"无效的读数类型：{readout_type}")
+    if not readout_type:
+        messages.error(request, "读数类型不能为空")
         return redirect('upload_experiment')
+    readout_type = readout_type[:32]
     if x_axis_type == 'concentration' and conc_unit not in valid_conc_units:
         messages.error(request, f"无效的浓度单位：{conc_unit}")
         return redirect('upload_experiment')

@@ -57,11 +57,19 @@
 
         <div>
           <label class="ds-form-label">读数类型 *</label>
-          <select name="readout_type" class="ds-form-control" required>
-            {% for val, label in readout_type_choices %}
-            <option value="{{ val }}">{{ label }}</option>
+          <select name="readout_type" id="prism_readout_select" class="readout-type-select ds-form-control" required>
+            {% for p in readout_type_presets %}
+            <option value="{{ p }}">{{ p }}</option>
             {% endfor %}
+            <option value="__custom__">自定义…</option>
           </select>
+          <input type="text" id="prism_readout_custom" name="readout_type_custom"
+                 class="readout-type-custom ds-form-control"
+                 list="readout_suggestions_prism" placeholder="输入读数类型"
+                 maxlength="32" style="display:none;margin-top:4px;">
+          <datalist id="readout_suggestions_prism">
+            {% for s in readout_type_suggestions %}<option value="{{ s }}">{% endfor %}
+          </datalist>
         </div>
 
         <div>
@@ -132,5 +140,31 @@ function toggleConcUnit() {
   var t = document.getElementById('id_x_axis_type').value;
   document.getElementById('conc_unit_row').style.display = (t === 'concentration') ? '' : 'none';
 }
+// Readout type select+custom
+(function () {
+  var sel = document.getElementById('prism_readout_select');
+  var inp = document.getElementById('prism_readout_custom');
+  if (!sel || !inp) return;
+  sel.addEventListener('change', function () {
+    if (sel.value === '__custom__') {
+      sel.style.display = 'none';
+      inp.style.display = '';
+      inp.focus();
+    }
+  });
+  inp.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      inp.style.display = 'none';
+      sel.style.display = '';
+      sel.value = sel.options[0].value;
+    }
+  });
+  // Resolve on submit — copy custom value to select before form posts
+  document.querySelector('form').addEventListener('submit', function () {
+    if (sel.value === '__custom__') {
+      sel.value = inp.value.trim() || '';
+    }
+  });
+})();
 </script>
 {% endblock %}
