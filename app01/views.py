@@ -1,12 +1,13 @@
 from collections import defaultdict
 import hashlib
+import statistics
 
 from django.http import  HttpResponse, Http404, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate, login, logout as auth_logout, get_user_model, update_session_auth_hash
-from django.contrib.auth.hashers import make_password, check_password   
+from django.contrib.auth.hashers import make_password, check_password
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 import pandas as pd
@@ -4401,10 +4402,6 @@ def build_pivot_table(experiment):
     reps is always a list of 3 elements (None where missing).
     Excluded replicates are omitted from reps slots and not counted in mean/sd.
     """
-    import statistics as _stats
-    import re
-    from collections import OrderedDict
-
     datapoints = list(experiment.datapoints.all())
     if not datapoints:
         return []
@@ -4412,7 +4409,7 @@ def build_pivot_table(experiment):
     use_timepoint = any(dp.timepoint for dp in datapoints)
     x_label = '时间点' if use_timepoint else '浓度/剂量'
 
-    pivot_by_readout = OrderedDict()  # readout_type → OrderedDict[x_str → [None, None, None]]
+    pivot_by_readout = {}  # readout_type → dict[x_str → [None, None, None]]
 
     for dp in datapoints:
         if dp.replicate == 'excluded':
@@ -4425,7 +4422,7 @@ def build_pivot_table(experiment):
 
         rt = dp.readout_type or ''
         if rt not in pivot_by_readout:
-            pivot_by_readout[rt] = OrderedDict()
+            pivot_by_readout[rt] = {}
         if x not in pivot_by_readout[rt]:
             pivot_by_readout[rt][x] = [None, None, None]
 
@@ -4443,8 +4440,8 @@ def build_pivot_table(experiment):
         rows = []
         for x, reps in ordered_items:
             valid = [v for v in reps if v is not None]
-            mean_val = round(_stats.mean(valid), 2) if valid else None
-            sd_val = round(_stats.stdev(valid), 2) if len(valid) >= 2 else None
+            mean_val = round(statistics.mean(valid), 2) if valid else None
+            sd_val = round(statistics.stdev(valid), 2) if len(valid) >= 2 else None
             rows.append({'x': x, 'reps': reps, 'mean': mean_val, 'sd': sd_val})
 
         result.append({'readout_type': rt, 'x_label': x_label, 'rows': rows})
