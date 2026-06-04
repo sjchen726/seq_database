@@ -2246,7 +2246,7 @@ class AddExperimentReadoutTests(TestCase):
             'dp_replicate': ['1'],
         })
         # Should redirect (success), not re-render form
-        self.assertIn(resp.status_code, [302, 200])
+        self.assertEqual(resp.status_code, 302)
         dp = DataPoint.objects.filter(experiment__duplex_id='BP000005').first()
         self.assertIsNotNone(dp)
         self.assertEqual(dp.readout_type, '细胞活力')

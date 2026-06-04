@@ -2,11 +2,15 @@
   var concUnits = JSON.parse(document.getElementById('conc_unit_choices').textContent);
   var readoutPresets = JSON.parse(document.getElementById('readout_type_presets').textContent);
 
+  function escHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
   function buildSelect(name, choices, required) {
     var s = '<select name="' + name + '" class="ds-form-control"' + (required ? ' required' : '') + '>';
     if (!required) s += '<option value="">--</option>';
     for (var i = 0; i < choices.length; i++) {
-      s += '<option value="' + choices[i].v + '">' + choices[i].l + '</option>';
+      s += '<option value="' + escHtml(choices[i].v) + '">' + escHtml(choices[i].l) + '</option>';
     }
     s += '</select>';
     return s;
@@ -16,7 +20,7 @@
     var html = '<div class="readout-widget" style="position:relative;">';
     html += '<select name="dp_readout_type" class="readout-type-select ds-form-control" required>';
     for (var i = 0; i < readoutPresets.length; i++) {
-      html += '<option value="' + readoutPresets[i] + '">' + readoutPresets[i] + '</option>';
+      html += '<option value="' + escHtml(readoutPresets[i]) + '">' + escHtml(readoutPresets[i]) + '</option>';
     }
     html += '<option value="__custom__">自定义…</option>';
     html += '</select>';

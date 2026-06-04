@@ -4666,12 +4666,13 @@ def add_experiment(request):
     readout_types = request.POST.getlist('dp_readout_type')
     readout_types_custom = request.POST.getlist('dp_readout_type_custom')
     readout_types = [
-        (readout_types_custom[i].strip()
+        (readout_types_custom[i].strip()[:32]
          if i < len(readout_types_custom) and readout_types_custom[i].strip()
          else rt)
         if rt == '__custom__' else rt
         for i, rt in enumerate(readout_types)
     ]
+    readout_types = [rt[:32] for rt in readout_types]
     values        = request.POST.getlist('dp_value')
     value_units   = request.POST.getlist('dp_value_unit')
     replicates    = request.POST.getlist('dp_replicate')
