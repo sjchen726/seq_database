@@ -2053,3 +2053,62 @@ class BuildPivotTableTests(TestCase):
         xs = [row['x'] for row in result[0]['rows']]
         self.assertIn('10 nM', xs)
         self.assertIn('100 nM', xs)
+
+
+class ExperimentListViewTests(TestCase):
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='testadmin', password='pass',
+            user_type='superadmin',
+        )
+        self.client.force_login(self.user)
+        from app01.models import Experiment
+        self.exp = Experiment.objects.create(
+            duplex_id='BP000003',
+            exp_type='in_vitro',
+            assay_type='single_point',
+            cell_line='HepG2',
+            batch='B003',
+            created_by='testadmin',
+        )
+        DataPoint.objects.create(
+            experiment=self.exp,
+            timepoint='Day 7',
+            readout_type='KD%',
+            value=80.0,
+            replicate='1',
+        )
+
+    def test_list_page_returns_200(self):
+        resp = self.client.get('/experiment/BP000003/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_list_page_contains_summary_fields(self):
+        resp = self.client.get('/experiment/BP000003/')
+        self.assertContains(resp, 'HepG2')
+        self.assertContains(resp, 'B003')
+        self.assertContains(resp, 'KD%')
+
+    def test_list_page_contains_detail_link(self):
+        resp = self.client.get('/experiment/BP000003/')
+        self.assertContains(resp, f'/experiment/BP000003/{self.exp.id}/')
+
+    def test_list_page_no_experiments_shows_empty_state(self):
+        # Superadmin bypasses access check; a duplex with no experiments shows empty state
+        resp = self.client.get('/experiment/BP000099/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, '暂无实验数据')
+
+    def test_vitro_vivo_split(self):
+        from app01.models import Experiment
+        Experiment.objects.create(
+            duplex_id='BP000003',
+            exp_type='in_vivo',
+            assay_type='in_vivo_efficacy',
+            animal_species='mouse',
+            batch='B004',
+            created_by='testadmin',
+        )
+        resp = self.client.get('/experiment/BP000003/')
+        self.assertContains(resp, '体外实验')
+        self.assertContains(resp, '体内实验')

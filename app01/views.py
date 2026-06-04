@@ -4451,7 +4451,7 @@ def build_pivot_table(experiment):
 
 @login_required
 def experiment_detail(request, duplex_id):
-    """展示某个 duplex_id 的所有实验记录，按 exp_type 分组。"""
+    """Experiment list page for a duplex_id — accordion rows with pivot tables."""
     from .models import Experiment
     from django.http import Http404
 
@@ -4462,11 +4462,62 @@ def experiment_detail(request, duplex_id):
         Experiment.objects
         .filter(duplex_id=duplex_id)
         .prefetch_related('datapoints', 'attachments')
-        .order_by('exp_type', '-created_at')
+        .order_by('exp_type', '-exp_date', '-created_at')
     )
 
-    vitro_exps = [e for e in experiments if e.exp_type == 'in_vitro']
-    vivo_exps  = [e for e in experiments if e.exp_type == 'in_vivo']
+    def _build_exp_row(exp):
+        import re as _re
+        datapoints = list(exp.datapoints.all())
+        non_excl = [dp for dp in datapoints if dp.replicate != 'excluded']
+
+        label_parts = ['体外' if exp.exp_type == 'in_vitro' else '体内']
+        if exp.exp_type == 'in_vitro' and exp.cell_line:
+            label_parts.append(exp.cell_line)
+        elif exp.exp_type == 'in_vivo' and exp.animal_species:
+            label_parts.append(exp.animal_species)
+
+        readout_types = list(dict.fromkeys(
+            dp.readout_type for dp in non_excl if dp.readout_type
+        ))
+        readout_display = ' / '.join(readout_types) if readout_types else '—'
+
+        timepoints = [dp.timepoint for dp in non_excl if dp.timepoint]
+        if timepoints:
+            def _tp_num(tp):
+                m = _re.search(r'[\d.]+', tp)
+                return float(m.group()) if m else float('inf')
+            tp_sorted = sorted(set(timepoints), key=_tp_num)
+            date_range = (f"{tp_sorted[0]} ~ {tp_sorted[-1]}"
+                          if len(tp_sorted) > 1 else tp_sorted[0])
+        else:
+            concs = sorted(
+                set((dp.concentration_or_dose, dp.conc_unit)
+                    for dp in non_excl if dp.concentration_or_dose is not None),
+                key=lambda c: c[0],
+            )
+            if concs:
+                def _fmt(c, u): return f"{c:g} {u}" if u else f"{c:g}"
+                date_range = (f"{_fmt(*concs[0])} ~ {_fmt(*concs[-1])}"
+                              if len(concs) > 1 else _fmt(*concs[0]))
+            else:
+                date_range = '—'
+
+        return {
+            'exp': exp,
+            'summary': {
+                'label': ' · '.join(label_parts),
+                'readout_type': readout_display,
+                'batch': exp.batch,
+                'date_range': date_range,
+                'point_count': len(non_excl),
+                'exp_date': exp.exp_date,
+            },
+            'pivot': build_pivot_table(exp),
+        }
+
+    all_rows = [_build_exp_row(e) for e in experiments]
+    vitro_rows = [r for r in all_rows if r['exp'].exp_type == 'in_vitro']
+    vivo_rows  = [r for r in all_rows if r['exp'].exp_type == 'in_vivo']
 
     can_edit = (
         request.user.is_superuser or
@@ -4474,10 +4525,10 @@ def experiment_detail(request, duplex_id):
     )
 
     return render(request, 'experiment_detail.html', {
-        'duplex_id':  duplex_id,
-        'vitro_exps': vitro_exps,
-        'vivo_exps':  vivo_exps,
-        'can_edit':   can_edit,
+        'duplex_id':   duplex_id,
+        'vitro_exps':  vitro_rows,
+        'vivo_exps':   vivo_rows,
+        'can_edit':    can_edit,
     })
 
 
