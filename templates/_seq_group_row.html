@@ -240,11 +240,7 @@
             {% if group.exp_summary %}
               <a href="{% url 'experiment_detail' duplex_id=group.duplex_id %}" style="font-size:11px;line-height:1.4;color:#0369a1;text-decoration:none;">{{ group.exp_summary }}</a>
             {% else %}
-              {% if user_type == 'modify' or user_type == 'project' or user_type == 'data_admin' or user_type == 'admin' or user_type == 'superadmin' or request.user.is_superuser %}
-              <a href="{% url 'add_experiment' %}?duplex_id={{ group.duplex_id }}" style="font-size:11px;color:#94a3b8;">+ 添加</a>
-              {% else %}
               <span style="color:#e2e8f0;">—</span>
-              {% endif %}
             {% endif %}
           </td>
           <td>
