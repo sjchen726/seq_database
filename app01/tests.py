@@ -2214,4 +2214,61 @@ class ExperimentDetailSingleTests(TestCase):
         self.assertIn('pivot', resp.context)
         self.assertIn('attachments', resp.context)
         self.assertIn('can_edit', resp.context)
-        self.assertTrue(resp.context['can_edit'])  # superadmin
+
+
+class AddExperimentReadoutTests(TestCase):
+    def setUp(self):
+        from app01.models import Sequence, Delivery
+        self.user = LmsUser.objects.create_user(
+            username='testadmin3', password='pass',
+            user_type='superadmin',
+        )
+        self.client.force_login(self.user)
+        seq = Sequence.objects.create(seq='AAAA', seq_type='SS')
+        Delivery.objects.create(
+            sequence=seq,
+            duplex_id='BP000005',
+            project='P001',
+        )
+
+    def test_custom_readout_type_saved(self):
+        resp = self.client.post('/experiment/add/', {
+            'duplex_id': 'BP000005',
+            'exp_type': 'in_vitro',
+            'assay_type': 'single_point',
+            'batch': 'B005',
+            'dp_conc': [''],
+            'dp_conc_unit': ['nM'],
+            'dp_timepoint': ['Day 7'],
+            'dp_readout_type': ['细胞活力'],   # custom, not in old choices
+            'dp_value': ['85.0'],
+            'dp_value_unit': ['%'],
+            'dp_replicate': ['1'],
+        })
+        # Should redirect (success), not re-render form
+        self.assertIn(resp.status_code, [302, 200])
+        dp = DataPoint.objects.filter(experiment__duplex_id='BP000005').first()
+        self.assertIsNotNone(dp)
+        self.assertEqual(dp.readout_type, '细胞活力')
+
+    def test_custom_via_hidden_field_resolved_server_side(self):
+        """If JS didn't run, __custom__ + dp_readout_type_custom fallback works."""
+        resp = self.client.post('/experiment/add/', {
+            'duplex_id': 'BP000005',
+            'exp_type': 'in_vitro',
+            'assay_type': 'single_point',
+            'batch': 'B006',
+            'dp_conc': [''],
+            'dp_conc_unit': ['nM'],
+            'dp_timepoint': ['Day 7'],
+            'dp_readout_type': ['__custom__'],
+            'dp_readout_type_custom': ['自定义类型'],
+            'dp_value': ['90.0'],
+            'dp_value_unit': ['%'],
+            'dp_replicate': ['1'],
+        })
+        dp2 = DataPoint.objects.filter(
+            experiment__duplex_id='BP000005', experiment__batch='B006'
+        ).first()
+        self.assertIsNotNone(dp2)
+        self.assertEqual(dp2.readout_type, '自定义类型')

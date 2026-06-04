@@ -107,9 +107,12 @@
       <script type="application/json" id="conc_unit_choices">
         [{% for v, label in conc_unit_choices %}{"v":"{{ v }}","l":"{{ label }}"}{% if not forloop.last %},{% endif %}{% endfor %}]
       </script>
-      <script type="application/json" id="readout_type_choices">
-        [{% for v, label in readout_type_choices %}{"v":"{{ v }}","l":"{{ label }}"}{% if not forloop.last %},{% endif %}{% endfor %}]
+      <script type="application/json" id="readout_type_presets">
+        [{% for p in readout_type_presets %}"{{ p }}"{% if not forloop.last %},{% endif %}{% endfor %}]
       </script>
+      <datalist id="readout_suggestions">
+        {% for s in readout_type_suggestions %}<option value="{{ s }}">{% endfor %}
+      </datalist>
       <script type="application/json" id="dp_rows_json">{{ dp_rows_json|default:"[]" }}</script>
 
       <div class="ds-form-card-title" style="margin-top:24px;">附件</div>

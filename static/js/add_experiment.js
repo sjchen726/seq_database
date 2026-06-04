@@ -1,6 +1,6 @@
 (function () {
-  var concUnits   = JSON.parse(document.getElementById('conc_unit_choices').textContent);
-  var readoutTypes = JSON.parse(document.getElementById('readout_type_choices').textContent);
+  var concUnits = JSON.parse(document.getElementById('conc_unit_choices').textContent);
+  var readoutPresets = JSON.parse(document.getElementById('readout_type_presets').textContent);
 
   function buildSelect(name, choices, required) {
     var s = '<select name="' + name + '" class="ds-form-control"' + (required ? ' required' : '') + '>';
@@ -12,17 +12,51 @@
     return s;
   }
 
+  function buildReadoutTypeWidget() {
+    var html = '<div class="readout-widget" style="position:relative;">';
+    html += '<select name="dp_readout_type" class="readout-type-select ds-form-control" required>';
+    for (var i = 0; i < readoutPresets.length; i++) {
+      html += '<option value="' + readoutPresets[i] + '">' + readoutPresets[i] + '</option>';
+    }
+    html += '<option value="__custom__">自定义…</option>';
+    html += '</select>';
+    html += '<input type="text" name="dp_readout_type_custom" class="readout-type-custom ds-form-control"';
+    html += ' list="readout_suggestions" placeholder="输入读数类型" maxlength="32" style="display:none;">';
+    html += '</div>';
+    return html;
+  }
+
+  function setupReadoutToggle(widget) {
+    var sel = widget.querySelector('.readout-type-select');
+    var inp = widget.querySelector('.readout-type-custom');
+    sel.addEventListener('change', function () {
+      if (sel.value === '__custom__') {
+        sel.style.display = 'none';
+        inp.style.display = '';
+        inp.focus();
+      }
+    });
+    inp.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        inp.style.display = 'none';
+        sel.style.display = '';
+        sel.value = readoutPresets[0];
+      }
+    });
+  }
+
   function dpRow() {
     var tr = document.createElement('tr');
     tr.innerHTML = ''
       + '<td><input type="number" step="any" name="dp_conc" class="ds-form-control"></td>'
       + '<td>' + buildSelect('dp_conc_unit', concUnits, false) + '</td>'
       + '<td><input type="text" name="dp_timepoint" class="ds-form-control" placeholder="48h / Day7"></td>'
-      + '<td>' + buildSelect('dp_readout_type', readoutTypes, true) + '</td>'
+      + '<td>' + buildReadoutTypeWidget() + '</td>'
       + '<td><input type="number" step="any" name="dp_value" class="ds-form-control" required></td>'
       + '<td><input type="text" name="dp_value_unit" class="ds-form-control" placeholder="% / ng/mL"></td>'
       + '<td><input type="text" name="dp_replicate" class="ds-form-control" placeholder="n=3"></td>'
       + '<td><button type="button" class="ds-btn ds-btn-ghost remove-dp" style="height:24px;padding:0 6px;">×</button></td>';
+    setupReadoutToggle(tr.querySelector('.readout-widget'));
     return tr;
   }
 
@@ -40,12 +74,24 @@
 
   var savedRows = JSON.parse(document.getElementById('dp_rows_json').textContent || '[]');
   if (savedRows.length > 0) {
-    savedRows.forEach(function(row) {
+    savedRows.forEach(function (row) {
       var tr = dpRow();
       tr.querySelector('[name="dp_conc"]').value = row.conc || '';
       tr.querySelector('[name="dp_conc_unit"]').value = row.conc_unit || '';
       tr.querySelector('[name="dp_timepoint"]').value = row.timepoint || '';
-      tr.querySelector('[name="dp_readout_type"]').value = row.readout_type || '';
+      var sel = tr.querySelector('.readout-type-select');
+      var inp = tr.querySelector('.readout-type-custom');
+      var rt = row.readout_type || '';
+      var optionExists = Array.prototype.some.call(sel.options, function (o) {
+        return o.value === rt;
+      });
+      if (!optionExists && rt) {
+        sel.style.display = 'none';
+        inp.style.display = '';
+        inp.value = rt;
+      } else {
+        sel.value = rt;
+      }
       tr.querySelector('[name="dp_value"]').value = row.value || '';
       tr.querySelector('[name="dp_value_unit"]').value = row.value_unit || '';
       tr.querySelector('[name="dp_replicate"]').value = row.replicate || '';
@@ -74,7 +120,17 @@
     }
   });
 
-  // assay_type options valid per exp_type
+  // Resolve __custom__ selects before submit
+  document.querySelector('form').addEventListener('submit', function () {
+    document.querySelectorAll('.readout-type-select').forEach(function (sel) {
+      if (sel.value === '__custom__') {
+        var inp = sel.parentElement.querySelector('.readout-type-custom');
+        sel.value = (inp && inp.value.trim()) ? inp.value.trim() : '';
+      }
+    });
+  });
+
+  // assay_type filter per exp_type
   var ASSAY_BY_TYPE = {
     in_vitro: ['single_point', 'dose_response'],
     in_vivo:  ['in_vivo_efficacy', 'pk'],
@@ -89,12 +145,9 @@
 
     var allowed = ASSAY_BY_TYPE[t] || [];
     var sel = document.querySelector('[name="assay_type"]');
-    var current = sel.value;
     Array.prototype.forEach.call(sel.options, function (opt) {
-      var show = allowed.length === 0 || allowed.indexOf(opt.value) !== -1;
-      opt.style.display = show ? '' : 'none';
+      opt.style.display = (allowed.length === 0 || allowed.indexOf(opt.value) !== -1) ? '' : 'none';
     });
-    // Reset to first visible option if current selection is now hidden
     if (allowed.length > 0 && allowed.indexOf(sel.value) === -1) {
       sel.value = allowed[0];
     }

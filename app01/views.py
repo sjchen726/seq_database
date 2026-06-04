@@ -30,6 +30,16 @@ from io import StringIO
 from django.conf import settings
 
 
+READOUT_TYPE_PRESETS = [
+    'mRNA 残余 %',
+    '蛋白残余 %',
+    'Knockdown %',
+    '血浆浓度',
+    '组织浓度',
+    '体重',
+]
+
+
 def _module_list_url(base: str, page, q: str) -> str:
     """构建带 page/q 参数的模块列表页 redirect URL。"""
     qs = f'?page={page}'
@@ -4624,7 +4634,10 @@ def add_experiment(request):
             'exp_type_choices':   Experiment.EXP_TYPE_CHOICES,
             'assay_type_choices': Experiment.ASSAY_TYPE_CHOICES,
             'conc_unit_choices':  DataPoint.CONC_UNIT_CHOICES,
-            'readout_type_choices': DataPoint.READOUT_TYPE_CHOICES,
+            'readout_type_presets': READOUT_TYPE_PRESETS,
+            'readout_type_suggestions': list(
+                DataPoint.objects.values_list('readout_type', flat=True).distinct()[:50]
+            ),
         })
 
     # Parse all POST fields up front so they can be re-populated on error
@@ -4651,6 +4664,14 @@ def add_experiment(request):
     conc_units    = request.POST.getlist('dp_conc_unit')
     timepoints    = request.POST.getlist('dp_timepoint')
     readout_types = request.POST.getlist('dp_readout_type')
+    readout_types_custom = request.POST.getlist('dp_readout_type_custom')
+    readout_types = [
+        (readout_types_custom[i].strip()
+         if i < len(readout_types_custom) and readout_types_custom[i].strip()
+         else rt)
+        if rt == '__custom__' else rt
+        for i, rt in enumerate(readout_types)
+    ]
     values        = request.POST.getlist('dp_value')
     value_units   = request.POST.getlist('dp_value_unit')
     replicates    = request.POST.getlist('dp_replicate')
@@ -4675,7 +4696,10 @@ def add_experiment(request):
             'exp_type_choices':   Experiment.EXP_TYPE_CHOICES,
             'assay_type_choices': Experiment.ASSAY_TYPE_CHOICES,
             'conc_unit_choices':  DataPoint.CONC_UNIT_CHOICES,
-            'readout_type_choices': DataPoint.READOUT_TYPE_CHOICES,
+            'readout_type_presets': READOUT_TYPE_PRESETS,
+            'readout_type_suggestions': list(
+                DataPoint.objects.values_list('readout_type', flat=True).distinct()[:50]
+            ),
             'form_data': request.POST,
             'dp_rows_json': _json.dumps(dp_rows),
         })
@@ -4769,7 +4793,7 @@ def add_experiment(request):
         att_urls   = request.POST.getlist('att_url')
         att_files  = request.FILES.getlist('att_file')
 
-        max_att = max(len(att_labels), len(att_urls), len(att_files), default=0)
+        max_att = max(len(att_labels), len(att_urls), len(att_files)) if (att_labels or att_urls or att_files) else 0
         for i in range(max_att):
             label = att_labels[i].strip() if i < len(att_labels) else ''
             url   = att_urls[i].strip() if i < len(att_urls) else ''
