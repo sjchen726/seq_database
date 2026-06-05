@@ -243,6 +243,9 @@ def get_modify_seq_colored(seq, selected_seq_type, seq_type, dm_modules=None, co
         [m.keyword.strip() for m in SeqModule.objects.all() if m.keyword and m.keyword.strip()],
         key=len, reverse=True,
     )
+    if lk_modules is not None:
+        lk_kws = [m.keyword.strip() for m in lk_modules if m.keyword and m.keyword.strip()]
+        sm_keywords = sorted(set(sm_keywords) | set(lk_kws), key=len, reverse=True)
     if dm_modules is None:
         dm_modules = list(DeliveryModule.objects.all())
     dm_keywords = sorted(
@@ -1220,14 +1223,13 @@ def detect_embedded_linker(modify_seq: str):
     - 4+ consecutive dashes (AS placeholder, e.g. ------------)
     Both sides of the match must be non-empty.
     """
-    linker_keywords = [
-        mod.keyword for mod in SeqModule.objects.filter(linker_connector='-')
-        if mod.keyword
-    ]
+    sm_lk_kws = [m.keyword for m in SeqModule.objects.filter(linker_connector='-') if m.keyword]
+    lm_kws = [m.keyword for m in LinkerModule.objects.all() if m.keyword]
+    linker_keywords = list({*sm_lk_kws, *lm_kws})
     patterns = []
     if linker_keywords:
         kw_pat = '|'.join(re.escape(k) for k in sorted(linker_keywords, key=len, reverse=True))
-        # Anchor first and last tokens to SeqModule linker keywords; middle tokens (0+) can be any alphanumeric token
+        # Anchor first and last tokens to linker keywords; middle tokens (0+) can be any alphanumeric token
         patterns.append(rf'-(?:{kw_pat})(?:-(?:[A-Za-z0-9()]+))*-(?:{kw_pat})-')
     patterns.append(r'-{4,}')
 
@@ -4400,7 +4402,10 @@ def get_experiment_summary(duplex_ids):
             vivo_summary = f"PK {best_pk.value:.1f}{pk_label}{tp_str}"
 
         parts = [s for s in [vitro_summary, vivo_summary] if s]
-        result[duplex_id] = ' / '.join(parts)
+        if parts:
+            result[duplex_id] = ' / '.join(parts)
+        else:
+            result[duplex_id] = f"{len(exps)} 条实验"
 
     return result
 
