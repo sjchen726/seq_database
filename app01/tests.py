@@ -122,3 +122,67 @@ class ExperimentAndDataPointTest(TestCase):
         )
         self.assertAlmostEqual(s.ic50_nm, 5.48)
         self.assertEqual(self.exp.summary.rank, 9)
+
+
+from io import BytesIO
+from app01.upload_pipeline import (
+    detect_id_format, normalize_compound_ids, parse_seq_file,
+)
+
+
+class DetectIdFormatTest(TestCase):
+    def test_all_2digit(self):
+        self.assertEqual(detect_id_format(['BPR_3M03FN01', 'BPR_3M03FN02']), '2-digit')
+
+    def test_all_3digit(self):
+        self.assertEqual(detect_id_format(['BPR_3M03FN001', 'BPR_3M03FN002']), '3-digit')
+
+    def test_mixed(self):
+        self.assertEqual(detect_id_format(['BPR_3M03FN01', 'BPR_3M03FN002']), 'mixed')
+
+    def test_empty_returns_2digit(self):
+        self.assertEqual(detect_id_format([]), '2-digit')
+
+
+class NormalizeCompoundIdsTest(TestCase):
+    def test_3digit_to_2digit(self):
+        self.assertEqual(normalize_compound_ids(['BPR_3M03FN001'], '2-digit'), ['BPR_3M03FN01'])
+
+    def test_2digit_to_3digit(self):
+        self.assertEqual(normalize_compound_ids(['BPR_3M03FN01'], '3-digit'), ['BPR_3M03FN001'])
+
+    def test_non_bpr_ids_unchanged(self):
+        self.assertEqual(normalize_compound_ids(['OTHER_ID'], '2-digit'), ['OTHER_ID'])
+
+    def test_multiple_ids(self):
+        result = normalize_compound_ids(['BPR_3M03FN001', 'BPR_3M03FN002'], '2-digit')
+        self.assertEqual(result, ['BPR_3M03FN01', 'BPR_3M03FN02'])
+
+
+class ParseSeqFileTest(TestCase):
+    SEQ_CSV = (
+        'siRNAID,SS,AS\n'
+        'BPR_3M03FN001,GmGmGmGmAmAmAfC,AmCfUmUmdUGmdCC\n'
+        'BPR_3M03FN002,UmUmGmUmGmGmCfC,UmUfAmCmdAGmdAG\n'
+    )
+
+    def test_parse_rows(self):
+        result = parse_seq_file(BytesIO(self.SEQ_CSV.encode()))
+        self.assertEqual(len(result.rows), 2)
+        self.assertEqual(result.rows[0]['compound_id'], 'BPR_3M03FN001')
+        self.assertEqual(result.rows[0]['ss_seq'], 'GmGmGmGmAmAmAfC')
+        self.assertEqual(result.rows[0]['as_seq'], 'AmCfUmUmdUGmdCC')
+
+    def test_id_format_detected_as_3digit(self):
+        result = parse_seq_file(BytesIO(self.SEQ_CSV.encode()))
+        self.assertEqual(result.id_format, '3-digit')
+
+    def test_skips_empty_rows(self):
+        csv_content = 'siRNAID,SS,AS\nBPR_3M03FN001,Gm,Am\n,,\n'
+        result = parse_seq_file(BytesIO(csv_content.encode()))
+        self.assertEqual(len(result.rows), 1)
+
+    def test_bom_handled(self):
+        content = '\xef\xbb\xbfsiRNAID,SS,AS\nBPR_3M03FN001,Gm,Am\n'
+        result = parse_seq_file(BytesIO(content.encode('utf-8')))
+        self.assertEqual(len(result.rows), 1)
