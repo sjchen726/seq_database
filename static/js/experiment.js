@@ -7,7 +7,7 @@
     var body = row.querySelector('.exp-accordion-body');
     if (!body) return;
 
-    var isOpen = body.style.display !== 'none';
+    var isOpen = body.style.display === 'block';
     body.style.display = isOpen ? 'none' : 'block';
     btn.textContent = isOpen ? '展开 ▼' : '收起 ▲';
   });
