@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block page_title %} — 上传实验数据{% endblock %}
+{% block topbar_content %}<span class="ds-topbar-title">上传实验数据</span>{% endblock %}
+{% block content %}
+<div class="ds-form-page"><div class="ds-form-card">
+{% if errors %}
+  {% for e in errors %}<div style="color:red;">{{ e }}</div>{% endfor %}
+{% endif %}
+<form method="POST" action="/upload/" enctype="multipart/form-data">
+  {% csrf_token %}
+  <input type="file" name="seq_file">
+  <input type="file" name="summary_file">
+  <input type="file" name="cp_files" multiple>
+  <input type="text" name="batch_label" placeholder="批次名称">
+  <input type="text" name="assay_name" placeholder="Assay 名称">
+  <button type="submit">解析预览</button>
+</form>
+{% if preview %}
+  <div id="preview-section">preview: {{ preview.batch_label }}</div>
+{% endif %}
+</div></div>
+{% endblock %}

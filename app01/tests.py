@@ -369,6 +369,8 @@ class EnrichDatapointsWithCpTest(TestCase):
         self.assertIsNone(result[0]['raw_cp'])
 
 
+from django.test import Client
+from app01.models import LmsUser
 from app01.upload_pipeline import detect_existing_compounds, build_preview
 
 
@@ -439,3 +441,46 @@ class BuildPreviewTest(TestCase):
     def test_no_files_yields_error(self):
         preview = build_preview(None, None, [], '2026-05', '')
         self.assertTrue(len(preview['errors']) > 0)
+
+
+class UploadViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        LmsUser.objects.create_user(
+            username='uploader', password='pass123', user_type='data_admin'
+        )
+        self.client.login(username='uploader', password='pass123')
+
+    def test_get_upload_page_returns_200(self):
+        response = self.client.get('/upload/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_requires_login(self):
+        self.client.logout()
+        response = self.client.get('/upload/')
+        self.assertIn(response.status_code, [302, 200])
+        if response.status_code == 302:
+            self.assertIn('/login/', response['Location'])
+
+    def test_post_without_files_shows_error(self):
+        response = self.client.post('/upload/', {'batch_label': '2026-05'})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '请至少上传')
+
+    def test_post_seq_file_stores_session_and_redirects(self):
+        csv_content = b'siRNAID,SS,AS\nBPR_3M03FN01,GmGm,AmCf\n'
+        response = self.client.post('/upload/', {
+            'seq_file': BytesIO(csv_content),
+            'batch_label': '2026-05',
+        }, follow=False)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('upload_preview', self.client.session)
+
+    def test_post_missing_batch_label_shows_error(self):
+        csv_content = b'siRNAID,SS,AS\nBPR_3M03FN01,GmGm,AmCf\n'
+        response = self.client.post('/upload/', {
+            'seq_file': BytesIO(csv_content),
+            'batch_label': '',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '批次名称')

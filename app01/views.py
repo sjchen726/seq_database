@@ -524,3 +524,140 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
     # Stub — full implementation in sub-project C (uses new Compound/Strand models)
     return []
 
+
+from app01.upload_pipeline import (
+    parse_seq_file, parse_summary_csv, parse_cp_file,
+    build_preview,
+)
+
+
+@login_required
+def upload_view(request):
+    if request.method == 'POST':
+        batch_label = request.POST.get('batch_label', '').strip()
+        assay_name = request.POST.get('assay_name', '').strip()
+        exp_date = request.POST.get('exp_date', '').strip() or None
+
+        errors = []
+        seq_parsed = None
+        summary_parsed = None
+        cp_parsed_list = []
+
+        if not batch_label:
+            errors.append('批次名称为必填项')
+
+        if 'seq_file' in request.FILES and request.FILES['seq_file'].name:
+            try:
+                seq_parsed = parse_seq_file(request.FILES['seq_file'])
+            except Exception as e:
+                errors.append(f'序列文件解析失败：{e}')
+
+        if 'summary_file' in request.FILES and request.FILES['summary_file'].name:
+            try:
+                summary_parsed = parse_summary_csv(request.FILES['summary_file'])
+                if not assay_name and summary_parsed.assay_name:
+                    assay_name = summary_parsed.assay_name
+            except Exception as e:
+                errors.append(f'体外汇总表解析失败：{e}')
+
+        for cp_file in request.FILES.getlist('cp_files'):
+            if not cp_file.name:
+                continue
+            try:
+                parsed = parse_cp_file(cp_file)
+                cp_parsed_list.append(parsed)
+                if not assay_name and parsed.assay_name:
+                    assay_name = parsed.assay_name
+            except Exception as e:
+                errors.append(f'Cp 文件 {cp_file.name} 解析失败：{e}')
+
+        if not seq_parsed and not summary_parsed and not errors:
+            errors.append('请至少上传序列文件或体外汇总表')
+
+        if errors:
+            return render(request, 'upload.html', {'errors': errors})
+
+        try:
+            preview = build_preview(
+                seq_parsed, summary_parsed, cp_parsed_list,
+                batch_label, assay_name, exp_date,
+            )
+        except Exception as e:
+            return render(request, 'upload.html', {'errors': [f'解析错误：{e}']})
+
+        request.session['upload_preview'] = preview
+        return redirect('/upload/?preview=1')
+
+    # GET
+    preview = None
+    if request.GET.get('preview') and 'upload_preview' in request.session:
+        preview = request.session['upload_preview']
+    return render(request, 'upload.html', {'preview': preview})
+
+
+@login_required
+def upload_confirm_view(request):
+    return redirect('upload')
+
+
+@login_required
+def upload_success_view(request):
+    return render(request, 'upload_success.html', {})
+
+
+# ── Sidebar stub views (base.html references these) ─────────────────────────
+
+@login_required
+def seq_list(request):
+    return render(request, 'index.html', {})
+
+
+@login_required
+def reg_seq_list(request):
+    return render(request, 'index.html', {})
+
+
+@login_required
+def register_seq(request):
+    return render(request, 'index.html', {})
+
+
+@login_required
+def seq_delivery(request):
+    return render(request, 'index.html', {})
+
+
+@login_required
+def upload_experiment(request):
+    return render(request, 'index.html', {})
+
+
+@login_required
+def multi_blast(request):
+    return render(request, 'index.html', {})
+
+
+@login_required
+def module_list(request):
+    return render(request, 'index.html', {})
+
+
+@login_required
+def seqmodule_list(request):
+    return render(request, 'index.html', {})
+
+
+@login_required
+def linkermodule_list(request):
+    return render(request, 'index.html', {})
+
+
+@login_required
+def author_list(request):
+    return render(request, 'index.html', {})
+
+
+@login_required
+def user_profile(request):
+    return render(request, 'index.html', {})
+
