@@ -1,7 +1,6 @@
 import csv
 import io
 import re
-from collections import defaultdict
 from dataclasses import dataclass
 
 
