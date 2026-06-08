@@ -35,12 +35,10 @@ def _read_csv_text(file) -> str:
     raw = file.read()
     for enc in ('utf-8-sig', 'utf-8', 'gbk'):
         try:
-            text = raw.decode(enc)
-            # Strip real BOM (U+FEFF) and mojibake BOM chars (\xef\xbb\xbf decoded as latin-1)
-            return text.lstrip('﻿\xef\xbb\xbf')
+            return raw.decode(enc).removeprefix('﻿')
         except (UnicodeDecodeError, AttributeError):
             continue
-    return raw.decode('utf-8', errors='replace').lstrip('﻿\xef\xbb\xbf')
+    return raw.decode('utf-8', errors='replace').removeprefix('﻿')
 
 
 # ── Public functions ─────────────────────────────────────────────────────────
@@ -67,7 +65,10 @@ def normalize_compound_ids(ids: list, target_format: str) -> list:
             continue
         prefix, num_str = m.group(1), m.group(2)
         n = int(num_str)
-        result.append(f'{prefix}{n:02d}' if target_format == '2-digit' else f'{prefix}{n:03d}')
+        if target_format == '2-digit':
+            result.append(f'{prefix}{n:02d}' if n <= 99 else cid)
+        else:
+            result.append(f'{prefix}{n:03d}')
     return result
 
 

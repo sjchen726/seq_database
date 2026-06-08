@@ -143,6 +143,9 @@ class DetectIdFormatTest(TestCase):
     def test_empty_returns_2digit(self):
         self.assertEqual(detect_id_format([]), '2-digit')
 
+    def test_non_bpr_ids_return_2digit(self):
+        self.assertEqual(detect_id_format(['Mock', 'Neg_ctrl']), '2-digit')
+
 
 class NormalizeCompoundIdsTest(TestCase):
     def test_3digit_to_2digit(self):
@@ -157,6 +160,9 @@ class NormalizeCompoundIdsTest(TestCase):
     def test_multiple_ids(self):
         result = normalize_compound_ids(['BPR_3M03FN001', 'BPR_3M03FN002'], '2-digit')
         self.assertEqual(result, ['BPR_3M03FN01', 'BPR_3M03FN02'])
+
+    def test_large_serial_unchanged_for_2digit(self):
+        self.assertEqual(normalize_compound_ids(['BPR_3M03FN100'], '2-digit'), ['BPR_3M03FN100'])
 
 
 class ParseSeqFileTest(TestCase):
@@ -183,6 +189,6 @@ class ParseSeqFileTest(TestCase):
         self.assertEqual(len(result.rows), 1)
 
     def test_bom_handled(self):
-        content = '\xef\xbb\xbfsiRNAID,SS,AS\nBPR_3M03FN001,Gm,Am\n'
-        result = parse_seq_file(BytesIO(content.encode('utf-8')))
+        content = b'\xef\xbb\xbf' + b'siRNAID,SS,AS\nBPR_3M03FN001,Gm,Am\n'
+        result = parse_seq_file(BytesIO(content))
         self.assertEqual(len(result.rows), 1)
