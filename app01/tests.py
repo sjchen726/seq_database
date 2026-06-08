@@ -483,3 +483,54 @@ class UploadViewTest(TestCase):
         })
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '批次名称为必填项')
+
+
+class UploadConfirmViewTest(TestCase):
+    SUMMARY_CSV = (
+        '\n'
+        ',,,FASN mRNA\n'
+        '#,ID,Dose (nM),A,B,Mean,,#,ID,Name,Max KD,IC50 (nM),Rank\n'
+        '1,Mock,Mock,1.07,0.94,1.01,,,,,,,\n'
+        '2,siRNA-01,100,0.26,0.25,0.25,,1,siRNA-01,BPR_3M03FN01,74.71,5.48,9\n'
+    )
+
+    def setUp(self):
+        self.client = Client()
+        LmsUser.objects.create_user(
+            username='confirmer', password='pass123', user_type='data_admin'
+        )
+        self.client.login(username='confirmer', password='pass123')
+        # Pre-populate session with parsed preview
+        summary_parsed = parse_summary_csv(BytesIO(self.SUMMARY_CSV.encode()))
+        preview = build_preview(None, summary_parsed, [], '2026-05', 'FASN test')
+        session = self.client.session
+        session['upload_preview'] = preview
+        session.save()
+
+    def test_confirm_creates_compound_and_experiment(self):
+        response = self.client.post('/upload/confirm/', follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(Compound.objects.filter(compound_id='BPR_3M03FN01').exists())
+        self.assertTrue(Experiment.objects.filter(batch_label='2026-05').exists())
+
+    def test_confirm_creates_datapoints(self):
+        self.client.post('/upload/confirm/', follow=True)
+        exp = Experiment.objects.get(batch_label='2026-05')
+        self.assertTrue(exp.datapoints.filter(x_value=100.0, replicate='A').exists())
+
+    def test_confirm_creates_experiment_summary(self):
+        self.client.post('/upload/confirm/', follow=True)
+        exp = Experiment.objects.get(batch_label='2026-05')
+        self.assertAlmostEqual(exp.summary.ic50_nm, 5.48)
+        self.assertEqual(exp.summary.rank, 9)
+
+    def test_confirm_clears_session(self):
+        self.client.post('/upload/confirm/', follow=True)
+        self.assertNotIn('upload_preview', self.client.session)
+
+    def test_confirm_without_session_redirects(self):
+        session = self.client.session
+        del session['upload_preview']
+        session.save()
+        response = self.client.post('/upload/confirm/')
+        self.assertEqual(response.status_code, 302)

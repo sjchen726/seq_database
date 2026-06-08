@@ -5,6 +5,8 @@ from django.http import HttpResponse, Http404, JsonResponse
 from django.contrib.auth import authenticate, login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
+from django.db import transaction
+from datetime import date as date_type
 import logging
 
 from app01.models import (
@@ -527,7 +529,7 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
 
 from app01.upload_pipeline import (
     parse_seq_file, parse_summary_csv, parse_cp_file,
-    build_preview,
+    build_preview, normalize_compound_ids,
 )
 
 
@@ -597,12 +599,124 @@ def upload_view(request):
 
 @login_required
 def upload_confirm_view(request):
-    return redirect('upload')
+    if request.method != 'POST':
+        return redirect('upload')
+
+    preview = request.session.get('upload_preview')
+    if not preview:
+        return redirect('upload')
+
+    # Handle optional ID format unification
+    chosen_format = request.POST.get('chosen_format')
+    if chosen_format and preview.get('id_format_conflict'):
+        def _norm(cid):
+            return normalize_compound_ids([cid], chosen_format)[0]
+
+        for exp in preview.get('experiments', []):
+            exp['compound_id'] = _norm(exp['compound_id'])
+            for dp in exp.get('datapoints', []):
+                if dp.get('compound_id'):
+                    dp['compound_id'] = _norm(dp['compound_id'])
+        preview['new_compounds'] = [
+            {**c, 'compound_id': _norm(c['compound_id'])}
+            for c in preview.get('new_compounds', [])
+        ]
+
+    batch_label = preview['batch_label']
+    assay_name = preview['assay_name']
+    exp_date_str = preview.get('exp_date')
+    exp_date_obj = None
+    if exp_date_str:
+        try:
+            exp_date_obj = date_type.fromisoformat(exp_date_str)
+        except ValueError:
+            pass
+
+    n_compounds = 0
+    n_experiments = 0
+
+    try:
+        with transaction.atomic():
+            # Create new compounds and strands
+            for c in preview.get('new_compounds', []):
+                compound, created = Compound.objects.get_or_create(
+                    compound_id=c['compound_id']
+                )
+                if created:
+                    n_compounds += 1
+                    if c.get('ss_seq'):
+                        Strand.objects.create(
+                            compound=compound,
+                            strand_type='SS',
+                            sequence_id=f"{c['compound_id']}_SS",
+                            modify_seq=c['ss_seq'],
+                        )
+                    if c.get('as_seq'):
+                        Strand.objects.create(
+                            compound=compound,
+                            strand_type='AS',
+                            sequence_id=f"{c['compound_id']}_AS",
+                            modify_seq=c['as_seq'],
+                        )
+
+            # Create experiments
+            for exp_data in preview.get('experiments', []):
+                cid = exp_data['compound_id']
+                compound, _ = Compound.objects.get_or_create(compound_id=cid)
+
+                exp = Experiment.objects.create(
+                    compound=compound,
+                    exp_type=exp_data.get('exp_type', 'in_vitro'),
+                    assay_name=assay_name,
+                    cell_line='',
+                    batch_label=batch_label,
+                    date=exp_date_obj,
+                )
+                n_experiments += 1
+
+                dp_objs = [
+                    DataPoint(
+                        experiment=exp,
+                        x_value=dp['x_value'],
+                        x_type=dp['x_type'],
+                        replicate=dp['replicate'],
+                        value=dp['value'],
+                        readout_type=dp['readout_type'],
+                        is_control=dp.get('is_control', False),
+                        raw_cp=dp.get('raw_cp'),
+                    )
+                    for dp in exp_data.get('datapoints', [])
+                ]
+                DataPoint.objects.bulk_create(dp_objs)
+
+                if exp_data.get('summary'):
+                    s = exp_data['summary']
+                    ExperimentSummary.objects.create(
+                        experiment=exp,
+                        max_kd_pct=s.get('max_kd_pct'),
+                        ic50_nm=s.get('ic50_nm'),
+                        rank=s.get('rank'),
+                    )
+    except Exception as e:
+        logger.error(f'upload_confirm error: {e}')
+        return render(request, 'upload.html', {
+            'errors': [f'写库失败：{e}'],
+            'preview': preview,
+        })
+
+    request.session['upload_stats'] = {
+        'n_compounds': n_compounds,
+        'n_experiments': n_experiments,
+        'batch_label': batch_label,
+    }
+    del request.session['upload_preview']
+    return redirect('upload_success')
 
 
 @login_required
 def upload_success_view(request):
-    return render(request, 'upload_success.html', {})
+    stats = request.session.pop('upload_stats', {})
+    return render(request, 'upload_success.html', {'stats': stats})
 
 
 # ── Sidebar stub views (base.html references these) ─────────────────────────
