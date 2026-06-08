@@ -293,6 +293,33 @@ class ParseCpFileTest(TestCase):
     def test_second_dose_also_parsed(self):
         self.assertIn(('siRNA-01', 10.0), self.result.cp_data)
 
+    def test_non_default_genes_detected(self):
+        csv_content = (
+            '\n'
+            'Study in B2M cells\n'
+            ',ID,Dose,B2M,,,LDLR\n'
+            '#,,,A,B,C,A,B,C\n'
+            '1,siRNA-01,100,15.0,15.1,15.2,22.0,22.1,22.2\n'
+            '2,siRNA-01,100,15.3,15.4,15.5,22.3,22.4,22.5\n'
+        )
+        result = parse_cp_file(BytesIO(csv_content.encode()))
+        self.assertEqual(result.reference_gene, 'B2M')
+        self.assertEqual(result.target_gene, 'LDLR')
+
+    def test_third_occurrence_ignored(self):
+        csv_content = (
+            '\n'
+            'Title\n'
+            ',ID,Dose,GAPDH,,,FASN\n'
+            '#,,,A,B,C,A,B,C\n'
+            '1,siRNA-01,100,16.0,16.0,16.0,23.0,23.0,23.0\n'
+            '2,siRNA-01,100,16.1,16.1,16.1,23.1,23.1,23.1\n'
+            '3,siRNA-01,100,99.9,99.9,99.9,99.9,99.9,99.9\n'  # should be ignored
+        )
+        result = parse_cp_file(BytesIO(csv_content.encode()))
+        key = ('siRNA-01', 100.0)
+        self.assertEqual(result.cp_data[key]['rep_B']['GAPDH']['A'], 16.1)
+
 
 class EnrichDatapointsWithCpTest(TestCase):
     def test_enriches_rep_a_and_b(self):
@@ -325,3 +352,18 @@ class EnrichDatapointsWithCpTest(TestCase):
         self.assertIsNone(rep_m['raw_cp'])
         self.assertEqual(rep_a['raw_cp']['GAPDH']['A'], 16.06)
         self.assertEqual(rep_b['raw_cp']['GAPDH']['A'], 16.17)
+
+    def test_unmapped_compound_raw_cp_stays_none(self):
+        dp = {'compound_id': 'BPR_UNKNOWN', 'x_value': 100.0, 'replicate': 'A',
+              'x_type': 'concentration', 'value': 0.5, 'is_control': False,
+              'readout_type': 'mRNA_remaining', 'raw_cp': None}
+        result = enrich_datapoints_with_cp([dp], {}, {})
+        self.assertIsNone(result[0]['raw_cp'])
+
+    def test_no_cp_data_for_key_stays_none(self):
+        dp = {'compound_id': 'BPR_3M03FN01', 'x_value': 100.0, 'replicate': 'A',
+              'x_type': 'concentration', 'value': 0.26, 'is_control': False,
+              'readout_type': 'mRNA_remaining', 'raw_cp': None}
+        mapping = {'siRNA-01': 'BPR_3M03FN01'}
+        result = enrich_datapoints_with_cp([dp], {}, mapping)
+        self.assertIsNone(result[0]['raw_cp'])

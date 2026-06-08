@@ -248,8 +248,8 @@ def parse_cp_file(file) -> 'ParsedCpFile':
         if len(row) > 6:
             c3 = row[3].strip()
             c6 = row[6].strip()
-            if (c3 and re.match(r'^[A-Z][A-Z0-9]+$', c3) and
-                    c6 and re.match(r'^[A-Z][A-Z0-9]+$', c6) and c3 != c6):
+            if (c3 and re.match(r'^[A-Z][A-Z0-9]*$', c3) and
+                    c6 and re.match(r'^[A-Z][A-Z0-9]*$', c6) and c3 != c6):
                 reference_gene = c3
                 target_gene = c6
                 break
@@ -274,7 +274,10 @@ def parse_cp_file(file) -> 'ParsedCpFile':
 
         key = (siRNA, dose)
         occurrence_count[key] += 1
-        rep_key = 'rep_A' if occurrence_count[key] == 1 else 'rep_B'
+        count = occurrence_count[key]
+        if count > 2:
+            continue
+        rep_key = 'rep_A' if count == 1 else 'rep_B'
 
         if key not in cp_data:
             cp_data[key] = {}
