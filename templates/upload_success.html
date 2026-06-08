@@ -1,9 +1,32 @@
 {% extends 'base.html' %}
+
 {% block page_title %} — 上传成功{% endblock %}
-{% block topbar_content %}<span class="ds-topbar-title">上传成功</span>{% endblock %}
+
+{% block topbar_content %}
+  <span class="ds-topbar-title">上传成功</span>
+  <span class="ds-topbar-spacer"></span>
+{% endblock %}
+
 {% block content %}
-<div class="ds-form-page"><div class="ds-form-card">
-  <p>上传成功：{{ stats.n_experiments }} 个实验批次，{{ stats.n_compounds }} 个新化合物。</p>
-  <a href="/upload/">继续上传</a>
-</div></div>
+<div class="ds-form-page">
+<div class="ds-form-card" style="text-align:center;padding:40px 32px;">
+
+  <div style="font-size:48px;margin-bottom:16px;">✅</div>
+  <div style="font-size:18px;font-weight:600;color:#15803d;margin-bottom:8px;">数据已成功写入数据库</div>
+
+  {% if stats %}
+  <div style="font-size:13px;color:#475569;margin-bottom:24px;line-height:1.8;">
+    {% if stats.n_compounds %}<div>新建化合物：{{ stats.n_compounds }} 个</div>{% endif %}
+    <div>写入实验批次：{{ stats.n_experiments }} 个</div>
+    <div>批次名称：{{ stats.batch_label }}</div>
+  </div>
+  {% endif %}
+
+  <div style="display:flex;gap:12px;justify-content:center;">
+    <a href="{% url 'upload' %}" class="ds-btn ds-btn-primary">继续上传</a>
+    <a href="{% url 'index' %}" class="ds-btn ds-btn-ghost">返回首页</a>
+  </div>
+
+</div>
+</div>
 {% endblock %}
