@@ -227,8 +227,8 @@ class ParseSummaryCsvTest(TestCase):
 
     def test_datapoints_compound_id_resolved(self):
         dp = next(d for d in self.result.datapoints
-                  if d['x_value'] == 100.0 and d['replicate'] == 'A')
-        self.assertEqual(dp['compound_id'], 'BPR_3M03FN01')
+                  if d['compound_id'] == 'BPR_3M03FN01'
+                  and d['x_value'] == 100.0 and d['replicate'] == 'A')
         self.assertAlmostEqual(dp['value'], 0.26)
         self.assertFalse(dp['is_control'])
         self.assertEqual(dp['readout_type'], 'mRNA_remaining')

@@ -134,8 +134,20 @@ def parse_summary_csv(file) -> 'ParsedSummary':
     datapoints = []
     mock_values = {}
 
+    def _safe_float(s):
+        try:
+            return float(s.strip()) if s.strip() else None
+        except ValueError:
+            return None
+
+    def _safe_int(s):
+        try:
+            return int(float(s.strip())) if s.strip() else None
+        except ValueError:
+            return None
+
+    needed = max(mean_col, r_rank_col) + 1
     for row in rows[header_idx + 1:]:
-        needed = max(mean_col, r_rank_col) + 1
         row = row + [''] * max(0, needed - len(row))
 
         # Right table: extract mapping and summaries
@@ -143,15 +155,12 @@ def parse_summary_csv(file) -> 'ParsedSummary':
         r_name = row[r_name_col].strip()
         if re.match(r'^siRNA-\d+$', r_id) and re.match(r'^BPR_', r_name):
             mapping[r_id] = r_name
-            try:
-                summaries.append({
-                    'compound_id': r_name,
-                    'max_kd_pct': float(row[r_maxkd_col]) if row[r_maxkd_col].strip() else None,
-                    'ic50_nm': float(row[ic50_col]) if row[ic50_col].strip() else None,
-                    'rank': int(float(row[r_rank_col])) if row[r_rank_col].strip() else None,
-                })
-            except ValueError:
-                pass
+            summaries.append({
+                'compound_id': r_name,
+                'max_kd_pct': _safe_float(row[r_maxkd_col]),
+                'ic50_nm': _safe_float(row[ic50_col]),
+                'rank': _safe_int(row[r_rank_col]),
+            })
 
         # Left table: extract dose-response data
         siRNA = row[id_col].strip()
@@ -195,9 +204,14 @@ def parse_summary_csv(file) -> 'ParsedSummary':
             except ValueError:
                 pass
 
-    # Resolve siRNA labels → compound IDs
+    # Resolve siRNA labels → compound IDs; drop datapoints with no mapping
+    resolved = []
     for dp in datapoints:
-        dp['compound_id'] = mapping.get(dp.pop('siRNA_label'), '')
+        cid = mapping.get(dp.pop('siRNA_label'), '')
+        if cid:
+            dp['compound_id'] = cid
+            resolved.append(dp)
+    datapoints = resolved
 
     return ParsedSummary(
         assay_name=assay_name,
