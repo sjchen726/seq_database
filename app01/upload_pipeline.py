@@ -318,11 +318,12 @@ def detect_existing_compounds(compound_ids: list) -> dict:
     from app01.models import Compound
     if not compound_ids:
         return {'existing': [], 'new': []}
-    existing = list(
+    existing_set = set(
         Compound.objects.filter(compound_id__in=compound_ids)
         .values_list('compound_id', flat=True)
     )
-    new = [cid for cid in compound_ids if cid not in existing]
+    existing = [cid for cid in compound_ids if cid in existing_set]
+    new = [cid for cid in compound_ids if cid not in existing_set]
     return {'existing': existing, 'new': new}
 
 
@@ -396,9 +397,9 @@ def build_preview(seq_parsed, summary_parsed, cp_parsed_list,
                     'is_control': True, 'readout_type': 'mRNA_remaining', 'raw_cp': None,
                 })
 
-    # Build experiments (one per mapped compound)
+    # Build experiments (one per unique mapped compound, preserving first-seen order)
     experiments = []
-    for cid in [v for v in mapping.values() if v]:
+    for cid in dict.fromkeys(v for v in mapping.values() if v):
         mock_dps = [{**dp, 'compound_id': cid} for dp in mock_dps_template]
         exp = {
             'compound_id': cid,
