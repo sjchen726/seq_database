@@ -367,3 +367,75 @@ class EnrichDatapointsWithCpTest(TestCase):
         mapping = {'siRNA-01': 'BPR_3M03FN01'}
         result = enrich_datapoints_with_cp([dp], {}, mapping)
         self.assertIsNone(result[0]['raw_cp'])
+
+
+from app01.upload_pipeline import detect_existing_compounds, build_preview
+
+
+class DetectExistingCompoundsTest(TestCase):
+    def setUp(self):
+        Compound.objects.create(compound_id='BPR_3M03FN01')
+        Compound.objects.create(compound_id='BPR_3M03FN02')
+
+    def test_separates_existing_and_new(self):
+        result = detect_existing_compounds(['BPR_3M03FN01', 'BPR_3M03FN03'])
+        self.assertIn('BPR_3M03FN01', result['existing'])
+        self.assertIn('BPR_3M03FN03', result['new'])
+        self.assertNotIn('BPR_3M03FN03', result['existing'])
+
+    def test_all_new(self):
+        result = detect_existing_compounds(['BPR_3M03FN99'])
+        self.assertEqual(result['existing'], [])
+        self.assertEqual(result['new'], ['BPR_3M03FN99'])
+
+    def test_empty_input(self):
+        result = detect_existing_compounds([])
+        self.assertEqual(result['existing'], [])
+        self.assertEqual(result['new'], [])
+
+
+class BuildPreviewTest(TestCase):
+    SUMMARY_CSV = (
+        '\n'
+        ',,,FASN mRNA\n'
+        '#,ID,Dose (nM),A,B,Mean,,#,ID,Name,Max KD,IC50 (nM),Rank\n'
+        '1,Mock,Mock,1.07,0.94,1.01,,,,,,,\n'
+        '2,siRNA-01,100,0.26,0.25,0.25,,1,siRNA-01,BPR_3M03FN01,74.71,5.48,9\n'
+    )
+
+    def setUp(self):
+        self.summary_parsed = parse_summary_csv(BytesIO(self.SUMMARY_CSV.encode()))
+
+    def test_new_compound_detected(self):
+        preview = build_preview(None, self.summary_parsed, [], '2026-05', '')
+        cids = [c['compound_id'] for c in preview['new_compounds']]
+        self.assertIn('BPR_3M03FN01', cids)
+
+    def test_existing_compound_detected(self):
+        Compound.objects.create(compound_id='BPR_3M03FN01')
+        preview = build_preview(None, self.summary_parsed, [], '2026-05', '')
+        self.assertIn('BPR_3M03FN01', preview['existing_compounds'])
+
+    def test_experiments_built(self):
+        preview = build_preview(None, self.summary_parsed, [], '2026-05', 'FASN test')
+        self.assertEqual(len(preview['experiments']), 1)
+        exp = preview['experiments'][0]
+        self.assertEqual(exp['compound_id'], 'BPR_3M03FN01')
+        self.assertEqual(exp['exp_type'], 'in_vitro')
+        self.assertIn('summary', exp)
+
+    def test_warning_for_existing_compound(self):
+        Compound.objects.create(compound_id='BPR_3M03FN01')
+        preview = build_preview(None, self.summary_parsed, [], '2026-05', '')
+        self.assertTrue(any('BPR_3M03FN01' in w for w in preview['warnings']))
+
+    def test_id_format_conflict_detected(self):
+        seq_csv = 'siRNAID,SS,AS\nBPR_3M03FN001,Gm,Am\n'
+        seq_parsed = parse_seq_file(BytesIO(seq_csv.encode()))  # 3-digit
+        # summary has BPR_3M03FN01 (2-digit)
+        preview = build_preview(seq_parsed, self.summary_parsed, [], '2026-05', '')
+        self.assertTrue(preview['id_format_conflict'])
+
+    def test_no_files_yields_error(self):
+        preview = build_preview(None, None, [], '2026-05', '')
+        self.assertTrue(len(preview['errors']) > 0)

@@ -314,9 +314,126 @@ def enrich_datapoints_with_cp(datapoints: list, cp_data: dict, mapping: dict) ->
 
 
 def detect_existing_compounds(compound_ids: list) -> dict:
-    raise NotImplementedError
+    """Query DB to split compound_ids into existing and new."""
+    from app01.models import Compound
+    if not compound_ids:
+        return {'existing': [], 'new': []}
+    existing = list(
+        Compound.objects.filter(compound_id__in=compound_ids)
+        .values_list('compound_id', flat=True)
+    )
+    new = [cid for cid in compound_ids if cid not in existing]
+    return {'existing': existing, 'new': new}
 
 
 def build_preview(seq_parsed, summary_parsed, cp_parsed_list,
                   batch_label: str, assay_name: str, exp_date: str = None) -> dict:
-    raise NotImplementedError
+    """Assemble session preview dict from parsed file data."""
+    all_compound_ids = set()
+    seq_by_cid = {}
+
+    if seq_parsed:
+        for row in seq_parsed.rows:
+            cid = row['compound_id']
+            all_compound_ids.add(cid)
+            seq_by_cid[cid] = row
+
+    mapping = {}
+    if summary_parsed:
+        mapping = summary_parsed.mapping
+        for cid in mapping.values():
+            all_compound_ids.add(cid)
+        if not assay_name and summary_parsed.assay_name:
+            assay_name = summary_parsed.assay_name
+
+    # Detect ID format conflict between seq file and summary
+    seq_fmt = seq_parsed.id_format if seq_parsed else None
+    sum_fmt = detect_id_format(list(mapping.values())) if mapping else None
+    id_format_conflict = bool(
+        seq_fmt and sum_fmt
+        and seq_fmt != 'mixed' and sum_fmt != 'mixed'
+        and seq_fmt != sum_fmt
+    )
+
+    # Enrich datapoints with Cp data
+    datapoints = list(summary_parsed.datapoints) if summary_parsed else []
+    for cp_parsed in (cp_parsed_list or []):
+        datapoints = enrich_datapoints_with_cp(datapoints, cp_parsed.cp_data, mapping)
+
+    # Group datapoints by compound_id
+    dp_by_cid = defaultdict(list)
+    for dp in datapoints:
+        cid = dp.get('compound_id', '')
+        if cid:
+            dp_by_cid[cid].append(dp)
+
+    # Group summaries by compound_id
+    summary_by_cid = {}
+    if summary_parsed:
+        for s in summary_parsed.summaries:
+            summary_by_cid[s['compound_id']] = s
+
+    # Detect existing vs new
+    existing_info = detect_existing_compounds(list(all_compound_ids))
+
+    # Build new_compounds list (include strand data if available)
+    new_compounds = []
+    for cid in existing_info['new']:
+        entry = {'compound_id': cid}
+        if cid in seq_by_cid:
+            entry['ss_seq'] = seq_by_cid[cid]['ss_seq']
+            entry['as_seq'] = seq_by_cid[cid]['as_seq']
+        new_compounds.append(entry)
+
+    # Mock DataPoints template (added to each experiment)
+    mock_dps_template = []
+    if summary_parsed and summary_parsed.mock_values:
+        for rep, val in summary_parsed.mock_values.items():
+            if val is not None:
+                mock_dps_template.append({
+                    'x_value': 0.0, 'x_type': 'concentration',
+                    'replicate': rep, 'value': val,
+                    'is_control': True, 'readout_type': 'mRNA_remaining', 'raw_cp': None,
+                })
+
+    # Build experiments (one per mapped compound)
+    experiments = []
+    for cid in [v for v in mapping.values() if v]:
+        mock_dps = [{**dp, 'compound_id': cid} for dp in mock_dps_template]
+        exp = {
+            'compound_id': cid,
+            'exp_type': 'in_vitro',
+            'datapoints': dp_by_cid.get(cid, []) + mock_dps,
+        }
+        if cid in summary_by_cid:
+            s = summary_by_cid[cid]
+            exp['summary'] = {k: v for k, v in s.items() if k != 'compound_id'}
+        experiments.append(exp)
+
+    warnings, errors = [], []
+
+    for cid in existing_info['existing']:
+        warnings.append(f'{cid} 已存在，将追加新批次数据')
+
+    if summary_parsed and not cp_parsed_list:
+        warnings.append('未上传原始 Cp 文件，raw_cp 将为空')
+
+    if id_format_conflict:
+        warnings.append(f'ID 格式冲突：序列文件使用 {seq_fmt}，汇总表使用 {sum_fmt}')
+
+    if not summary_parsed and not seq_parsed:
+        errors.append('请至少上传序列文件或体外汇总表')
+
+    return {
+        'batch_label': batch_label,
+        'assay_name': assay_name,
+        'exp_date': exp_date,
+        'new_compounds': new_compounds,
+        'existing_compounds': existing_info['existing'],
+        'id_format_conflict': id_format_conflict,
+        'chosen_format': None,
+        'mapping': mapping,
+        'experiments': experiments,
+        'warnings': warnings,
+        'errors': errors,
+    }
