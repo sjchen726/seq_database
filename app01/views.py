@@ -1,4 +1,5 @@
 from collections import defaultdict
+import copy
 import re, json, os, csv
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, Http404, JsonResponse
@@ -606,6 +607,8 @@ def upload_confirm_view(request):
     if not preview:
         return redirect('upload')
 
+    preview = copy.deepcopy(preview)
+
     # Handle optional ID format unification
     chosen_format = request.POST.get('chosen_format')
     if chosen_format and preview.get('id_format_conflict'):
@@ -664,39 +667,42 @@ def upload_confirm_view(request):
                 cid = exp_data['compound_id']
                 compound, _ = Compound.objects.get_or_create(compound_id=cid)
 
-                exp = Experiment.objects.create(
+                exp, exp_created = Experiment.objects.get_or_create(
                     compound=compound,
-                    exp_type=exp_data.get('exp_type', 'in_vitro'),
-                    assay_name=assay_name,
-                    cell_line='',
                     batch_label=batch_label,
-                    date=exp_date_obj,
+                    assay_name=assay_name,
+                    defaults={
+                        'exp_type': exp_data.get('exp_type', 'in_vitro'),
+                        'cell_line': '',
+                        'date': exp_date_obj,
+                    },
                 )
-                n_experiments += 1
+                if exp_created:
+                    n_experiments += 1
 
-                dp_objs = [
-                    DataPoint(
-                        experiment=exp,
-                        x_value=dp['x_value'],
-                        x_type=dp['x_type'],
-                        replicate=dp['replicate'],
-                        value=dp['value'],
-                        readout_type=dp['readout_type'],
-                        is_control=dp.get('is_control', False),
-                        raw_cp=dp.get('raw_cp'),
-                    )
-                    for dp in exp_data.get('datapoints', [])
-                ]
-                DataPoint.objects.bulk_create(dp_objs)
+                    dp_objs = [
+                        DataPoint(
+                            experiment=exp,
+                            x_value=dp['x_value'],
+                            x_type=dp['x_type'],
+                            replicate=dp['replicate'],
+                            value=dp['value'],
+                            readout_type=dp['readout_type'],
+                            is_control=dp.get('is_control', False),
+                            raw_cp=dp.get('raw_cp'),
+                        )
+                        for dp in exp_data.get('datapoints', [])
+                    ]
+                    DataPoint.objects.bulk_create(dp_objs)
 
-                if exp_data.get('summary'):
-                    s = exp_data['summary']
-                    ExperimentSummary.objects.create(
-                        experiment=exp,
-                        max_kd_pct=s.get('max_kd_pct'),
-                        ic50_nm=s.get('ic50_nm'),
-                        rank=s.get('rank'),
-                    )
+                    if exp_data.get('summary'):
+                        s = exp_data['summary']
+                        ExperimentSummary.objects.create(
+                            experiment=exp,
+                            max_kd_pct=s.get('max_kd_pct'),
+                            ic50_nm=s.get('ic50_nm'),
+                            rank=s.get('rank'),
+                        )
     except Exception as e:
         logger.error(f'upload_confirm error: {e}')
         return render(request, 'upload.html', {
