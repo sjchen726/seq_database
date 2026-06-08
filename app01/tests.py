@@ -248,3 +248,80 @@ class ParseSummaryCsvTest(TestCase):
     def test_invalid_format_raises_valueerror(self):
         with self.assertRaises(ValueError):
             parse_summary_csv(BytesIO(b'not,a,summary,file\n1,2,3\n'))
+
+
+from app01.upload_pipeline import parse_cp_file, enrich_datapoints_with_cp
+
+
+class ParseCpFileTest(TestCase):
+    # Simplified version of the real Prism two-step RT-qPCR format
+    CP_CSV = (
+        '\n'
+        'Two step RT-qPCR study in Hepa1-6 cells (Day 1)\n'
+        ',,,Cp value,,,,,,GAPDH,,,FASN\n'
+        ',ID,Dose,GAPDH,,,FASN\n'
+        '#,,,A,B,C,A,B,C\n'
+        '1,siRNA-01,100,16.06,16.18,16.07,23.85,23.85,23.81\n'
+        '2,siRNA-01,10,15.95,16.07,15.95,23.16,22.91,22.85\n'
+        '9,siRNA-01,100,16.17,16.12,16.43,24.00,24.01,23.95\n'
+        '10,siRNA-01,10,16.20,16.21,16.44,23.18,22.95,22.97\n'
+    )
+
+    def setUp(self):
+        self.result = parse_cp_file(BytesIO(self.CP_CSV.encode()))
+
+    def test_assay_name_extracted(self):
+        self.assertIn('Hepa1-6', self.result.assay_name)
+
+    def test_genes_detected(self):
+        self.assertEqual(self.result.reference_gene, 'GAPDH')
+        self.assertEqual(self.result.target_gene, 'FASN')
+
+    def test_rep_a_cp_values(self):
+        key = ('siRNA-01', 100.0)
+        self.assertIn(key, self.result.cp_data)
+        rep_a = self.result.cp_data[key]['rep_A']
+        self.assertEqual(rep_a['GAPDH']['A'], 16.06)
+        self.assertEqual(rep_a['FASN']['C'], 23.81)
+
+    def test_rep_b_cp_values(self):
+        key = ('siRNA-01', 100.0)
+        rep_b = self.result.cp_data[key]['rep_B']
+        self.assertEqual(rep_b['GAPDH']['A'], 16.17)
+        self.assertEqual(rep_b['FASN']['A'], 24.00)
+
+    def test_second_dose_also_parsed(self):
+        self.assertIn(('siRNA-01', 10.0), self.result.cp_data)
+
+
+class EnrichDatapointsWithCpTest(TestCase):
+    def test_enriches_rep_a_and_b(self):
+        datapoints = [
+            {'compound_id': 'BPR_3M03FN01', 'x_value': 100.0, 'replicate': 'A',
+             'x_type': 'concentration', 'value': 0.26, 'is_control': False,
+             'readout_type': 'mRNA_remaining', 'raw_cp': None},
+            {'compound_id': 'BPR_3M03FN01', 'x_value': 100.0, 'replicate': 'B',
+             'x_type': 'concentration', 'value': 0.25, 'is_control': False,
+             'readout_type': 'mRNA_remaining', 'raw_cp': None},
+            {'compound_id': 'BPR_3M03FN01', 'x_value': 100.0, 'replicate': 'Mean',
+             'x_type': 'concentration', 'value': 0.255, 'is_control': False,
+             'readout_type': 'mRNA_remaining', 'raw_cp': None},
+        ]
+        cp_data = {
+            ('siRNA-01', 100.0): {
+                'rep_A': {'GAPDH': {'A': 16.06, 'B': 16.18, 'C': 16.07},
+                          'FASN': {'A': 23.85, 'B': 23.85, 'C': 23.81}},
+                'rep_B': {'GAPDH': {'A': 16.17, 'B': 16.12, 'C': 16.43},
+                          'FASN': {'A': 24.00, 'B': 24.01, 'C': 23.95}},
+            }
+        }
+        mapping = {'siRNA-01': 'BPR_3M03FN01'}
+        result = enrich_datapoints_with_cp(datapoints, cp_data, mapping)
+        rep_a = next(d for d in result if d['replicate'] == 'A')
+        rep_b = next(d for d in result if d['replicate'] == 'B')
+        rep_m = next(d for d in result if d['replicate'] == 'Mean')
+        self.assertIsNotNone(rep_a['raw_cp'])
+        self.assertIsNotNone(rep_b['raw_cp'])
+        self.assertIsNone(rep_m['raw_cp'])
+        self.assertEqual(rep_a['raw_cp']['GAPDH']['A'], 16.06)
+        self.assertEqual(rep_b['raw_cp']['GAPDH']['A'], 16.17)

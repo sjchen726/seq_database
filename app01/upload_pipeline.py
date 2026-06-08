@@ -1,6 +1,7 @@
 import csv
 import io
 import re
+from collections import defaultdict
 from dataclasses import dataclass
 
 
@@ -223,11 +224,90 @@ def parse_summary_csv(file) -> 'ParsedSummary':
 
 
 def parse_cp_file(file) -> 'ParsedCpFile':
-    raise NotImplementedError
+    """Parse Prism two-step RT-qPCR raw Cp CSV.
+
+    Detects reference/target genes from header rows.
+    Each (siRNA, dose) pair appears twice: first occurrence = rep_A, second = rep_B.
+    """
+    text = _read_csv_text(file)
+    rows = list(csv.reader(io.StringIO(text)))
+
+    # Extract assay_name from the first non-empty row after row 0
+    assay_name = ''
+    for row in rows[1:]:
+        candidates = [c.strip() for c in row if c.strip()]
+        if candidates:
+            assay_name = candidates[0]
+            break
+
+    # Detect reference/target genes: find a header row where col[3] and col[6]
+    # are uppercase alphabetic gene names (e.g. GAPDH, FASN)
+    reference_gene = 'GAPDH'
+    target_gene = 'FASN'
+    for row in rows:
+        if len(row) > 6:
+            c3 = row[3].strip()
+            c6 = row[6].strip()
+            if (c3 and re.match(r'^[A-Z][A-Z0-9]+$', c3) and
+                    c6 and re.match(r'^[A-Z][A-Z0-9]+$', c6) and c3 != c6):
+                reference_gene = c3
+                target_gene = c6
+                break
+
+    # Parse data rows: col[1] = siRNA label, col[2] = dose, col[3:6] = ref Cp, col[6:9] = tgt Cp
+    cp_data = {}
+    occurrence_count = defaultdict(int)
+
+    for row in rows:
+        if len(row) < 9:
+            continue
+        siRNA = row[1].strip()
+        dose_str = row[2].strip()
+        if not re.match(r'^siRNA-\d+$', siRNA):
+            continue
+        try:
+            dose = float(dose_str)
+            ref_cp = {'A': float(row[3]), 'B': float(row[4]), 'C': float(row[5])}
+            tgt_cp = {'A': float(row[6]), 'B': float(row[7]), 'C': float(row[8])}
+        except (ValueError, IndexError):
+            continue
+
+        key = (siRNA, dose)
+        occurrence_count[key] += 1
+        rep_key = 'rep_A' if occurrence_count[key] == 1 else 'rep_B'
+
+        if key not in cp_data:
+            cp_data[key] = {}
+        cp_data[key][rep_key] = {
+            reference_gene: ref_cp,
+            target_gene: tgt_cp,
+        }
+
+    return ParsedCpFile(
+        assay_name=assay_name,
+        reference_gene=reference_gene,
+        target_gene=target_gene,
+        cp_data=cp_data,
+    )
 
 
 def enrich_datapoints_with_cp(datapoints: list, cp_data: dict, mapping: dict) -> list:
-    raise NotImplementedError
+    """Attach raw_cp dict to replicate A and B DataPoints; Mean DataPoints stay None."""
+    reverse_mapping = {v: k for k, v in mapping.items()}
+    result = []
+    for dp in datapoints:
+        dp = dict(dp)
+        cid = dp.get('compound_id', '')
+        siRNA_label = reverse_mapping.get(cid, '')
+        dose = dp.get('x_value', 0.0)
+        rep = dp.get('replicate', '')
+        key = (siRNA_label, dose)
+        if key in cp_data and rep in ('A', 'B'):
+            rep_key = f'rep_{rep}'
+            if rep_key in cp_data[key]:
+                dp['raw_cp'] = cp_data[key][rep_key]
+        result.append(dp)
+    return result
 
 
 def detect_existing_compounds(compound_ids: list) -> dict:
