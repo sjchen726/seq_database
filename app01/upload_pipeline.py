@@ -93,7 +93,119 @@ def parse_seq_file(file) -> ParsedSeqFile:
 
 
 def parse_summary_csv(file) -> 'ParsedSummary':
-    raise NotImplementedError
+    """Parse Prism 1_summary.csv format (dose-response left table + mapping/IC50 right table)."""
+    text = _read_csv_text(file)
+    rows = list(csv.reader(io.StringIO(text)))
+
+    # Find header row containing 'Dose (nM)' and 'IC50'
+    header_idx = None
+    for i, row in enumerate(rows):
+        if any(c.strip() == 'Dose (nM)' for c in row) and any('IC50' in c for c in row):
+            header_idx = i
+            break
+    if header_idx is None:
+        raise ValueError("无法识别为体外汇总表格式（未找到含 'Dose (nM)' 和 'IC50' 的行）")
+
+    header = rows[header_idx]
+
+    # Detect column positions from header row
+    dose_col = next(j for j, c in enumerate(header) if c.strip() == 'Dose (nM)')
+    id_col = dose_col - 1
+    a_col = dose_col + 1
+    b_col = dose_col + 2
+    mean_col = dose_col + 3
+
+    ic50_col = next(j for j, c in enumerate(header) if 'IC50' in c)
+    r_id_col = ic50_col - 3    # siRNA label column in right table
+    r_name_col = ic50_col - 2  # BPR compound ID
+    r_maxkd_col = ic50_col - 1
+    r_rank_col = ic50_col + 1
+
+    # Extract assay_name from first non-empty row before the header
+    assay_name = ''
+    for i in range(header_idx - 1, -1, -1):
+        non_empty = [c.strip() for c in rows[i] if c.strip()]
+        if non_empty:
+            assay_name = non_empty[0]
+            break
+
+    mapping = {}
+    summaries = []
+    datapoints = []
+    mock_values = {}
+
+    for row in rows[header_idx + 1:]:
+        needed = max(mean_col, r_rank_col) + 1
+        row = row + [''] * max(0, needed - len(row))
+
+        # Right table: extract mapping and summaries
+        r_id = row[r_id_col].strip()
+        r_name = row[r_name_col].strip()
+        if re.match(r'^siRNA-\d+$', r_id) and re.match(r'^BPR_', r_name):
+            mapping[r_id] = r_name
+            try:
+                summaries.append({
+                    'compound_id': r_name,
+                    'max_kd_pct': float(row[r_maxkd_col]) if row[r_maxkd_col].strip() else None,
+                    'ic50_nm': float(row[ic50_col]) if row[ic50_col].strip() else None,
+                    'rank': int(float(row[r_rank_col])) if row[r_rank_col].strip() else None,
+                })
+            except ValueError:
+                pass
+
+        # Left table: extract dose-response data
+        siRNA = row[id_col].strip()
+        dose_str = row[dose_col].strip()
+        if not siRNA or not dose_str:
+            continue
+
+        is_mock = dose_str.upper() == 'MOCK' or siRNA.upper() == 'MOCK'
+        if is_mock:
+            try:
+                if not mock_values:
+                    mock_values = {
+                        'A': float(row[a_col]) if row[a_col].strip() else None,
+                        'B': float(row[b_col]) if row[b_col].strip() else None,
+                        'Mean': float(row[mean_col]) if row[mean_col].strip() else None,
+                    }
+            except ValueError:
+                pass
+            continue
+
+        try:
+            x_value = float(dose_str)
+        except ValueError:
+            continue
+
+        for rep, col_idx in [('A', a_col), ('B', b_col), ('Mean', mean_col)]:
+            val_str = row[col_idx].strip()
+            if not val_str:
+                continue
+            try:
+                datapoints.append({
+                    'siRNA_label': siRNA,
+                    'x_value': x_value,
+                    'x_type': 'concentration',
+                    'replicate': rep,
+                    'value': float(val_str),
+                    'is_control': False,
+                    'readout_type': 'mRNA_remaining',
+                    'raw_cp': None,
+                })
+            except ValueError:
+                pass
+
+    # Resolve siRNA labels → compound IDs
+    for dp in datapoints:
+        dp['compound_id'] = mapping.get(dp.pop('siRNA_label'), '')
+
+    return ParsedSummary(
+        assay_name=assay_name,
+        mapping=mapping,
+        datapoints=datapoints,
+        summaries=summaries,
+        mock_values=mock_values,
+    )
 
 
 def parse_cp_file(file) -> 'ParsedCpFile':

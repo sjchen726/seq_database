@@ -130,6 +130,7 @@ from app01.upload_pipeline import (
 )
 
 
+
 class DetectIdFormatTest(TestCase):
     def test_all_2digit(self):
         self.assertEqual(detect_id_format(['BPR_3M03FN01', 'BPR_3M03FN02']), '2-digit')
@@ -192,3 +193,58 @@ class ParseSeqFileTest(TestCase):
         content = b'\xef\xbb\xbf' + b'siRNAID,SS,AS\nBPR_3M03FN001,Gm,Am\n'
         result = parse_seq_file(BytesIO(content))
         self.assertEqual(len(result.rows), 1)
+
+
+from app01.upload_pipeline import parse_summary_csv
+
+
+class ParseSummaryCsvTest(TestCase):
+    SUMMARY_CSV = (
+        '\n'
+        ',,,FASN mRNA\n'
+        '#,ID,Dose (nM),A,B,Mean,,#,ID,Name,Max KD,IC50 (nM),Rank\n'
+        '1,Mock,Mock,1.07,0.94,1.01,,,,,,,\n'
+        '2,siRNA-01,100,0.26,0.25,0.25,,1,siRNA-01,BPR_3M03FN01,74.71,5.48,9\n'
+        '3,siRNA-01,10,0.47,0.53,0.50,,2,siRNA-02,BPR_3M03FN02,72.39,8.22,10\n'
+        '4,siRNA-02,100,0.25,0.30,0.28,,,,,,,\n'
+    )
+
+    def setUp(self):
+        self.result = parse_summary_csv(BytesIO(self.SUMMARY_CSV.encode()))
+
+    def test_assay_name_extracted(self):
+        self.assertEqual(self.result.assay_name, 'FASN mRNA')
+
+    def test_mapping_extracted(self):
+        self.assertEqual(self.result.mapping['siRNA-01'], 'BPR_3M03FN01')
+        self.assertEqual(self.result.mapping['siRNA-02'], 'BPR_3M03FN02')
+
+    def test_summaries_extracted(self):
+        s = next(x for x in self.result.summaries if x['compound_id'] == 'BPR_3M03FN01')
+        self.assertAlmostEqual(s['max_kd_pct'], 74.71)
+        self.assertAlmostEqual(s['ic50_nm'], 5.48)
+        self.assertEqual(s['rank'], 9)
+
+    def test_datapoints_compound_id_resolved(self):
+        dp = next(d for d in self.result.datapoints
+                  if d['x_value'] == 100.0 and d['replicate'] == 'A')
+        self.assertEqual(dp['compound_id'], 'BPR_3M03FN01')
+        self.assertAlmostEqual(dp['value'], 0.26)
+        self.assertFalse(dp['is_control'])
+        self.assertEqual(dp['readout_type'], 'mRNA_remaining')
+
+    def test_datapoints_per_siRNA_dose(self):
+        # siRNA-01 at 100nM → 3 DataPoints (A, B, Mean)
+        dps = [d for d in self.result.datapoints
+               if d['compound_id'] == 'BPR_3M03FN01' and d['x_value'] == 100.0]
+        reps = {d['replicate'] for d in dps}
+        self.assertEqual(reps, {'A', 'B', 'Mean'})
+
+    def test_mock_values_captured(self):
+        self.assertAlmostEqual(self.result.mock_values.get('A'), 1.07)
+        self.assertAlmostEqual(self.result.mock_values.get('B'), 0.94)
+        self.assertAlmostEqual(self.result.mock_values.get('Mean'), 1.01)
+
+    def test_invalid_format_raises_valueerror(self):
+        with self.assertRaises(ValueError):
+            parse_summary_csv(BytesIO(b'not,a,summary,file\n1,2,3\n'))
