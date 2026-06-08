@@ -571,7 +571,7 @@ def upload_view(request):
             except Exception as e:
                 errors.append(f'Cp 文件 {cp_file.name} 解析失败：{e}')
 
-        if not seq_parsed and not summary_parsed and not errors:
+        if not seq_parsed and not summary_parsed and not cp_parsed_list and not errors:
             errors.append('请至少上传序列文件或体外汇总表')
 
         if errors:

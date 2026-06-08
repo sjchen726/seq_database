@@ -458,9 +458,8 @@ class UploadViewTest(TestCase):
     def test_get_requires_login(self):
         self.client.logout()
         response = self.client.get('/upload/')
-        self.assertIn(response.status_code, [302, 200])
-        if response.status_code == 302:
-            self.assertIn('/login/', response['Location'])
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response['Location'])
 
     def test_post_without_files_shows_error(self):
         response = self.client.post('/upload/', {'batch_label': '2026-05'})
@@ -483,4 +482,4 @@ class UploadViewTest(TestCase):
             'batch_label': '',
         })
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '批次名称')
+        self.assertContains(response, '批次名称为必填项')
