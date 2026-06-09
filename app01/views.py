@@ -785,16 +785,17 @@ def user_profile(request):
 def build_invivo_summary(experiments):
     result = defaultdict(list)
     for exp in experiments:
+        all_dps = list(exp.datapoints.all())
         mean_dps = {
             dp.x_value: dp.value
-            for dp in exp.datapoints.all()
+            for dp in all_dps
             if dp.replicate == 'Mean' and dp.readout_type == 'knockdown_pct'
         }
         if mean_dps:
             dps = mean_dps
         else:
             ab = defaultdict(list)
-            for dp in exp.datapoints.all():
+            for dp in all_dps:
                 if dp.replicate in ('A', 'B') and dp.readout_type == 'knockdown_pct':
                     ab[dp.x_value].append(dp.value)
             dps = {day: sum(vals) / len(vals) for day, vals in ab.items()}
