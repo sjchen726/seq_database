@@ -17,7 +17,7 @@
   {% if stats %}
   <div style="font-size:13px;color:#475569;margin-bottom:24px;line-height:1.8;">
     {% if stats.n_compounds %}<div>新建化合物：{{ stats.n_compounds }} 个</div>{% endif %}
-    <div>写入实验批次：{{ stats.n_experiments }} 个</div>
+    {% if stats.n_experiments %}<div>写入实验批次：{{ stats.n_experiments }} 个</div>{% endif %}
     <div>批次名称：{{ stats.batch_label }}</div>
   </div>
   {% endif %}

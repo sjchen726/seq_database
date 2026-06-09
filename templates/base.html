@@ -99,13 +99,14 @@
       <i class="bi bi-person-circle ds-nav-icon"></i> 我的资料
     </a>
     {% endif %}
-    {% endif %}{# end is_authenticated #}
 
     <div class="ds-nav-divider"></div>
     <div class="ds-nav-section">数据录入</div>
     <a href="{% url 'upload' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'upload' or request.resolver_match.url_name == 'upload_confirm' or request.resolver_match.url_name == 'upload_success' %}active{% endif %}">
-      <i class="bi bi-cloud-upload ds-nav-icon"></i> 上传实验数据
+      <i class="bi bi-file-earmark-arrow-up ds-nav-icon"></i> 上传实验数据
     </a>
+
+    {% endif %}{# end is_authenticated #}
 
     <div class="ds-sidebar-footer">
       <div class="ds-user-card" style="justify-content:space-between;">
