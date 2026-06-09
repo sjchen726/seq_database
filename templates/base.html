@@ -106,6 +106,12 @@
       <i class="bi bi-file-earmark-arrow-up ds-nav-icon"></i> 上传实验数据
     </a>
 
+      <div class="ds-nav-divider"></div>
+      <div class="ds-nav-section">化合物数据</div>
+      <a href="{% url 'compound_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'compound_list' or request.resolver_match.url_name == 'compound_detail' %}active{% endif %}">
+        <i class="bi bi-table ds-nav-icon"></i> 化合物列表
+      </a>
+
     {% endif %}{# end is_authenticated #}
 
     <div class="ds-sidebar-footer">
