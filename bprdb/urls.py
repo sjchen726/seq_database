@@ -22,4 +22,6 @@ urlpatterns = [
     path('linkermodules/', views.linkermodule_list, name='linkermodule_list'),
     path('authors/', views.author_list, name='author_list'),
     path('profile/', views.user_profile, name='user_profile'),
+    path('compounds/', views.compound_list, name='compound_list'),
+    path('compounds/<str:compound_id>/', views.compound_detail, name='compound_detail'),
 ]

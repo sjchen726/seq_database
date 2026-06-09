@@ -1,7 +1,7 @@
 from django.test import TestCase
 from app01.models import (
     Compound, Strand, Experiment, DataPoint,
-    ExperimentSummary, _parse_compound_id,
+    ExperimentSummary, _parse_compound_id, LmsUser,
 )
 
 
@@ -370,7 +370,6 @@ class EnrichDatapointsWithCpTest(TestCase):
 
 
 from django.test import Client
-from app01.models import LmsUser
 from app01.upload_pipeline import detect_existing_compounds, build_preview
 
 
@@ -610,3 +609,89 @@ class BuildInvivoSummaryTest(TestCase):
         exp.datapoints.all.return_value = [dp]
         result = build_invivo_summary([exp])
         self.assertNotIn('CMP004', result)
+
+
+# ---- CompoundListViewTest ----
+class CompoundListViewTest(TestCase):
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='tester', password='pass', user_type='admin'
+        )
+        self.client.login(username='tester', password='pass')
+
+        # 建两个 Compound
+        self.c1 = Compound.objects.create(compound_id='BPR_3M03FN01', project='3M03', target='FN')
+        self.c2 = Compound.objects.create(compound_id='BPR_3M03FN02', project='3M03', target='FN')
+        self.c3 = Compound.objects.create(compound_id='BPR_5X01TT01', project='5X01', target='TT')
+
+        # c1: 体外实验 + ExperimentSummary
+        exp_vitro = Experiment.objects.create(
+            compound=self.c1, exp_type='in_vitro', assay_name='test', batch_label='B1'
+        )
+        ExperimentSummary.objects.create(experiment=exp_vitro, ic50_nm=2.0, max_kd_pct=85.0)
+
+        # c2: 体外实验 IC50=10
+        exp_vitro2 = Experiment.objects.create(
+            compound=self.c2, exp_type='in_vitro', assay_name='test', batch_label='B1'
+        )
+        ExperimentSummary.objects.create(experiment=exp_vitro2, ic50_nm=10.0, max_kd_pct=70.0)
+
+        # c1: 体内实验 + DataPoint
+        exp_vivo = Experiment.objects.create(
+            compound=self.c1, exp_type='in_vivo', assay_name='mouse', batch_label='M1'
+        )
+        DataPoint.objects.create(
+            experiment=exp_vivo, x_value=7.0, x_type='day',
+            replicate='Mean', readout_type='knockdown_pct', value=75.0
+        )
+
+    def test_list_returns_200(self):
+        resp = self.client.get('/compounds/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_list_requires_login(self):
+        self.client.logout()
+        resp = self.client.get('/compounds/')
+        self.assertRedirects(resp, '/login/?next=/compounds/', fetch_redirect_response=False)
+
+    def test_filter_by_project(self):
+        resp = self.client.get('/compounds/?project=3M03')
+        self.assertEqual(resp.status_code, 200)
+        ids = [c.compound_id for c in resp.context['page_obj']]
+        self.assertIn('BPR_3M03FN01', ids)
+        self.assertNotIn('BPR_5X01TT01', ids)
+
+    def test_filter_by_ic50_max(self):
+        resp = self.client.get('/compounds/?ic50_max=5')
+        ids = [c.compound_id for c in resp.context['page_obj']]
+        self.assertIn('BPR_3M03FN01', ids)
+        self.assertNotIn('BPR_3M03FN02', ids)
+
+    def test_filter_has_invivo(self):
+        resp = self.client.get('/compounds/?has_invivo=1')
+        ids = [c.compound_id for c in resp.context['page_obj']]
+        self.assertIn('BPR_3M03FN01', ids)
+        self.assertNotIn('BPR_3M03FN02', ids)
+
+    def test_sort_by_ic50(self):
+        resp = self.client.get('/compounds/?sort=ic50')
+        compounds = list(resp.context['page_obj'])
+        ic50s = [c.best_ic50 for c in compounds if c.best_ic50 is not None]
+        self.assertEqual(ic50s, sorted(ic50s))
+
+    def test_invivo_data_in_context(self):
+        resp = self.client.get('/compounds/')
+        invivo_data = resp.context['invivo_data']
+        self.assertIn('BPR_3M03FN01', invivo_data)
+        self.assertEqual(invivo_data['BPR_3M03FN01'][0]['batch_label'], 'M1')
+
+    def test_pagination(self):
+        # 已有 3 条，再插 48 条使总数 > 50
+        for i in range(48):
+            Compound.objects.create(
+                compound_id=f'BPR_PADN{i:02d}', project='PAD', target='X'
+            )
+        resp = self.client.get('/compounds/')
+        self.assertEqual(len(resp.context['page_obj']), 50)
+        resp2 = self.client.get('/compounds/?page=2')
+        self.assertGreaterEqual(len(resp2.context['page_obj']), 1)

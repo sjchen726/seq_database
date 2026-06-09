@@ -5,7 +5,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, Http404, JsonResponse
 from django.contrib.auth import authenticate, login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q
+from django.db.models import Q, Min, Max, Count, F
+from django.core.paginator import Paginator
 from django.db import transaction
 from datetime import date as date_type
 import logging
@@ -810,4 +811,87 @@ def build_invivo_summary(experiments):
             'timepoints': timepoints,
         })
     return dict(result)
+
+
+@login_required
+def compound_list(request):
+    project = request.GET.get('project', '').strip()
+    target = request.GET.get('target', '').strip()
+    ic50_max = request.GET.get('ic50_max', '').strip()
+    has_invivo = request.GET.get('has_invivo', '')
+    sort = request.GET.get('sort', 'ic50')
+    page_num = request.GET.get('page', '1')
+
+    qs = Compound.objects.annotate(
+        best_ic50=Min('experiments__summary__ic50_nm'),
+        best_maxkd=Max('experiments__summary__max_kd_pct'),
+        invivo_count=Count(
+            'experiments',
+            filter=Q(experiments__exp_type='in_vivo'),
+            distinct=True,
+        ),
+        peak_invivo_kd=Max(
+            'experiments__datapoints__value',
+            filter=Q(
+                experiments__exp_type='in_vivo',
+                experiments__datapoints__readout_type='knockdown_pct',
+                experiments__datapoints__replicate='Mean',
+            ),
+        ),
+    )
+
+    if project:
+        qs = qs.filter(project__icontains=project)
+    if target:
+        qs = qs.filter(target__icontains=target)
+    if ic50_max:
+        try:
+            qs = qs.filter(best_ic50__lte=float(ic50_max))
+        except ValueError:
+            pass
+    if has_invivo == '1':
+        qs = qs.filter(invivo_count__gt=0)
+
+    sort_map = {
+        'ic50': F('best_ic50').asc(nulls_last=True),
+        'maxkd': F('best_maxkd').desc(nulls_last=True),
+        'compound_id': F('compound_id').asc(),
+    }
+    qs = qs.order_by(sort_map.get(sort, F('best_ic50').asc(nulls_last=True)))
+
+    paginator = Paginator(qs, 50)
+    try:
+        page_obj = paginator.page(int(page_num))
+    except Exception:
+        page_obj = paginator.page(1)
+
+    page_compound_ids = [c.compound_id for c in page_obj]
+    invivo_experiments = (
+        Experiment.objects
+        .filter(compound_id__in=page_compound_ids, exp_type='in_vivo')
+        .prefetch_related('datapoints')
+        .order_by('compound_id', 'batch_label')
+    )
+    invivo_data = build_invivo_summary(invivo_experiments)
+
+    filter_params = {
+        'project': project,
+        'target': target,
+        'ic50_max': ic50_max,
+        'has_invivo': has_invivo,
+        'sort': sort,
+    }
+    return render(request, 'compound_list.html', {
+        'page_obj': page_obj,
+        'invivo_data': invivo_data,
+        'filter_params': filter_params,
+        'total_count': qs.count(),
+        'sort': sort,
+    })
+
+
+@login_required
+def compound_detail(request, compound_id):
+    compound = get_object_or_404(Compound, pk=compound_id)
+    return render(request, 'compound_detail.html', {'compound': compound})
 
