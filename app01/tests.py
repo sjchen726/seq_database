@@ -641,7 +641,7 @@ class CompoundListViewTest(TestCase):
             compound=self.c1, exp_type='in_vivo', assay_name='mouse', batch_label='M1'
         )
         DataPoint.objects.create(
-            experiment=exp_vivo, x_value=7.0, x_type='day',
+            experiment=exp_vivo, x_value=7.0, x_type='timepoint',
             replicate='Mean', readout_type='knockdown_pct', value=75.0
         )
 

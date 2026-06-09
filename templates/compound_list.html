@@ -114,7 +114,7 @@
             {% endif %}
           </td>
 
-          <td style="padding:8px 8px;{% if c.peak_invivo_kd %}color:#92400e;font-weight:600;{% endif %}">
+          <td style="padding:8px 8px;{% if c.peak_invivo_kd is not None %}color:#92400e;font-weight:600;{% endif %}">
             {% if c.peak_invivo_kd is not None %}{{ c.peak_invivo_kd|floatformat:0 }}%{% else %}<span style="color:#94a3b8;">—</span>{% endif %}
           </td>
 

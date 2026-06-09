@@ -784,6 +784,7 @@ def user_profile(request):
 
 
 def build_invivo_summary(experiments):
+    """Return {compound_id: [{batch_label, timepoints}]}. Uses Mean replicates if any exist for an experiment; otherwise averages A/B."""
     result = defaultdict(list)
     for exp in experiments:
         all_dps = list(exp.datapoints.all())
@@ -835,7 +836,6 @@ def compound_list(request):
             filter=Q(
                 experiments__exp_type='in_vivo',
                 experiments__datapoints__readout_type='knockdown_pct',
-                experiments__datapoints__replicate='Mean',
             ),
         ),
     )
