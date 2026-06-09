@@ -98,7 +98,7 @@
           <td style="padding:8px 8px;">{{ c.project }}</td>
           <td style="padding:8px 8px;">{{ c.target }}</td>
 
-          <td style="padding:8px 8px;{% if c.best_ic50 and c.best_ic50 <= 5 %}color:#15803d;font-weight:700;{% endif %}">
+          <td style="padding:8px 8px;{% if c.best_ic50 is not None and c.best_ic50 <= 5 %}color:#15803d;font-weight:700;{% endif %}">
             {% if c.best_ic50 is not None %}{{ c.best_ic50|floatformat:2 }}{% else %}<span style="color:#94a3b8;">—</span>{% endif %}
           </td>
 
