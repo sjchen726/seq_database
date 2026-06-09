@@ -534,3 +534,79 @@ class UploadConfirmViewTest(TestCase):
         session.save()
         response = self.client.post('/upload/confirm/')
         self.assertEqual(response.status_code, 302)
+
+
+# ---- BuildInvivoSummaryTest ----
+class BuildInvivoSummaryTest(TestCase):
+    def _make_exp(self, compound_id, batch_label, datapoints):
+        """
+        datapoints: list of (x_value, replicate, value)
+        返回一个带 .datapoints.all() mock 的 MagicMock Experiment
+        """
+        from unittest.mock import MagicMock
+        dp_objs = []
+        for x_val, rep, val in datapoints:
+            dp = MagicMock()
+            dp.x_value = x_val
+            dp.replicate = rep
+            dp.readout_type = 'knockdown_pct'
+            dp.value = val
+            dp_objs.append(dp)
+        exp = MagicMock()
+        exp.compound_id = compound_id
+        exp.batch_label = batch_label
+        exp.datapoints.all.return_value = dp_objs
+        return exp
+
+    def test_mean_replicate_used(self):
+        from app01.views import build_invivo_summary
+        exp = self._make_exp('CMP001', 'B1', [
+            (7.0, 'Mean', 80.0),
+            (7.0, 'A', 70.0),
+            (7.0, 'B', 75.0),
+            (14.0, 'Mean', 60.0),
+        ])
+        result = build_invivo_summary([exp])
+        self.assertIn('CMP001', result)
+        tps = result['CMP001'][0]['timepoints']
+        self.assertEqual(len(tps), 2)
+        self.assertAlmostEqual(tps[0]['kd_pct'], 80.0)
+        self.assertAlmostEqual(tps[1]['kd_pct'], 60.0)
+
+    def test_ab_fallback(self):
+        from app01.views import build_invivo_summary
+        exp = self._make_exp('CMP002', 'B1', [
+            (7.0, 'A', 70.0),
+            (7.0, 'B', 80.0),
+            (14.0, 'A', 50.0),
+        ])
+        result = build_invivo_summary([exp])
+        tps = result['CMP002'][0]['timepoints']
+        self.assertAlmostEqual(tps[0]['kd_pct'], 75.0)
+        self.assertAlmostEqual(tps[1]['kd_pct'], 50.0)
+
+    def test_sorted_by_day(self):
+        from app01.views import build_invivo_summary
+        exp = self._make_exp('CMP003', 'B1', [
+            (21.0, 'Mean', 40.0),
+            (7.0, 'Mean', 80.0),
+            (14.0, 'Mean', 60.0),
+        ])
+        result = build_invivo_summary([exp])
+        days = [tp['day'] for tp in result['CMP003'][0]['timepoints']]
+        self.assertEqual(days, [7.0, 14.0, 21.0])
+
+    def test_no_knockdown_datapoints(self):
+        from app01.views import build_invivo_summary
+        from unittest.mock import MagicMock
+        dp = MagicMock()
+        dp.x_value = 7.0
+        dp.replicate = 'Mean'
+        dp.readout_type = 'mRNA_remaining'
+        dp.value = 30.0
+        exp = MagicMock()
+        exp.compound_id = 'CMP004'
+        exp.batch_label = 'B1'
+        exp.datapoints.all.return_value = [dp]
+        result = build_invivo_summary([exp])
+        self.assertNotIn('CMP004', result)

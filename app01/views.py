@@ -781,3 +781,32 @@ def author_list(request):
 def user_profile(request):
     return render(request, 'index.html', {})
 
+
+def build_invivo_summary(experiments):
+    result = defaultdict(list)
+    for exp in experiments:
+        mean_dps = {
+            dp.x_value: dp.value
+            for dp in exp.datapoints.all()
+            if dp.replicate == 'Mean' and dp.readout_type == 'knockdown_pct'
+        }
+        if mean_dps:
+            dps = mean_dps
+        else:
+            ab = defaultdict(list)
+            for dp in exp.datapoints.all():
+                if dp.replicate in ('A', 'B') and dp.readout_type == 'knockdown_pct':
+                    ab[dp.x_value].append(dp.value)
+            dps = {day: sum(vals) / len(vals) for day, vals in ab.items()}
+        if not dps:
+            continue
+        timepoints = [
+            {'day': day, 'kd_pct': round(kd, 1)}
+            for day, kd in sorted(dps.items())
+        ]
+        result[exp.compound_id].append({
+            'batch_label': exp.batch_label,
+            'timepoints': timepoints,
+        })
+    return dict(result)
+
