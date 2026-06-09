@@ -6,7 +6,7 @@ from django.http import HttpResponse, Http404, JsonResponse
 from django.contrib.auth import authenticate, login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q, Min, Max, Count, F
-from django.core.paginator import Paginator
+from django.core.paginator import InvalidPage, Paginator
 from django.db import transaction
 from datetime import date as date_type
 import logging
@@ -862,7 +862,7 @@ def compound_list(request):
     paginator = Paginator(qs, 50)
     try:
         page_obj = paginator.page(int(page_num))
-    except Exception:
+    except (ValueError, InvalidPage):
         page_obj = paginator.page(1)
 
     page_compound_ids = [c.compound_id for c in page_obj]
@@ -885,8 +885,7 @@ def compound_list(request):
         'page_obj': page_obj,
         'invivo_data': invivo_data,
         'filter_params': filter_params,
-        'total_count': qs.count(),
-        'sort': sort,
+        'total_count': page_obj.paginator.count,
     })
 
 

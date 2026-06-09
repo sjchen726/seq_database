@@ -678,6 +678,8 @@ class CompoundListViewTest(TestCase):
         compounds = list(resp.context['page_obj'])
         ic50s = [c.best_ic50 for c in compounds if c.best_ic50 is not None]
         self.assertEqual(ic50s, sorted(ic50s))
+        # nulls-last: compound with no IC50 (c3) should appear after those with IC50
+        self.assertIsNone(compounds[-1].best_ic50)
 
     def test_invivo_data_in_context(self):
         resp = self.client.get('/compounds/')
