@@ -889,8 +889,65 @@ def compound_list(request):
     })
 
 
+def _build_vitro_chart_data(exp):
+    all_dps = list(exp.datapoints.all())
+    conc_dps = [dp for dp in all_dps if dp.x_type == 'concentration']
+
+    def series(readout, rep):
+        return sorted(
+            [(dp.x_value, dp.value)
+             for dp in conc_dps
+             if dp.readout_type == readout and dp.replicate == rep],
+            key=lambda p: p[0]
+        )
+
+    try:
+        ic50 = exp.summary.ic50_nm
+        max_kd = exp.summary.max_kd_pct
+    except Exception:
+        ic50 = None
+        max_kd = None
+
+    mrna_mean = series('mRNA_remaining', 'Mean')
+    kd_mean   = series('knockdown_pct',  'Mean')
+    return {
+        'exp_id':      exp.id,
+        'batch_label': exp.batch_label,
+        'ic50_nm':     ic50,
+        'max_kd_pct':  max_kd,
+        'mrna_mean':   mrna_mean,
+        'mrna_a':      series('mRNA_remaining', 'A') if not mrna_mean else [],
+        'mrna_b':      series('mRNA_remaining', 'B') if not mrna_mean else [],
+        'kd_mean':     kd_mean,
+        'kd_a':        series('knockdown_pct', 'A') if not kd_mean else [],
+        'kd_b':        series('knockdown_pct', 'B') if not kd_mean else [],
+    }
+
+
 @login_required
 def compound_detail(request, compound_id):
     compound = get_object_or_404(Compound, pk=compound_id)
-    return render(request, 'compound_detail.html', {'compound': compound})
+    strands = compound.strands.all()
+    vitro = list(
+        compound.experiments
+        .filter(exp_type='in_vitro')
+        .select_related('summary')
+        .prefetch_related('datapoints')
+        .order_by('batch_label')
+    )
+    vivo = (
+        compound.experiments
+        .filter(exp_type='in_vivo')
+        .prefetch_related('datapoints')
+        .order_by('batch_label')
+    )
+    vitro_chart_data = [_build_vitro_chart_data(exp) for exp in vitro]
+    invivo_batches = build_invivo_summary(vivo).get(compound_id, [])
+    return render(request, 'compound_detail.html', {
+        'compound':         compound,
+        'strands':          strands,
+        'vitro_batches':    vitro,
+        'vitro_chart_data': vitro_chart_data,
+        'invivo_batches':   invivo_batches,
+    })
 

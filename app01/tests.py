@@ -697,3 +697,91 @@ class CompoundListViewTest(TestCase):
         self.assertEqual(len(resp.context['page_obj']), 50)
         resp2 = self.client.get('/compounds/?page=2')
         self.assertGreaterEqual(len(resp2.context['page_obj']), 1)
+
+
+# ---- CompoundDetailViewTest ----
+class CompoundDetailViewTest(TestCase):
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='tester2', password='pass', user_type='admin'
+        )
+        self.client.login(username='tester2', password='pass')
+
+        self.cmp = Compound.objects.create(
+            compound_id='BPR_TEST01', project='TEST', target='FN'
+        )
+        Strand.objects.create(
+            compound=self.cmp, strand_type='SS', modify_seq='mA·fU·mC'
+        )
+        Strand.objects.create(
+            compound=self.cmp, strand_type='AS', modify_seq='fG·mA·fU'
+        )
+        # 体外实验 + summary + datapoints
+        self.vitro_exp = Experiment.objects.create(
+            compound=self.cmp, exp_type='in_vitro',
+            assay_name='HeLa', batch_label='2026-03'
+        )
+        ExperimentSummary.objects.create(
+            experiment=self.vitro_exp, ic50_nm=1.26, max_kd_pct=82.0
+        )
+        for x, rep, rtype, val in [
+            (0.01, 'Mean', 'mRNA_remaining', 95.0),
+            (0.1,  'Mean', 'mRNA_remaining', 70.0),
+            (1.0,  'Mean', 'mRNA_remaining', 30.0),
+            (10.0, 'Mean', 'mRNA_remaining', 8.0),
+            (0.01, 'Mean', 'knockdown_pct',   5.0),
+            (0.1,  'Mean', 'knockdown_pct',  30.0),
+            (1.0,  'Mean', 'knockdown_pct',  70.0),
+            (10.0, 'Mean', 'knockdown_pct',  92.0),
+        ]:
+            DataPoint.objects.create(
+                experiment=self.vitro_exp,
+                x_value=x, x_type='concentration',
+                replicate=rep, readout_type=rtype, value=val
+            )
+        # 体内实验 + datapoints
+        self.vivo_exp = Experiment.objects.create(
+            compound=self.cmp, exp_type='in_vivo',
+            assay_name='mouse', batch_label='2026-05'
+        )
+        for day, val in [(7.0, 76.0), (14.0, 68.0), (21.0, 52.0)]:
+            DataPoint.objects.create(
+                experiment=self.vivo_exp,
+                x_value=day, x_type='timepoint',
+                replicate='Mean', readout_type='knockdown_pct', value=val
+            )
+
+    def test_requires_login(self):
+        self.client.logout()
+        resp = self.client.get('/compounds/BPR_TEST01/')
+        self.assertRedirects(resp, '/login/?next=/compounds/BPR_TEST01/',
+                             fetch_redirect_response=False)
+
+    def test_404_for_unknown_compound(self):
+        resp = self.client.get('/compounds/NOTEXIST/')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_returns_200_with_context(self):
+        resp = self.client.get('/compounds/BPR_TEST01/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context['compound'].compound_id, 'BPR_TEST01')
+        self.assertEqual(len(resp.context['strands']), 2)
+        self.assertEqual(len(resp.context['vitro_batches']), 1)
+        self.assertEqual(len(resp.context['vitro_chart_data']), 1)
+        self.assertEqual(len(resp.context['invivo_batches']), 1)
+
+    def test_vitro_chart_data_structure(self):
+        resp = self.client.get('/compounds/BPR_TEST01/')
+        chart = resp.context['vitro_chart_data'][0]
+        self.assertEqual(chart['batch_label'], '2026-03')
+        self.assertAlmostEqual(float(chart['ic50_nm']), 1.26)
+        self.assertEqual(len(chart['mrna_mean']), 4)
+        self.assertEqual(len(chart['kd_mean']), 4)
+        self.assertEqual(chart['mrna_a'], [])
+
+    def test_no_vitro_data(self):
+        cmp2 = Compound.objects.create(compound_id='BPR_EMPTY01')
+        resp = self.client.get('/compounds/BPR_EMPTY01/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(list(resp.context['vitro_batches']), [])
+        self.assertEqual(resp.context['invivo_batches'], [])
