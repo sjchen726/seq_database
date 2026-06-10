@@ -47,12 +47,12 @@ def compound_detail(request, compound_id):
             .filter(exp_type='in_vivo')
             .prefetch_related('datapoints')
             .order_by('batch_label'))
-    invivo_summary = build_invivo_summary(vivo)
+    invivo_batches = build_invivo_summary(vivo).get(compound_id, [])
     return render(request, 'compound_detail.html', {
         'compound': compound,
         'strands': strands,
         'vitro_batches': vitro,
-        'invivo_summary': invivo_summary,
+        'invivo_batches': invivo_batches,
     })
 ```
 
@@ -73,14 +73,14 @@ def compound_detail(request, compound_id):
   [② 链序列卡片]          — SS / AS modify_seq，monospace 展示
   [③ 体外实验区]
     {% for batch in vitro_batches %}
-      [批次手风琴]         — 标题行：batch_label, cell_line, IC50, MaxKD
+      [批次手风琴]         — 标题行：batch_label, IC50, MaxKD
         [图表开关按钮]     — 蓝色 Toggle，"隐藏图表" / "显示图表"
         [mRNA% 图容器]     — id="chart-mrna-{{ batch.id }}"，高度 220px
         [KD% 图容器]       — id="chart-kd-{{ batch.id }}"，高度 220px
         [json_script 数据] — id="data-{{ batch.id }}"
     {% endfor %}
   [④ 体内实验区]
-    [汇总表]               — 行=批次，列=day（动态）
+    [汇总表]               — 行=批次（batch_label），列=day（动态，从数据中取）
     [图表开关按钮]         — 琥珀色 Toggle，"隐藏折线图" / "显示折线图"
     [折线图容器]           — id="chart-invivo"，高度 200px
     [json_script 数据]     — id="data-invivo"
@@ -115,7 +115,7 @@ def compound_detail(request, compound_id):
 - X 轴：`x_value`（day），线性，刻度取实际 day 值
 - Y 轴：0–100，线性，标签"KD %"
 - 每个批次一条线，用 Flot 默认颜色循环区分
-- 数据来源：`invivo_summary`（复用 `build_invivo_summary` 输出）
+- 数据来源：`invivo_batches`（视图中 `build_invivo_summary(vivo).get(compound_id, [])` 的结果）
 
 ### 数据内联方式
 
@@ -150,9 +150,9 @@ JS 通过 `JSON.parse(document.getElementById('data-<id>').textContent)` 读取�
 |--------|---------|
 | `CompoundDetailViewTest` | 未登录跳转 login |
 | | 不存在 compound_id 返回 404 |
-| | 正常返回 200，context 含 compound/strands/vitro_batches/invivo_summary |
-| | 无体外数据时 vitro_batches 为空 |
-| | 无体内数据时 invivo_summary 为空 dict |
+| | 正常返回 200，context 含 compound/strands/vitro_batches/invivo_batches |
+| | 无体外数据时 vitro_batches 为空 queryset |
+| | 无体内数据时 invivo_batches 为空列表 |
 
 ---
 
