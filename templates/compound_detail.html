@@ -153,7 +153,7 @@
           {% for day in all_days %}
           {% with val=tp_map|get_item:day %}
           <td style="padding:5px 10px;{% if val is not None %}color:#92400e;font-weight:600;{% else %}color:#cbd5e1;{% endif %}">
-            {% if val is not None %}{{ val }}%{% else %}—{% endif %}
+            {% if val is not None %}{{ val|floatformat:0 }}%{% else %}—{% endif %}
           </td>
           {% endwith %}
           {% endfor %}

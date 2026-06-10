@@ -26,4 +26,6 @@ def all_days(invivo_batches):
 
 @register.filter
 def as_day_map(timepoints):
+    if not timepoints:
+        return {}
     return {tp['day']: tp['kd_pct'] for tp in timepoints}
