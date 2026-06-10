@@ -16,7 +16,7 @@ from app01.models import (
     Compound, Strand, Experiment, DataPoint, ExperimentSummary,
 )
 
-logger = logging.getLogger("edit_book_log")
+logger = logging.getLogger("bprdb_log")
 
 
 # ── Stub views ──────────────────────────────────────────────────────────────
