@@ -209,7 +209,8 @@ const chartInited = {};   // {expId: true} 记录已初始化的图表
 
 // ── 工具 ──────────────────────────────────────────────────────────────────
 function toLog(pairs) {
-  return pairs.map(function(p) { return [Math.log10(p[0]), p[1]]; });
+  return pairs.filter(function(p) { return p[0] > 0; })
+              .map(function(p) { return [Math.log10(p[0]), p[1]]; });
 }
 
 function plotOpts(ic50, axisLabel) {
@@ -342,29 +343,6 @@ $(document).on('click', '.detail-chart-tgl', function(e) {
   }
 });
 
-// ── 体内折线图开关 ────────────────────────────────────────────────────────
-$('#vivo-chart-tgl').on('click', function() {
-  var $chart = $('#chart-invivo');
-  var $label = $('#vivo-tgl-label');
-  var $track = $('#vivo-tgl-track');
-  var $knob  = $('#vivo-tgl-knob');
-  var isOn = $chart.is(':visible');
-
-  if (isOn) {
-    $chart.hide();
-    $label.text('显示折线图');
-    $track.css('background', '#94a3b8');
-    $knob.css('margin-left', '0');
-    $(this).css({'border-color':'#cbd5e1','color':'#64748b','background':'#f8fafc'});
-  } else {
-    $chart.show();
-    $label.text('隐藏折线图');
-    $track.css('background', '#f59e0b');
-    $knob.css('margin-left', 'auto');
-    $(this).css({'border-color':'#f59e0b','color':'#92400e','background':'#fffbeb'});
-  }
-});
-
 // ── 页面初始化 ────────────────────────────────────────────────────────────
 $(function() {
   // 初始化第一个体外批次图表（默认展开）
@@ -375,6 +353,28 @@ $(function() {
   }
   // 初始化体内折线图
   initInvivoChart();
+  // 体内折线图开关
+  $('#vivo-chart-tgl').on('click', function() {
+    var $chart = $('#chart-invivo');
+    var $label = $('#vivo-tgl-label');
+    var $track = $('#vivo-tgl-track');
+    var $knob  = $('#vivo-tgl-knob');
+    var isOn = $chart.is(':visible');
+
+    if (isOn) {
+      $chart.hide();
+      $label.text('显示折线图');
+      $track.css('background', '#94a3b8');
+      $knob.css('margin-left', '0');
+      $(this).css({'border-color':'#cbd5e1','color':'#64748b','background':'#f8fafc'});
+    } else {
+      $chart.show();
+      $label.text('隐藏折线图');
+      $track.css('background', '#f59e0b');
+      $knob.css('margin-left', 'auto');
+      $(this).css({'border-color':'#f59e0b','color':'#92400e','background':'#fffbeb'});
+    }
+  });
 });
 
 })();
