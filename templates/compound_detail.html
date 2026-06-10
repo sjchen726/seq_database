@@ -50,6 +50,7 @@
 
 {% if vitro_batches %}
 {% for batch in vitro_batches %}
+{# vitro_chart_data is built from the same queryset as vitro_batches in the same order — index is safe #}
 {% with chart=vitro_chart_data|index:forloop.counter0 %}
 <div class="detail-batch-card"
      style="border:1px solid #e2e8f0;border-radius:8px;margin-bottom:8px;overflow:hidden;">
@@ -64,8 +65,8 @@
       <span style="font-weight:700;">{{ batch.batch_label }}</span>
       <span style="color:#475569;">
         {{ batch.assay_name }}
-        {% if chart.ic50_nm %}&nbsp;·&nbsp; IC50 <b style="color:#15803d;">{{ chart.ic50_nm|floatformat:2 }} nM</b>{% endif %}
-        {% if chart.max_kd_pct %}&nbsp;·&nbsp; MaxKD <b style="color:#15803d;">{{ chart.max_kd_pct|floatformat:0 }}%</b>{% endif %}
+        {% if chart.ic50_nm is not None %}&nbsp;·&nbsp; IC50 <b style="color:#15803d;">{{ chart.ic50_nm|floatformat:2 }} nM</b>{% endif %}
+        {% if chart.max_kd_pct is not None %}&nbsp;·&nbsp; MaxKD <b style="color:#15803d;">{{ chart.max_kd_pct|floatformat:0 }}%</b>{% endif %}
       </span>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
