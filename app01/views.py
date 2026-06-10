@@ -904,7 +904,7 @@ def _build_vitro_chart_data(exp):
     try:
         ic50 = exp.summary.ic50_nm
         max_kd = exp.summary.max_kd_pct
-    except Exception:
+    except ExperimentSummary.DoesNotExist:
         ic50 = None
         max_kd = None
 
@@ -927,7 +927,7 @@ def _build_vitro_chart_data(exp):
 @login_required
 def compound_detail(request, compound_id):
     compound = get_object_or_404(Compound, pk=compound_id)
-    strands = compound.strands.all()
+    strands = list(compound.strands.all())
     vitro = list(
         compound.experiments
         .filter(exp_type='in_vitro')
@@ -935,7 +935,7 @@ def compound_detail(request, compound_id):
         .prefetch_related('datapoints')
         .order_by('batch_label')
     )
-    vivo = (
+    vivo = list(
         compound.experiments
         .filter(exp_type='in_vivo')
         .prefetch_related('datapoints')

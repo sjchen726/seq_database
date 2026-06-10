@@ -769,6 +769,9 @@ class CompoundDetailViewTest(TestCase):
         self.assertEqual(len(resp.context['vitro_batches']), 1)
         self.assertEqual(len(resp.context['vitro_chart_data']), 1)
         self.assertEqual(len(resp.context['invivo_batches']), 1)
+        batch = resp.context['invivo_batches'][0]
+        self.assertEqual(batch['batch_label'], '2026-05')
+        self.assertEqual(len(batch['timepoints']), 3)
 
     def test_vitro_chart_data_structure(self):
         resp = self.client.get('/compounds/BPR_TEST01/')
