@@ -1,5 +1,5 @@
 """
-WSGI config for bms project.
+WSGI config for bprdb.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 

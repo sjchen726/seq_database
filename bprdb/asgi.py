@@ -1,5 +1,5 @@
 """
-ASGI config for bms project.
+ASGI config for bprdb.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 

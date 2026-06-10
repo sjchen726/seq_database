@@ -37,7 +37,7 @@ def fetch_transcript_seq(accession: str) -> str:
     from Bio import Entrez, SeqIO
     from django.conf import settings
 
-    Entrez.email = getattr(settings, 'ENTREZ_EMAIL', 'admin@seqdb.local')
+    Entrez.email = getattr(settings, 'ENTREZ_EMAIL', 'admin@bprdb.local')
     try:
         handle = Entrez.efetch(
             db='nucleotide', id=accession.strip(),

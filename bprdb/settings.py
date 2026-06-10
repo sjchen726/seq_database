@@ -141,8 +141,6 @@ AUTH_USER_MODEL = 'app01.LmsUser'  # 替换 yourapp 为你的应用名称
 
 LOGIN_URL = '/login/'
 
-
-
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
