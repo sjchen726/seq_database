@@ -197,5 +197,186 @@
 {% endblock %}
 
 {% block extra_scripts %}
-{# Task 3 填入图表 JS #}
+<script src="/static/vendors/flot/jquery.flot.js"></script>
+<script>
+(function() {
+
+// ── 常量 ──────────────────────────────────────────────────────────────────
+const LOG_TICKS = [[-3,'0.001'],[-2,'0.01'],[-1,'0.1'],[0,'1'],[1,'10'],[2,'100'],[3,'1000']];
+const VITRO_DATA  = JSON.parse(document.getElementById('vitro-chart-data').textContent);
+const INVIVO_DATA = JSON.parse(document.getElementById('invivo-batches-data').textContent);
+const chartInited = {};   // {expId: true} 记录已初始化的图表
+
+// ── 工具 ──────────────────────────────────────────────────────────────────
+function toLog(pairs) {
+  return pairs.map(function(p) { return [Math.log10(p[0]), p[1]]; });
+}
+
+function plotOpts(ic50, axisLabel) {
+  var markings = [];
+  if (ic50 != null) {
+    markings = [
+      { yaxis: { from: 50, to: 50 }, color: '#fbbf24', lineWidth: 1 },
+      { xaxis: { from: Math.log10(ic50), to: Math.log10(ic50) }, color: '#fbbf24', lineWidth: 1 }
+    ];
+  }
+  return {
+    series: { lines: { show: true }, points: { show: true, radius: 3 } },
+    xaxis:  { ticks: LOG_TICKS, axisLabel: '浓度 (nM)', tickLength: 4 },
+    yaxis:  { min: 0, max: 105, axisLabel: axisLabel, labelWidth: 30 },
+    grid:   { hoverable: false, borderWidth: 1, borderColor: '#e2e8f0', markings: markings },
+    legend: { show: false }
+  };
+}
+
+// ── 体外图表初始化 ────────────────────────────────────────────────────────
+function initVitroChart(expId) {
+  if (chartInited[expId]) return;
+  var data = null;
+  for (var i = 0; i < VITRO_DATA.length; i++) {
+    if (VITRO_DATA[i].exp_id == expId) { data = VITRO_DATA[i]; break; }
+  }
+  if (!data) return;
+
+  // mRNA 残余 %
+  var mrnaSeries = [];
+  if (data.mrna_mean.length) {
+    mrnaSeries.push({
+      data: toLog(data.mrna_mean), color: '#3b82f6',
+      lines: { show: true, lineWidth: 2 }, points: { show: true, radius: 3 }
+    });
+  } else {
+    if (data.mrna_a.length)
+      mrnaSeries.push({ label: 'A', data: toLog(data.mrna_a), color: '#3b82f6',
+                         lines: { show: true, lineWidth: 1.5 }, points: { show: true, radius: 3 } });
+    if (data.mrna_b.length)
+      mrnaSeries.push({ label: 'B', data: toLog(data.mrna_b), color: '#93c5fd',
+                         lines: { show: true, lineWidth: 1.5, dashes: [4, 3] }, points: { show: true, radius: 3 } });
+  }
+  if (mrnaSeries.length)
+    $.plot('#chart-mrna-' + expId, mrnaSeries, plotOpts(data.ic50_nm, 'mRNA %'));
+
+  // KD%
+  var kdSeries = [];
+  if (data.kd_mean.length) {
+    kdSeries.push({
+      data: toLog(data.kd_mean), color: '#10b981',
+      lines: { show: true, lineWidth: 2 }, points: { show: true, radius: 3 }
+    });
+  } else {
+    if (data.kd_a.length)
+      kdSeries.push({ label: 'A', data: toLog(data.kd_a), color: '#10b981',
+                       lines: { show: true, lineWidth: 1.5 }, points: { show: true, radius: 3 } });
+    if (data.kd_b.length)
+      kdSeries.push({ label: 'B', data: toLog(data.kd_b), color: '#6ee7b7',
+                       lines: { show: true, lineWidth: 1.5, dashes: [4, 3] }, points: { show: true, radius: 3 } });
+  }
+  if (kdSeries.length)
+    $.plot('#chart-kd-' + expId, kdSeries, plotOpts(null, 'KD %'));
+
+  chartInited[expId] = true;
+}
+
+// ── 体内折线图初始化 ──────────────────────────────────────────────────────
+function initInvivoChart() {
+  if (!INVIVO_DATA.length) return;
+  var colors = ['#f97316','#92400e','#3b82f6','#10b981','#a855f7'];
+  var series = INVIVO_DATA.map(function(batch, i) {
+    return {
+      label: batch.batch_label,
+      data:  batch.timepoints.map(function(tp) { return [tp.day, tp.kd_pct]; }),
+      color: colors[i % colors.length],
+      lines: { show: true, lineWidth: 2 },
+      points: { show: true, radius: 4 }
+    };
+  });
+  $.plot('#chart-invivo', series, {
+    xaxis: { axisLabel: '时间点 (day)', tickLength: 4 },
+    yaxis: { min: 0, max: 105, axisLabel: 'KD %', labelWidth: 30 },
+    grid:  { hoverable: false, borderWidth: 1, borderColor: '#fde68a' },
+    legend: { show: true, position: 'topright', backgroundOpacity: 0.7 }
+  });
+}
+
+// ── 批次手风琴 ────────────────────────────────────────────────────────────
+$(document).on('click', '.detail-batch-hdr', function() {
+  var batchId = $(this).data('batch-id');
+  var $body = $('.detail-batch-body[data-batch-id="' + batchId + '"]');
+  var $arr  = $(this).find('.detail-batch-arr');
+  var isOpen = $body.is(':visible');
+
+  if (isOpen) {
+    $body.hide();
+    $arr.text('▶').css('color', '#94a3b8');
+    $(this).css('background', '#f8fafc');
+  } else {
+    $body.show();
+    $arr.text('▼').css('color', '#3b82f6');
+    $(this).css('background', '#eff6ff');
+    initVitroChart(batchId);
+  }
+});
+
+// 阻止开关按钮事件冒泡到手风琴
+$(document).on('click', '.detail-chart-tgl', function(e) {
+  e.stopPropagation();
+  var batchId = $(this).data('batch-id');
+  var $wrap = $('.detail-charts-wrap[data-batch-id="' + batchId + '"]');
+  var $label = $(this).find('.tgl-label');
+  var $track = $(this).find('.tgl-track');
+  var $knob  = $(this).find('.tgl-knob');
+  var isOn = $wrap.is(':visible');
+
+  if (isOn) {
+    $wrap.hide();
+    $label.text('显示图表');
+    $track.css('background', '#94a3b8');
+    $knob.css('margin-left', '0');
+    $(this).css({'border-color':'#cbd5e1','color':'#94a3b8','background':'#f8fafc'});
+  } else {
+    $wrap.show();
+    $label.text('隐藏图表');
+    $track.css('background', '#3b82f6');
+    $knob.css('margin-left', 'auto');
+    $(this).css({'border-color':'#3b82f6','color':'#1d4ed8','background':'white'});
+  }
+});
+
+// ── 体内折线图开关 ────────────────────────────────────────────────────────
+$('#vivo-chart-tgl').on('click', function() {
+  var $chart = $('#chart-invivo');
+  var $label = $('#vivo-tgl-label');
+  var $track = $('#vivo-tgl-track');
+  var $knob  = $('#vivo-tgl-knob');
+  var isOn = $chart.is(':visible');
+
+  if (isOn) {
+    $chart.hide();
+    $label.text('显示折线图');
+    $track.css('background', '#94a3b8');
+    $knob.css('margin-left', '0');
+    $(this).css({'border-color':'#cbd5e1','color':'#64748b','background':'#f8fafc'});
+  } else {
+    $chart.show();
+    $label.text('隐藏折线图');
+    $track.css('background', '#f59e0b');
+    $knob.css('margin-left', 'auto');
+    $(this).css({'border-color':'#f59e0b','color':'#92400e','background':'#fffbeb'});
+  }
+});
+
+// ── 页面初始化 ────────────────────────────────────────────────────────────
+$(function() {
+  // 初始化第一个体外批次图表（默认展开）
+  var $firstBody = $('.detail-batch-body').first();
+  if ($firstBody.length) {
+    var firstId = $firstBody.data('batch-id');
+    initVitroChart(firstId);
+  }
+  // 初始化体内折线图
+  initInvivoChart();
+});
+
+})();
+</script>
 {% endblock %}
