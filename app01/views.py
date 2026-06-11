@@ -717,7 +717,25 @@ def upload_success_view(request):
 
 @login_required
 def user_profile(request):
-    return render(request, 'index.html', {})
+    user = request.user
+    msg = None
+    if request.method == 'POST':
+        old_pw = request.POST.get('old_password', '')
+        new_pw = request.POST.get('new_password', '')
+        confirm_pw = request.POST.get('confirm_password', '')
+        if not user.check_password(old_pw):
+            msg = ('error', '旧密码不正确')
+        elif new_pw != confirm_pw:
+            msg = ('error', '两次输入的新密码不一致')
+        elif len(new_pw) < 6:
+            msg = ('error', '新密码长度不能少于 6 位')
+        else:
+            user.set_password(new_pw)
+            user.save()
+            login(request, user)
+            msg = ('success', '密码已修改')
+    projects = [p.strip() for p in user.permissions_project.split(',') if p.strip()]
+    return render(request, 'profile.html', {'msg': msg, 'projects': projects})
 
 
 def build_invivo_summary(experiments):

@@ -788,3 +788,58 @@ class CompoundDetailViewTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(list(resp.context['vitro_batches']), [])
         self.assertEqual(resp.context['invivo_batches'], [])
+
+
+# ---- UserProfileViewTest ----
+class UserProfileViewTest(TestCase):
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='profiler', password='testpass123',
+            user_type='admin', permissions_project='3M03,4A01'
+        )
+        self.client.login(username='profiler', password='testpass123')
+
+    def test_requires_login(self):
+        self.client.logout()
+        resp = self.client.get('/profile/')
+        self.assertRedirects(resp, '/login/?next=/profile/',
+                             fetch_redirect_response=False)
+
+    def test_returns_200(self):
+        resp = self.client.get('/profile/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_context_has_projects(self):
+        resp = self.client.get('/profile/')
+        self.assertEqual(resp.context['projects'], ['3M03', '4A01'])
+
+    def test_password_change_success(self):
+        resp = self.client.post('/profile/', {
+            'old_password': 'testpass123',
+            'new_password': 'newpass456',
+            'confirm_password': 'newpass456',
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context['msg'][0], 'success')
+        self.assertTrue(
+            LmsUser.objects.get(username='profiler').check_password('newpass456')
+        )
+
+    def test_password_change_wrong_old(self):
+        resp = self.client.post('/profile/', {
+            'old_password': 'wrongpass',
+            'new_password': 'newpass456',
+            'confirm_password': 'newpass456',
+        })
+        self.assertEqual(resp.context['msg'][0], 'error')
+        self.assertTrue(
+            LmsUser.objects.get(username='profiler').check_password('testpass123')
+        )
+
+    def test_password_change_mismatch(self):
+        resp = self.client.post('/profile/', {
+            'old_password': 'testpass123',
+            'new_password': 'newpass456',
+            'confirm_password': 'different789',
+        })
+        self.assertEqual(resp.context['msg'][0], 'error')
