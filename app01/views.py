@@ -36,6 +36,27 @@ def logout_view(request):
     return redirect("login")
 
 
+def register_view(request):
+    if request.method == 'POST':
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '')
+        confirm  = request.POST.get('confirm_password', '')
+        if not username:
+            return render(request, 'register.html', {'error': '用户名不能为空'})
+        if len(password) < 6:
+            return render(request, 'register.html', {'error': '密码长度不能少于 6 位', 'username': username})
+        if password != confirm:
+            return render(request, 'register.html', {'error': '两次密码不一致', 'username': username})
+        from app01.models import LmsUser
+        if LmsUser.objects.filter(username=username).exists():
+            return render(request, 'register.html', {'error': '用户名已存在', 'username': username})
+        LmsUser.objects.create_user(username=username, password=password, user_type='guest')
+        from django.contrib import messages
+        messages.success(request, f'账号 {username} 注册成功，请登录（初始权限为 guest，联系管理员升级）')
+        return redirect('login')
+    return render(request, 'register.html')
+
+
 @login_required
 def index(request):
     return redirect('compound_list')
