@@ -40,10 +40,9 @@ def logout_view(request):
 
 @login_required
 def index(request):
-    return render(request, "index.html")
+    return redirect('compound_list')
 
 
-# ── Coloring utilities (verbatim from seq_database_v2/app01/views.py) ───────
 def _module_list_url(base: str, page, q: str) -> str:
     """构建带 page/q 参数的模块列表页 redirect URL。"""
     qs = f'?page={page}'
@@ -726,56 +725,9 @@ def upload_success_view(request):
     return render(request, 'upload_success.html', {'stats': stats})
 
 
-# ── Sidebar stub views (base.html references these) ─────────────────────────
-
-@login_required
-def seq_list(request):
-    return render(request, 'index.html', {})
-
-
-@login_required
-def reg_seq_list(request):
-    return render(request, 'index.html', {})
-
-
-@login_required
-def register_seq(request):
-    return render(request, 'index.html', {})
-
-
-@login_required
-def seq_delivery(request):
-    return render(request, 'index.html', {})
-
-
-@login_required
-def upload_experiment(request):
-    return render(request, 'index.html', {})
-
-
-@login_required
-def multi_blast(request):
-    return render(request, 'index.html', {})
-
-
-@login_required
-def module_list(request):
-    return render(request, 'index.html', {})
-
-
-@login_required
-def seqmodule_list(request):
-    return render(request, 'index.html', {})
-
-
-@login_required
-def linkermodule_list(request):
-    return render(request, 'index.html', {})
-
-
 @login_required
 def author_list(request):
-    return render(request, 'index.html', {})
+    return redirect('/admin/')
 
 
 @login_required

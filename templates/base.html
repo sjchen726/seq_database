@@ -37,59 +37,23 @@
       </div>
     </div>
 
-    <div class="ds-nav-section">序列数据</div>
-    <a href="{% url 'seq_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'seq_list' %}active{% endif %}">
-      <i class="bi bi-table ds-nav-icon"></i> 序列列表
-    </a>
-    <a href="{% url 'reg_seq_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'reg_seq_list' %}active{% endif %}">
-      <i class="bi bi-list-ul ds-nav-icon"></i> 裸序列列表
-    </a>
-
-    <div class="ds-nav-divider"></div>
-    <div class="ds-nav-section">功能模块</div>
-    <a href="{% url 'register_seq' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'register_seq' %}active{% endif %}">
-      <i class="bi bi-plus-circle ds-nav-icon"></i> 序列注册
-    </a>
-    <a href="{% url 'seq_delivery' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'seq_delivery' %}active{% endif %}">
-      <i class="bi bi-cloud-upload ds-nav-icon"></i> 序列上传
-    </a>
-    <a href="{% url 'upload_experiment' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'upload_experiment' or request.resolver_match.url_name == 'upload_prism_preview' %}active{% endif %}">
-      <i class="bi bi-bar-chart-line ds-nav-icon"></i> 实验数据上传
-    </a>
-
-    <div class="ds-nav-divider"></div>
-    <div class="ds-nav-section">BLAST</div>
-    <a href="{% url 'multi_blast' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'multi_blast' or request.resolver_match.url_name == 'multi_blast_results' %}active{% endif %}">
-      <i class="bi bi-search ds-nav-icon"></i> 多序列比对
-    </a>
-
     {% if request.user.is_authenticated %}
+    <div class="ds-nav-section">化合物数据</div>
+    <a href="{% url 'compound_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'compound_list' or request.resolver_match.url_name == 'compound_detail' %}active{% endif %}">
+      <i class="bi bi-table ds-nav-icon"></i> 化合物列表
+    </a>
+
     <div class="ds-nav-divider"></div>
-    <div class="ds-nav-section">模块管理</div>
-    {% if 'delivery' in request.user.module_permissions or request.user.user_type == 'superadmin' or request.user.is_superuser %}
-    <a href="{% url 'module_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'module_list' or request.resolver_match.url_name == 'edit_module' %}active{% endif %}">
-      <i class="bi bi-box-seam ds-nav-icon"></i> Delivery 模块
+    <div class="ds-nav-section">数据录入</div>
+    <a href="{% url 'upload' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'upload' or request.resolver_match.url_name == 'upload_confirm' or request.resolver_match.url_name == 'upload_success' %}active{% endif %}">
+      <i class="bi bi-file-earmark-arrow-up ds-nav-icon"></i> 上传实验数据
     </a>
-    {% endif %}
-    {% if 'seq' in request.user.module_permissions or request.user.user_type == 'superadmin' or request.user.is_superuser %}
-    <a href="{% url 'seqmodule_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'seqmodule_list' or request.resolver_match.url_name == 'edit_seqmodule' %}active{% endif %}">
-      <i class="bi bi-check2-square ds-nav-icon"></i> 序列修饰模块
-    </a>
-    {% endif %}
-    {% if 'linker' in request.user.module_permissions or request.user.user_type == 'superadmin' or request.user.is_superuser %}
-    <a href="{% url 'linkermodule_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'linkermodule_list' or request.resolver_match.url_name == 'edit_linkermodule' %}active{% endif %}">
-      <i class="bi bi-link-45deg ds-nav-icon"></i> Linker 模块
-    </a>
-    {% endif %}
 
     {% if request.user.user_type == 'superadmin' or request.user.is_superuser %}
     <div class="ds-nav-divider"></div>
     <div class="ds-nav-section">系统</div>
-    <a href="{% url 'author_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'author_list' or request.resolver_match.url_name == 'add_author' or request.resolver_match.url_name == 'edit_author' %}active{% endif %}">
+    <a href="{% url 'author_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'author_list' %}active{% endif %}">
       <i class="bi bi-people ds-nav-icon"></i> 用户管理
-      {% if pending_approval_count > 0 %}
-      <span style="background:#ef4444;color:#fff;border-radius:10px;font-size:10px;padding:1px 6px;margin-left:auto;">{{ pending_approval_count }}</span>
-      {% endif %}
     </a>
     {% endif %}
 
@@ -99,18 +63,6 @@
       <i class="bi bi-person-circle ds-nav-icon"></i> 我的资料
     </a>
     {% endif %}
-
-    <div class="ds-nav-divider"></div>
-    <div class="ds-nav-section">数据录入</div>
-    <a href="{% url 'upload' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'upload' or request.resolver_match.url_name == 'upload_confirm' or request.resolver_match.url_name == 'upload_success' %}active{% endif %}">
-      <i class="bi bi-file-earmark-arrow-up ds-nav-icon"></i> 上传实验数据
-    </a>
-
-    <div class="ds-nav-divider"></div>
-    <div class="ds-nav-section">化合物数据</div>
-    <a href="{% url 'compound_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'compound_list' or request.resolver_match.url_name == 'compound_detail' %}active{% endif %}">
-      <i class="bi bi-table ds-nav-icon"></i> 化合物列表
-    </a>
 
     {% endif %}{# end is_authenticated #}
 
@@ -166,7 +118,7 @@
   </div><!-- /ds-main -->
 </div><!-- /app-shell -->
 
-<!-- Toast container (used by seq_list JS) -->
+<!-- Toast container -->
 <div id="msg-toast-container"></div>
 
 <!-- Bootstrap JS -->
