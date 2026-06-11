@@ -52,17 +52,15 @@
     {% if request.user.user_type == 'superadmin' or request.user.is_superuser %}
     <div class="ds-nav-divider"></div>
     <div class="ds-nav-section">系统</div>
-    <a href="{% url 'author_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'author_list' %}active{% endif %}">
+    <a href="/admin/" class="ds-nav-item">
       <i class="bi bi-people ds-nav-icon"></i> 用户管理
     </a>
     {% endif %}
 
-    {% if not request.user.is_superuser and request.user.user_type != 'superadmin' %}
     <div class="ds-nav-divider"></div>
     <a href="{% url 'user_profile' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'user_profile' %}active{% endif %}">
       <i class="bi bi-person-circle ds-nav-icon"></i> 我的资料
     </a>
-    {% endif %}
 
     {% endif %}{# end is_authenticated #}
 

@@ -19,8 +19,6 @@ from app01.models import (
 logger = logging.getLogger("bprdb_log")
 
 
-# ── Stub views ──────────────────────────────────────────────────────────────
-
 def login_view(request):
     if request.method == "POST":
         user = authenticate(request,
@@ -41,14 +39,6 @@ def logout_view(request):
 @login_required
 def index(request):
     return redirect('compound_list')
-
-
-def _module_list_url(base: str, page, q: str) -> str:
-    """构建带 page/q 参数的模块列表页 redirect URL。"""
-    qs = f'?page={page}'
-    if q:
-        qs += f'&q={urllib.parse.quote(str(q))}'
-    return f'{base}{qs}'
 
 
 def get_color_map(modules=None):
@@ -723,11 +713,6 @@ def upload_confirm_view(request):
 def upload_success_view(request):
     stats = request.session.pop('upload_stats', {})
     return render(request, 'upload_success.html', {'stats': stats})
-
-
-@login_required
-def author_list(request):
-    return redirect('/admin/')
 
 
 @login_required
