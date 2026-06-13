@@ -214,7 +214,28 @@ function toLog(pairs) {
               .map(function(p) { return [Math.log10(p[0]), p[1]]; });
 }
 
-function plotOpts(ic50, axisLabel) {
+function seriesXRange(seriesArr) {
+  var xs = [];
+  seriesArr.forEach(function(s) {
+    (s.data || []).forEach(function(p) { xs.push(p[0]); });
+  });
+  if (!xs.length) return { min: -3, max: 2 };
+  var lo = Math.min.apply(null, xs);
+  var hi = Math.max.apply(null, xs);
+  return { min: lo - 0.35, max: hi + 0.35 };
+}
+
+function plotOpts(seriesArr, ic50, axisLabel) {
+  var xr = seriesXRange(seriesArr);
+  var ticks = LOG_TICKS.filter(function(t) { return t[0] >= xr.min && t[0] <= xr.max; });
+
+  var allY = [];
+  seriesArr.forEach(function(s) {
+    (s.data || []).forEach(function(p) { allY.push(p[1]); });
+  });
+  var ymax = allY.length ? Math.ceil(Math.max.apply(null, allY) * 1.08 / 10) * 10 : 110;
+  if (ymax < 110) ymax = 110;
+
   var markings = [];
   if (ic50 != null) {
     markings = [
@@ -224,8 +245,8 @@ function plotOpts(ic50, axisLabel) {
   }
   return {
     series: { lines: { show: true }, points: { show: true, radius: 3 } },
-    xaxis:  { ticks: LOG_TICKS, axisLabel: '浓度 (nM)', tickLength: 4 },
-    yaxis:  { min: 0, max: 105, axisLabel: axisLabel, labelWidth: 30 },
+    xaxis:  { ticks: ticks, min: xr.min, max: xr.max, axisLabel: '浓度 (nM)', tickLength: 4 },
+    yaxis:  { min: 0, max: ymax, axisLabel: axisLabel, labelWidth: 30 },
     grid:   { hoverable: false, borderWidth: 1, borderColor: '#e2e8f0', markings: markings },
     legend: { show: false }
   };
@@ -256,7 +277,7 @@ function initVitroChart(expId) {
                          lines: { show: true, lineWidth: 1.5, dashes: [4, 3] }, points: { show: true, radius: 3 } });
   }
   if (mrnaSeries.length)
-    $.plot('#chart-mrna-' + expId, mrnaSeries, plotOpts(data.ic50_nm, 'mRNA %'));
+    $.plot('#chart-mrna-' + expId, mrnaSeries, plotOpts(mrnaSeries, data.ic50_nm, 'mRNA %'));
 
   // KD%
   var kdSeries = [];
@@ -274,7 +295,7 @@ function initVitroChart(expId) {
                        lines: { show: true, lineWidth: 1.5, dashes: [4, 3] }, points: { show: true, radius: 3 } });
   }
   if (kdSeries.length)
-    $.plot('#chart-kd-' + expId, kdSeries, plotOpts(null, 'KD %'));
+    $.plot('#chart-kd-' + expId, kdSeries, plotOpts(kdSeries, null, 'KD %'));
 
   chartInited[expId] = true;
 }

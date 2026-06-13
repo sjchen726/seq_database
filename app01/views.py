@@ -635,6 +635,10 @@ def upload_confirm_view(request):
             {**c, 'compound_id': _norm(c['compound_id'])}
             for c in preview.get('new_compounds', [])
         ]
+        preview['strand_map'] = {
+            _norm(cid): data
+            for cid, data in preview.get('strand_map', {}).items()
+        }
 
     batch_label = preview['batch_label']
     assay_name = preview['assay_name']
@@ -649,29 +653,39 @@ def upload_confirm_view(request):
     n_compounds = 0
     n_experiments = 0
 
+    strand_map = preview.get('strand_map', {})
+
     try:
         with transaction.atomic():
-            # Create new compounds and strands
+            # Create new compounds
             for c in preview.get('new_compounds', []):
                 compound, created = Compound.objects.get_or_create(
                     compound_id=c['compound_id']
                 )
                 if created:
                     n_compounds += 1
-                    if c.get('ss_seq'):
-                        Strand.objects.create(
-                            compound=compound,
-                            strand_type='SS',
-                            sequence_id=f"{c['compound_id']}_SS",
-                            modify_seq=c['ss_seq'],
-                        )
-                    if c.get('as_seq'):
-                        Strand.objects.create(
-                            compound=compound,
-                            strand_type='AS',
-                            sequence_id=f"{c['compound_id']}_AS",
-                            modify_seq=c['as_seq'],
-                        )
+
+            # Upsert strands for every compound that has sequence data
+            for cid, seq_data in strand_map.items():
+                compound, _ = Compound.objects.get_or_create(compound_id=cid)
+                if seq_data.get('ss_seq'):
+                    Strand.objects.get_or_create(
+                        compound=compound,
+                        strand_type='SS',
+                        defaults={
+                            'sequence_id': f"{cid}_SS",
+                            'modify_seq': seq_data['ss_seq'],
+                        },
+                    )
+                if seq_data.get('as_seq'):
+                    Strand.objects.get_or_create(
+                        compound=compound,
+                        strand_type='AS',
+                        defaults={
+                            'sequence_id': f"{cid}_AS",
+                            'modify_seq': seq_data['as_seq'],
+                        },
+                    )
 
             # Create experiments
             for exp_data in preview.get('experiments', []):
@@ -870,8 +884,9 @@ def _build_vitro_chart_data(exp):
     conc_dps = [dp for dp in all_dps if dp.x_type == 'concentration']
 
     def series(readout, rep):
+        scale = 100.0 if readout == 'mRNA_remaining' else 1.0
         return sorted(
-            [(dp.x_value, dp.value)
+            [(dp.x_value, dp.value * scale)
              for dp in conc_dps
              if dp.readout_type == readout and dp.replicate == rep],
             key=lambda p: p[0]
@@ -884,19 +899,34 @@ def _build_vitro_chart_data(exp):
         ic50 = None
         max_kd = None
 
+    def kd_from_mrna(mrna_series):
+        return [(x, max(0.0, 100.0 - y)) for x, y in mrna_series]
+
     mrna_mean = series('mRNA_remaining', 'Mean')
-    kd_mean   = series('knockdown_pct',  'Mean')
+    mrna_a    = series('mRNA_remaining', 'A') if not mrna_mean else []
+    mrna_b    = series('mRNA_remaining', 'B') if not mrna_mean else []
+
+    has_kd_dp = any(dp.readout_type == 'knockdown_pct' for dp in conc_dps)
+    if has_kd_dp:
+        kd_mean = series('knockdown_pct', 'Mean')
+        kd_a    = series('knockdown_pct', 'A') if not kd_mean else []
+        kd_b    = series('knockdown_pct', 'B') if not kd_mean else []
+    else:
+        kd_mean = kd_from_mrna(mrna_mean)
+        kd_a    = kd_from_mrna(mrna_a)
+        kd_b    = kd_from_mrna(mrna_b)
+
     return {
         'exp_id':      exp.id,
         'batch_label': exp.batch_label,
         'ic50_nm':     ic50,
         'max_kd_pct':  max_kd,
         'mrna_mean':   mrna_mean,
-        'mrna_a':      series('mRNA_remaining', 'A') if not mrna_mean else [],
-        'mrna_b':      series('mRNA_remaining', 'B') if not mrna_mean else [],
+        'mrna_a':      mrna_a,
+        'mrna_b':      mrna_b,
         'kd_mean':     kd_mean,
-        'kd_a':        series('knockdown_pct', 'A') if not kd_mean else [],
-        'kd_b':        series('knockdown_pct', 'B') if not kd_mean else [],
+        'kd_a':        kd_a,
+        'kd_b':        kd_b,
     }
 
 

@@ -386,6 +386,14 @@ def build_preview(seq_parsed, summary_parsed, cp_parsed_list,
             entry['as_seq'] = seq_by_cid[cid]['as_seq']
         new_compounds.append(entry)
 
+    # strand_map: all compound IDs (new + existing) that have sequence data.
+    # Keys use the seq file's original IDs; upload_confirm_view resolves them
+    # after any ID-format normalisation.
+    strand_map = {
+        cid: {'ss_seq': row['ss_seq'], 'as_seq': row['as_seq']}
+        for cid, row in seq_by_cid.items()
+    }
+
     # Mock DataPoints template (added to each experiment)
     mock_dps_template = []
     if summary_parsed and summary_parsed.mock_values:
@@ -434,6 +442,7 @@ def build_preview(seq_parsed, summary_parsed, cp_parsed_list,
         'id_format_conflict': id_format_conflict,
         'chosen_format': None,
         'mapping': mapping,
+        'strand_map': strand_map,
         'experiments': experiments,
         'warnings': warnings,
         'errors': errors,
