@@ -978,8 +978,9 @@ def compound_detail(request, compound_id):
 def batch_list(request):
     batches = (
         Experiment.objects
-        .values('batch_label', 'assay_name')
+        .values('batch_label')
         .annotate(
+            assay_name=Min('assay_name'),
             compound_count=Count('compound_id', distinct=True),
             exp_count=Count('id'),
             dp_count=Count('datapoints'),
