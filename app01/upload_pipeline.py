@@ -390,6 +390,16 @@ def build_preview(seq_parsed, summary_parsed, cp_parsed_list,
         if cid:
             dp_by_cid[cid].append(dp)
 
+    # Cp coverage: True if all non-control A/B DataPoints for a compound have raw_cp
+    cp_coverage = {}
+    for cid, dps in dp_by_cid.items():
+        ab_dps = [dp for dp in dps
+                  if dp.get('replicate') in ('A', 'B') and not dp.get('is_control')]
+        if ab_dps:
+            cp_coverage[cid] = all(dp.get('raw_cp') is not None for dp in ab_dps)
+        else:
+            cp_coverage[cid] = False
+
     # Group summaries by compound_id
     summary_by_cid = {}
     if summary_parsed:
@@ -469,6 +479,7 @@ def build_preview(seq_parsed, summary_parsed, cp_parsed_list,
         'strand_map': strand_map,
         'experiments': experiments,
         'warnings': warnings,
+        'cp_coverage': cp_coverage,
         'errors': errors,
     }
 

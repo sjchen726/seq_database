@@ -951,3 +951,42 @@ class TransfectionIntegrationTest(TestCase):
         )
         self.assertEqual(preview['cell_line'], '')
         self.assertEqual(preview['notes'], '')
+
+
+class CpCoverageTest(TestCase):
+    def _make_summary_with_two_compounds(self):
+        dps = []
+        for cid in ['BPR_3M03FN01', 'BPR_3M03FN02']:
+            for dose in [100.0, 10.0]:
+                for rep in ('A', 'B', 'Mean'):
+                    dps.append({
+                        'compound_id': cid, 'x_value': dose,
+                        'x_type': 'concentration', 'replicate': rep,
+                        'value': 0.5, 'is_control': False,
+                        'readout_type': 'mRNA_remaining', 'raw_cp': None,
+                    })
+        return ParsedSummary(
+            assay_name='FASN',
+            mapping={'siRNA-01': 'BPR_3M03FN01', 'siRNA-02': 'BPR_3M03FN02'},
+            datapoints=dps, summaries=[], mock_values={},
+        )
+
+    def test_no_cp_files_all_false(self):
+        preview = build_preview(None, self._make_summary_with_two_compounds(), [],
+                                'b1', 'FASN')
+        self.assertFalse(preview['cp_coverage']['BPR_3M03FN01'])
+        self.assertFalse(preview['cp_coverage']['BPR_3M03FN02'])
+
+    def test_cp_coverage_counted_correctly(self):
+        from app01.upload_pipeline import ParsedCpFile
+        # Simulate Cp data only for compound 01
+        cp_data = {
+            ('siRNA-01', 100.0): {'rep_A': {'GAPDH': {'A': 16.0}}, 'rep_B': {'GAPDH': {'A': 16.1}}},
+            ('siRNA-01', 10.0):  {'rep_A': {'GAPDH': {'A': 16.2}}, 'rep_B': {'GAPDH': {'A': 16.3}}},
+        }
+        cp = ParsedCpFile(assay_name='FASN', reference_gene='GAPDH',
+                          target_gene='FASN', cp_data=cp_data)
+        preview = build_preview(None, self._make_summary_with_two_compounds(), [cp],
+                                'b1', 'FASN')
+        self.assertTrue(preview['cp_coverage']['BPR_3M03FN01'])
+        self.assertFalse(preview['cp_coverage']['BPR_3M03FN02'])
