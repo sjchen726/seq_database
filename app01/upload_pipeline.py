@@ -338,7 +338,8 @@ def detect_existing_compounds(compound_ids: list) -> dict:
 
 
 def build_preview(seq_parsed, summary_parsed, cp_parsed_list,
-                  batch_label: str, assay_name: str, exp_date: str = None) -> dict:
+                  batch_label: str, assay_name: str, exp_date: str = None,
+                  transfection_parsed=None) -> dict:
     """Assemble session preview dict from parsed file data."""
     all_compound_ids = set()
     seq_by_cid = {}
@@ -351,11 +352,22 @@ def build_preview(seq_parsed, summary_parsed, cp_parsed_list,
 
     mapping = {}
     if summary_parsed:
-        mapping = summary_parsed.mapping
+        mapping = dict(summary_parsed.mapping)
         for cid in mapping.values():
             all_compound_ids.add(cid)
         if not assay_name and summary_parsed.assay_name:
             assay_name = summary_parsed.assay_name
+
+    # Merge transfection mapping (summary takes precedence on conflict)
+    cell_line = ''
+    notes = ''
+    if transfection_parsed:
+        cell_line = transfection_parsed.cell_line
+        notes = transfection_parsed.notes
+        for sirna, cid in transfection_parsed.mapping.items():
+            if sirna not in mapping:
+                mapping[sirna] = cid
+                all_compound_ids.add(cid)
 
     # Detect ID format conflict between seq file and summary
     seq_fmt = seq_parsed.id_format if seq_parsed else None
@@ -447,6 +459,8 @@ def build_preview(seq_parsed, summary_parsed, cp_parsed_list,
         'batch_label': batch_label,
         'assay_name': assay_name,
         'exp_date': exp_date,
+        'cell_line': cell_line,
+        'notes': notes,
         'new_compounds': new_compounds,
         'existing_compounds': existing_info['existing'],
         'id_format_conflict': id_format_conflict,

@@ -46,6 +46,12 @@
         <input type="file" name="cp_files" accept=".csv" multiple class="ds-form-control">
       </div>
 
+      <div>
+        <label class="ds-form-label">转染方案文件（可选）</label>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">5_Transfection in *.csv 格式，自动提取细胞系、铺板密度、孵育时间、引物等参数</div>
+        <input type="file" name="transfection_file" accept=".csv" class="ds-form-control">
+      </div>
+
       <div style="opacity:0.5;pointer-events:none;">
         <label class="ds-form-label">体内数据（即将支持）</label>
         <input type="file" name="invivo_file" accept=".csv" class="ds-form-control" disabled>
@@ -99,6 +105,14 @@
     <div style="color:#475569;">批次名称：{{ preview.batch_label }}</div>
     {% if preview.assay_name %}<div style="color:#475569;">Assay 名称：{{ preview.assay_name }}</div>{% endif %}
   </div>
+
+  {% if preview.cell_line or preview.notes %}
+  <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#166534;">
+    <div style="font-weight:600;margin-bottom:4px;">✓ 转染方案已解析</div>
+    {% if preview.cell_line %}<div>细胞系：{{ preview.cell_line }}</div>{% endif %}
+    {% if preview.notes %}<div>{{ preview.notes }}</div>{% endif %}
+  </div>
+  {% endif %}
 
   {% if preview.mapping %}
   <div style="margin-bottom:16px;">

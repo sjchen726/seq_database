@@ -541,7 +541,7 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
 
 from app01.upload_pipeline import (
     parse_seq_file, parse_summary_csv, parse_cp_file,
-    build_preview, normalize_compound_ids,
+    build_preview, normalize_compound_ids, parse_transfection_file,
 )
 
 
@@ -585,6 +585,15 @@ def upload_view(request):
             except Exception as e:
                 errors.append(f'Cp 文件 {cp_file.name} 解析失败：{e}')
 
+        transfection_parsed = None
+        if 'transfection_file' in request.FILES and request.FILES['transfection_file'].name:
+            try:
+                transfection_parsed = parse_transfection_file(
+                    request.FILES['transfection_file']
+                )
+            except Exception as e:
+                errors.append(f'转染方案文件解析失败：{e}')
+
         if not seq_parsed and not summary_parsed and not cp_parsed_list and not errors:
             errors.append('请至少上传序列文件或体外汇总表')
 
@@ -595,6 +604,7 @@ def upload_view(request):
             preview = build_preview(
                 seq_parsed, summary_parsed, cp_parsed_list,
                 batch_label, assay_name, exp_date,
+                transfection_parsed=transfection_parsed,
             )
         except Exception as e:
             return render(request, 'upload.html', {'errors': [f'解析错误：{e}']})
@@ -698,7 +708,8 @@ def upload_confirm_view(request):
                     assay_name=assay_name,
                     defaults={
                         'exp_type': exp_data.get('exp_type', 'in_vitro'),
-                        'cell_line': '',
+                        'cell_line': preview.get('cell_line', ''),
+                        'notes': preview.get('notes', ''),
                         'date': exp_date_obj,
                     },
                 )

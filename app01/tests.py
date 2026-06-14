@@ -846,7 +846,9 @@ class UserProfileViewTest(TestCase):
 
 
 import io as _io
-from app01.upload_pipeline import parse_transfection_file
+from app01.upload_pipeline import (
+    parse_transfection_file, ParsedTransfectionFile, ParsedSummary,
+)
 
 
 TRANSFECTION_CSV = """\
@@ -909,3 +911,43 @@ class ParseTransfectionFileTest(TestCase):
                 return csv_text.encode('utf-8')
         result = parse_transfection_file(F())
         self.assertEqual(result.cell_line, 'HepG2')
+
+
+class TransfectionIntegrationTest(TestCase):
+    def _make_summary(self):
+        return ParsedSummary(
+            assay_name='FASN mRNA',
+            mapping={'siRNA-01': 'BPR_3M03FN01'},
+            datapoints=[{
+                'compound_id': 'BPR_3M03FN01',
+                'x_value': 100.0, 'x_type': 'concentration',
+                'replicate': 'Mean', 'value': 0.25,
+                'is_control': False, 'readout_type': 'mRNA_remaining',
+                'raw_cp': None,
+            }],
+            summaries=[{'compound_id': 'BPR_3M03FN01',
+                        'max_kd_pct': 75.0, 'ic50_nm': 5.0, 'rank': 1}],
+            mock_values={},
+        )
+
+    def test_transfection_metadata_in_preview(self):
+        tf = ParsedTransfectionFile(
+            cell_line='Hepa1-6',
+            notes='Duration: 24h; Primer: FASN/GAPDH',
+            mapping={'siRNA-01': 'BPR_3M03FN01'},
+        )
+        preview = build_preview(
+            None, self._make_summary(), [],
+            'batch-X', 'FASN mRNA',
+            transfection_parsed=tf,
+        )
+        self.assertEqual(preview['cell_line'], 'Hepa1-6')
+        self.assertEqual(preview['notes'], 'Duration: 24h; Primer: FASN/GAPDH')
+
+    def test_no_transfection_preview_has_empty_strings(self):
+        preview = build_preview(
+            None, self._make_summary(), [],
+            'batch-X', 'FASN mRNA',
+        )
+        self.assertEqual(preview['cell_line'], '')
+        self.assertEqual(preview['notes'], '')
