@@ -30,6 +30,13 @@ class ParsedCpFile:
     cp_data: dict  # {(siRNA_label, dose_float): {'rep_A': {gene: {A,B,C}}, 'rep_B': {...}}}
 
 
+@dataclass
+class ParsedTransfectionFile:
+    cell_line: str
+    notes: str
+    mapping: dict  # {'siRNA-01': 'BPR_3M03FN01', ...}
+
+
 # ── Internal helpers ─────────────────────────────────────────────────────────
 
 def _read_csv_text(file) -> str:
@@ -447,3 +454,57 @@ def build_preview(seq_parsed, summary_parsed, cp_parsed_list,
         'warnings': warnings,
         'errors': errors,
     }
+
+
+def parse_transfection_file(file) -> ParsedTransfectionFile:
+    """Parse transfection protocol CSV (e.g. 5_Transfection in Hepa1-6.csv)."""
+    text = _read_csv_text(file)
+    rows = list(csv.reader(io.StringIO(text)))
+
+    cell_line = ''
+    params = {}
+    mapping = {}
+
+    # Cell line from title row "Transfection in <CellLine>"
+    if rows and rows[0]:
+        m = re.match(r'^Transfection in (.+)$', rows[0][0].strip(), re.IGNORECASE)
+        if m:
+            cell_line = m.group(1).strip()
+
+    # Parameters table: find header row where col 12 == "Items", col 13 == "Parameters"
+    param_header_idx = None
+    for i, row in enumerate(rows):
+        if len(row) > 13 and row[12].strip() == 'Items' and row[13].strip() == 'Parameters':
+            param_header_idx = i
+            break
+
+    if param_header_idx is not None:
+        note_keys = {'Seeding', 'Plate', 'Duration', 'Analysis', 'Primer'}
+        for row in rows[param_header_idx + 1:]:
+            if len(row) <= 13:
+                continue
+            key = row[12].strip()
+            val = row[13].strip()
+            if not key or not val:
+                continue
+            if key == 'Cells':
+                cell_line = val  # Parameters table overrides title row
+            elif key in note_keys:
+                params[key] = val
+
+    notes = '; '.join(
+        f'{k}: {params[k]}'
+        for k in ('Seeding', 'Plate', 'Duration', 'Analysis', 'Primer')
+        if k in params
+    )
+
+    # siRNA → compound mapping from scattered rows (col 16 = siRNA-XX, col 17 = BPR_...)
+    for row in rows:
+        if len(row) <= 17:
+            continue
+        sirna = row[16].strip()
+        cid = row[17].strip()
+        if re.match(r'^siRNA-\d+$', sirna) and re.match(r'^BPR_', cid):
+            mapping[sirna] = cid
+
+    return ParsedTransfectionFile(cell_line=cell_line, notes=notes, mapping=mapping)

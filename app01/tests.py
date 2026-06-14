@@ -843,3 +843,56 @@ class UserProfileViewTest(TestCase):
             'confirm_password': 'different789',
         })
         self.assertEqual(resp.context['msg'][0], 'error')
+
+
+import io as _io
+from app01.upload_pipeline import parse_transfection_file
+
+
+TRANSFECTION_CSV = """\
+Transfection in Hepa1-6,,,,,,,,,,,,,,,,,
+Plate1,1,2,3,4,5,6,7,8,9,10,11,12,Dose (nM),,#,ID,Name
+A,siRNA-01,siRNA-01,siRNA-02,siRNA-02,siRNA-03,siRNA-03,siRNA-04,siRNA-04,siRNA-05,siRNA-05,Mock,,100,,1,siRNA-01,BPR_3M03FN01
+B,siRNA-01,siRNA-01,siRNA-02,siRNA-02,siRNA-03,siRNA-03,siRNA-04,siRNA-04,siRNA-05,siRNA-05,Mock,,10,,2,siRNA-02,BPR_3M03FN02
+,,,,,,,,,,,,,,,3,siRNA-03,BPR_3M03FN03
+Plate2,1,2,3,4,5,6,7,8,9,10,11,12,Dose (nM),,4,siRNA-04,BPR_3M03FN04
+A,siRNA-06,siRNA-06,siRNA-07,siRNA-07,siRNA-08,siRNA-08,siRNA-09,siRNA-09,siRNA-10,siRNA-10,Mock,,100,,5,siRNA-05,BPR_3M03FN05
+,,,,,,,,,,,,,,,6,siRNA-06,BPR_3M03FN06
+Tube A,Reagent,Volume,* 290 wells,,#,Stock,Dose,Add volume,Serial,,, Items,Parameters,,,,
+,Opti-MEM,24.6,7134,,1,20,100,1,01:10,,,Cells,Hepa1-6,,,,
+,RNAiMAX,0.4,116,,2,2,10,1,,,,Seeding,20k/well,,,,
+,,,,,3,0.2,1,1,,,,Plate,96-well,,,,
+Tube B,Reagent,Volume,* 3 wells,,4,0.02,0.1,1,,,,Duration,24h,,,,
+,Opti-MEM,24,72,,5,0.002,0.01,1,,,,Analysis,RT-qPCR,,,,
+,siRNA,1,3,,6,0.0002,0.001,1,,,,Primer,FASN/GAPDH,,,,
+"""
+
+
+class ParseTransfectionFileTest(TestCase):
+    def _parse(self, csv_text=TRANSFECTION_CSV):
+        class F:
+            def read(self_):
+                return csv_text.encode('utf-8')
+        return parse_transfection_file(F())
+
+    def test_cell_line_from_title(self):
+        result = self._parse()
+        self.assertEqual(result.cell_line, 'Hepa1-6')
+
+    def test_notes_assembled(self):
+        result = self._parse()
+        self.assertIn('Seeding: 20k/well', result.notes)
+        self.assertIn('Duration: 24h', result.notes)
+        self.assertIn('Analysis: RT-qPCR', result.notes)
+        self.assertIn('Primer: FASN/GAPDH', result.notes)
+
+    def test_mapping_extracted(self):
+        result = self._parse()
+        self.assertEqual(result.mapping.get('siRNA-01'), 'BPR_3M03FN01')
+        self.assertEqual(result.mapping.get('siRNA-06'), 'BPR_3M03FN06')
+
+    def test_malformed_file_returns_empty(self):
+        result = self._parse('garbage,data\nno match here\n')
+        self.assertEqual(result.cell_line, '')
+        self.assertEqual(result.notes, '')
+        self.assertEqual(result.mapping, {})
