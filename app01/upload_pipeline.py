@@ -1,8 +1,11 @@
 import csv
 import io
+import logging
 import re
 from collections import defaultdict
 from dataclasses import dataclass
+
+_logger = logging.getLogger(__name__)
 
 
 # ── Data structures ──────────────────────────────────────────────────────────
@@ -505,6 +508,12 @@ def parse_transfection_file(file) -> ParsedTransfectionFile:
         sirna = row[16].strip()
         cid = row[17].strip()
         if re.match(r'^siRNA-\d+$', sirna) and re.match(r'^BPR_', cid):
-            mapping[sirna] = cid
+            if sirna in mapping and mapping[sirna] != cid:
+                _logger.warning(
+                    'parse_transfection_file: duplicate siRNA key %s maps to %s and %s; keeping first',
+                    sirna, mapping[sirna], cid,
+                )
+            else:
+                mapping[sirna] = cid
 
     return ParsedTransfectionFile(cell_line=cell_line, notes=notes, mapping=mapping)

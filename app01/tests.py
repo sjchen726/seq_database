@@ -896,3 +896,16 @@ class ParseTransfectionFileTest(TestCase):
         self.assertEqual(result.cell_line, '')
         self.assertEqual(result.notes, '')
         self.assertEqual(result.mapping, {})
+
+    def test_cell_line_from_title_only(self):
+        """Title row extracted when Parameters table has no Cells row."""
+        csv_text = (
+            'Transfection in HepG2' + ',' * 17 + '\n'
+            + ',' * 12 + 'Items,Parameters' + ',' * 3 + '\n'
+            + ',' * 12 + 'Seeding,50k/well' + ',' * 3 + '\n'
+        )
+        class F:
+            def read(self_):
+                return csv_text.encode('utf-8')
+        result = parse_transfection_file(F())
+        self.assertEqual(result.cell_line, 'HepG2')
