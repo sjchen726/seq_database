@@ -990,3 +990,78 @@ class CpCoverageTest(TestCase):
                                 'b1', 'FASN')
         self.assertTrue(preview['cp_coverage']['BPR_3M03FN01'])
         self.assertFalse(preview['cp_coverage']['BPR_3M03FN02'])
+
+
+from django.urls import reverse
+
+
+class BatchListViewTest(TestCase):
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='admin1', password='pass123', user_type='admin'
+        )
+        self.client.login(username='admin1', password='pass123')
+        compound = Compound.objects.create(compound_id='BPR_3M03FN01')
+        exp = Experiment.objects.create(
+            compound=compound, exp_type='in_vitro',
+            assay_name='FASN mRNA', batch_label='batch-A',
+        )
+        DataPoint.objects.create(
+            experiment=exp, x_value=100.0, x_type='concentration',
+            replicate='Mean', value=0.25, readout_type='mRNA_remaining',
+        )
+
+    def test_list_requires_login(self):
+        self.client.logout()
+        r = self.client.get(reverse('batch_list'))
+        self.assertRedirects(r, '/login/?next=/batches/')
+
+    def test_list_shows_batch(self):
+        r = self.client.get(reverse('batch_list'))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'batch-A')
+
+    def test_list_shows_compound_count(self):
+        r = self.client.get(reverse('batch_list'))
+        self.assertContains(r, '1')  # 1 compound
+
+
+class BatchDeleteViewTest(TestCase):
+    def _make_data(self, batch_label='batch-del'):
+        compound = Compound.objects.create(compound_id='BPR_3M03FN99')
+        exp = Experiment.objects.create(
+            compound=compound, exp_type='in_vitro',
+            assay_name='FASN mRNA', batch_label=batch_label,
+        )
+        DataPoint.objects.create(
+            experiment=exp, x_value=100.0, x_type='concentration',
+            replicate='Mean', value=0.25, readout_type='mRNA_remaining',
+        )
+        return compound
+
+    def test_guest_cannot_delete(self):
+        LmsUser.objects.create_user(username='g1', password='pass', user_type='guest')
+        self._make_data()
+        self.client.login(username='g1', password='pass')
+        r = self.client.post(reverse('batch_delete', args=['batch-del']))
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(Experiment.objects.filter(batch_label='batch-del').count(), 1)
+
+    def test_data_admin_can_delete(self):
+        LmsUser.objects.create_user(username='da1', password='pass', user_type='data_admin')
+        compound = self._make_data()
+        self.client.login(username='da1', password='pass')
+        r = self.client.post(reverse('batch_delete', args=['batch-del']))
+        self.assertRedirects(r, reverse('batch_list'))
+        self.assertEqual(Experiment.objects.filter(batch_label='batch-del').count(), 0)
+        # Compound must NOT be deleted
+        self.assertTrue(Compound.objects.filter(compound_id='BPR_3M03FN99').exists())
+
+    def test_datapoints_cascade_deleted(self):
+        LmsUser.objects.create_user(username='da2', password='pass', user_type='data_admin')
+        self._make_data()
+        self.client.login(username='da2', password='pass')
+        self.client.post(reverse('batch_delete', args=['batch-del']))
+        self.assertEqual(DataPoint.objects.filter(
+            experiment__batch_label='batch-del'
+        ).count(), 0)

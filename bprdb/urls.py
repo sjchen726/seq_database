@@ -14,4 +14,6 @@ urlpatterns = [
     path('compounds/', views.compound_list, name='compound_list'),
     path('compounds/<str:compound_id>/', views.compound_detail, name='compound_detail'),
     path('profile/', views.user_profile, name='user_profile'),
+    path('batches/', views.batch_list, name='batch_list'),
+    path('batches/<str:batch_label>/delete/', views.batch_delete, name='batch_delete'),
 ]

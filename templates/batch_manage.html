@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="ds-topbar">
+  <div class="ds-topbar-left">
+    <span class="ds-topbar-title">批次管理</span>
+  </div>
+  <div class="ds-topbar-right">
+    <a href="{% url 'upload' %}" style="font-size:12px;color:#64748b;text-decoration:none;">← 上传数据</a>
+  </div>
+</div>
+
+<div class="ds-content">
+  <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="background:#f1f5f9;border-bottom:2px solid #e2e8f0;color:#475569;font-size:12px;">
+          <th style="padding:8px 12px;text-align:left;">批次名称</th>
+          <th style="padding:8px 10px;">Assay</th>
+          <th style="padding:8px 10px;text-align:right;">化合物</th>
+          <th style="padding:8px 10px;text-align:right;">DataPoint</th>
+          <th style="padding:8px 10px;text-align:right;">raw_cp 覆盖</th>
+          <th style="padding:8px 10px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in batches %}
+        <tr style="border-bottom:1px solid #e2e8f0;">
+          <td style="padding:8px 12px;font-family:monospace;font-weight:600;color:#1e293b;">
+            {{ b.batch_label }}
+          </td>
+          <td style="padding:8px 10px;color:#475569;">{{ b.assay_name }}</td>
+          <td style="padding:8px 10px;text-align:right;">{{ b.compound_count }}</td>
+          <td style="padding:8px 10px;text-align:right;">{{ b.dp_count }}</td>
+          <td style="padding:8px 10px;text-align:right;">
+            {% if b.dp_count %}
+              {% widthratio b.cp_count b.dp_count 100 %}%
+            {% else %}—{% endif %}
+          </td>
+          <td style="padding:8px 10px;text-align:right;">
+            {% if request.user.is_superuser or request.user.user_type == 'data_admin' or request.user.user_type == 'admin' or request.user.user_type == 'superadmin' %}
+            <form method="post"
+                  action="{% url 'batch_delete' b.batch_label %}"
+                  onsubmit="return confirm('确定删除批次「{{ b.batch_label }}」的全部实验数据？\n化合物记录将保留。\n此操作不可撤销。')">
+              {% csrf_token %}
+              <button type="submit"
+                      style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;
+                             border-radius:5px;padding:3px 12px;font-size:12px;cursor:pointer;">
+                删除
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" style="padding:20px;text-align:center;color:#94a3b8;">暂无批次数据</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

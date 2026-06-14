@@ -973,3 +973,40 @@ def compound_detail(request, compound_id):
         'invivo_batches':   invivo_batches,
     })
 
+
+@login_required
+def batch_list(request):
+    batches = (
+        Experiment.objects
+        .values('batch_label', 'assay_name')
+        .annotate(
+            compound_count=Count('compound_id', distinct=True),
+            exp_count=Count('id'),
+            dp_count=Count('datapoints'),
+            cp_count=Count('datapoints', filter=Q(datapoints__raw_cp__isnull=False)),
+        )
+        .order_by('-batch_label')
+    )
+    return render(request, 'batch_manage.html', {'batches': batches})
+
+
+@login_required
+def batch_delete(request, batch_label):
+    if request.method != 'POST':
+        return redirect('batch_list')
+    user = request.user
+    allowed = (
+        user.is_superuser
+        or getattr(user, 'user_type', '') in ('data_admin', 'admin', 'superadmin')
+    )
+    if not allowed:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden('权限不足，需要 data_admin 或以上角色')
+    if not Experiment.objects.filter(batch_label=batch_label).exists():
+        from django.http import Http404
+        raise Http404
+    Experiment.objects.filter(batch_label=batch_label).delete()
+    from django.contrib import messages
+    messages.success(request, f'批次 {batch_label} 已删除（化合物记录保留）')
+    return redirect('batch_list')
+
