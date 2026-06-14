@@ -864,6 +864,10 @@ def compound_list(request):
     )
     invivo_data = build_invivo_summary(invivo_experiments)
 
+    strand_map = {}
+    for s in Strand.objects.filter(compound_id__in=page_compound_ids).order_by('strand_type'):
+        strand_map.setdefault(s.compound_id, []).append(s)
+
     filter_params = {
         'project': project,
         'target': target,
@@ -874,6 +878,7 @@ def compound_list(request):
     return render(request, 'compound_list.html', {
         'page_obj': page_obj,
         'invivo_data': invivo_data,
+        'strand_map': strand_map,
         'filter_params': filter_params,
         'total_count': page_obj.paginator.count,
     })

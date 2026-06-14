@@ -65,6 +65,7 @@
           <th style="padding:8px 12px;">化合物 ID</th>
           <th style="padding:8px 8px;">Project</th>
           <th style="padding:8px 8px;">Target</th>
+          <th style="padding:8px 8px;">序列</th>
           <th style="padding:8px 8px;{% if filter_params.sort == 'ic50' %}color:#1d4ed8;font-weight:700;{% endif %}">
             体外 IC50 (nM){% if filter_params.sort == 'ic50' %} ▲{% endif %}
           </th>
@@ -97,6 +98,24 @@
 
           <td style="padding:8px 8px;">{{ c.project }}</td>
           <td style="padding:8px 8px;">{{ c.target }}</td>
+
+          <td style="padding:6px 8px;max-width:320px;">
+            {% with strands=strand_map|get_item:c.compound_id %}
+            {% if strands %}
+              {% for strand in strands %}
+              <div style="display:flex;align-items:baseline;gap:6px;{% if not forloop.last %}margin-bottom:3px;{% endif %}">
+                <span style="width:20px;font-size:10px;font-weight:700;color:#94a3b8;flex-shrink:0;">{{ strand.strand_type }}</span>
+                <code style="font-size:10px;
+                  {% if strand.strand_type == 'SS' %}background:#f0fdf4;color:#166534;
+                  {% else %}background:#fef9c3;color:#78350f;{% endif %}
+                  border-radius:4px;padding:2px 6px;word-break:break-all;line-height:1.5;">{{ strand.modify_seq }}</code>
+              </div>
+              {% endfor %}
+            {% else %}
+              <span style="color:#cbd5e1;font-size:11px;">—</span>
+            {% endif %}
+            {% endwith %}
+          </td>
 
           <td style="padding:8px 8px;{% if c.best_ic50 is not None and c.best_ic50 <= 5 %}color:#15803d;font-weight:700;{% endif %}">
             {% if c.best_ic50 is not None %}{{ c.best_ic50|floatformat:2 }}{% else %}<span style="color:#94a3b8;">—</span>{% endif %}
@@ -132,7 +151,7 @@
         {% if batches %}
         <tr class="invivo-row" id="invivo-{{ c.compound_id }}" style="display:none;background:#fffbeb;">
           <td></td>
-          <td colspan="8" style="padding:8px 12px 14px 12px;">
+          <td colspan="9" style="padding:8px 12px 14px 12px;">
             <div style="font-size:11px;font-weight:600;color:#92400e;margin-bottom:6px;">体内实验数据</div>
             <div style="display:flex;gap:12px;flex-wrap:wrap;">
               {% for batch in batches %}
