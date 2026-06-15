@@ -612,7 +612,6 @@ class BuildInvivoSummaryTest(TestCase):
 
 
 # ---- CompoundListViewTest ----
-# ---- CompoundListViewTest ----
 class CompoundListViewTest(TestCase):
     def setUp(self):
         self.user = LmsUser.objects.create_user(
