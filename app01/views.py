@@ -1349,7 +1349,10 @@ def smart_upload_view(request):
         project_code = request.POST.get('project_code', '').strip()
         files = request.FILES.getlist('files')
         if not files:
-            return render(request, 'smart_upload.html', {'errors': ['请至少上传一个文件']})
+            return render(request, 'smart_upload.html', {
+                'errors': ['请至少上传一个文件'],
+                'project_code': project_code,
+            })
 
         from django.conf import settings as djsettings
         from django.core.files.base import ContentFile
