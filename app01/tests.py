@@ -1410,6 +1410,11 @@ class DetectFileTypeRulesTest(TestCase):
         f = self._f(content)
         self.assertEqual(detect_file_type_rules(f), 'invivo_kd')
 
+    def test_vitro_seq_sirnaid_header(self):
+        # Production sequence file format: siRNAID column must not be mistaken for transfection
+        f = self._f('siRNAID,SS,AS\nBPR_3M03FN01,mAmGfUmA,mUmCfGmA\n')
+        self.assertEqual(detect_file_type_rules(f), 'vitro_seq')
+
     def test_unknown_on_garbage(self):
         f = self._f('col1,col2,col3\nfoo,bar,baz\n')
         self.assertEqual(detect_file_type_rules(f), 'unknown')

@@ -1328,7 +1328,10 @@ def smart_upload_view(request):
                 det['saved_path']
                 for det in smart_preview.get('file_detections', [])
             }
-            file_count = int(request.POST.get('file_count', 0))
+            try:
+                file_count = int(request.POST.get('file_count', 0))
+            except ValueError:
+                file_count = 0
             file_detections = []
             for i in range(file_count):
                 filename = request.POST.get(f'filename_{i}', '')
@@ -1540,7 +1543,7 @@ def smart_upload_confirm_view(request):
     # Write each in-vivo group in its own atomic transaction (independent)
     for i, group in enumerate(invivo_groups):
         meta = invivo_meta[i]
-        batch_label_iv = datetime.now().strftime('B%Y%m%d%H%M%S')
+        batch_label_iv = datetime.now().strftime('B%Y%m%d%H%M%S') + f'{i:02d}'
         readout_type = group['readout_type']
         assay_name_iv = 'KD% 时间曲线' if readout_type == 'knockdown_pct' else '体重时间曲线'
         first_exp = None

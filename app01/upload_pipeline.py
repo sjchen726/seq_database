@@ -748,10 +748,10 @@ def detect_file_type_rules(file) -> str:
         header = ' '.join(c.strip() for c in rows[0]).lower()
         if re.search(r'ic50|max.?kd', header):
             return 'vitro_summary'
+        if re.search(r'modify.?seq|sequence.?id|sirnaid', header):
+            return 'vitro_seq'
         if re.search(r'sirna|transfection', header):
             return 'vitro_transfection'
-        if re.search(r'modify.?seq|sequence.?id', header):
-            return 'vitro_seq'
 
         header_cells = [c.strip().lower() for c in rows[0] if c.strip()]
         if any(re.match(r'^cp[\s_]?\d*$', cell) for cell in header_cells):
