@@ -1461,3 +1461,60 @@ class DetectFileLLMTest(TestCase):
             result = detect_file_type_llm('mystery.csv', self._f())
         mock_urlopen.assert_not_called()
         self.assertEqual(result, 'unknown')
+
+
+class SmartUploadViewTest(TestCase):
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(username='smarttester', password='pw')
+        self.client.force_login(self.user)
+
+    def _kd_csv(self):
+        content = b'CompA,CompA,CompA\n-7,0.0,0.1,-0.1\n14,-30.5,-31.2,-29.8\n'
+        return SimpleUploadedFile('data2.csv', content, content_type='text/csv')
+
+    def _summary_csv(self):
+        content = b'compound_id,IC50 (nM),Max KD (%)\nBPR_3M03FN01,1.5,0.8\n'
+        return SimpleUploadedFile('summary.csv', content, content_type='text/csv')
+
+    def test_get_200(self):
+        r = self.client.get(reverse('smart_upload'))
+        self.assertEqual(r.status_code, 200)
+
+    def test_login_required(self):
+        self.client.logout()
+        r = self.client.get(reverse('smart_upload'))
+        self.assertRedirects(r, '/login/?next=/upload/smart/')
+
+    def test_post_no_files_shows_error(self):
+        r = self.client.post(reverse('smart_upload'), {'project_code': '3M03'})
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, '请至少')
+
+    def test_post_invivo_kd_file_creates_invivo_groups(self):
+        r = self.client.post(reverse('smart_upload'), {
+            'project_code': '3M03',
+            'files': self._kd_csv(),
+        })
+        self.assertRedirects(r, '/upload/smart/?preview=1')
+        preview = self.client.session['smart_preview']
+        self.assertEqual(len(preview['invivo_groups']), 1)
+        self.assertEqual(preview['invivo_groups'][0]['readout_type'], 'knockdown_pct')
+        self.assertIsNone(preview['invitro'])
+
+    def test_post_vitro_file_detected_as_summary(self):
+        r = self.client.post(reverse('smart_upload'), {
+            'project_code': '3M03',
+            'files': self._summary_csv(),
+        })
+        self.assertRedirects(r, '/upload/smart/?preview=1')
+        preview = self.client.session['smart_preview']
+        self.assertEqual(preview['file_detections'][0]['detected_type'], 'vitro_summary')
+        self.assertEqual(preview['file_detections'][0]['confidence'], 'rule')
+
+    def test_get_preview_renders_phase2(self):
+        self.client.post(reverse('smart_upload'), {
+            'project_code': '3M03',
+            'files': self._kd_csv(),
+        })
+        r = self.client.get(reverse('smart_upload') + '?preview=1')
+        self.assertEqual(r.status_code, 200)

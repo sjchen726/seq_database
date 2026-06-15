@@ -18,4 +18,6 @@ urlpatterns = [
     path('batches/<str:batch_label>/delete/', views.batch_delete, name='batch_delete'),
     path('upload/invivo/', views.invivo_upload_view, name='invivo_upload'),
     path('upload/invivo/confirm/', views.invivo_upload_confirm_view, name='invivo_upload_confirm'),
+    path('upload/smart/', views.smart_upload_view, name='smart_upload'),
+    path('upload/smart/confirm/', views.smart_upload_confirm_view, name='smart_upload_confirm'),
 ]

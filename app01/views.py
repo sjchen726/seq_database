@@ -546,6 +546,7 @@ from app01.upload_pipeline import (
     parse_seq_file, parse_summary_csv, parse_cp_file,
     build_preview, normalize_compound_ids, parse_transfection_file,
     parse_invivo_kd_file, parse_body_weight_file, detect_invivo_file_type,
+    detect_file_type_rules, detect_file_type_llm, _BytesFile,
 )
 
 
@@ -1196,3 +1197,203 @@ def invivo_upload_confirm_view(request):
     del request.session['invivo_preview']
     messages.success(request, f'体内数据已上传，批次号 {batch_label}，共 {len(preview["groups"])} 个化合物')
     return redirect('invivo_upload')
+
+
+def _read_from_storage(path: str):
+    """Read bytes from default_storage path; returns None if missing or on error."""
+    try:
+        if not default_storage.exists(path):
+            return None
+        with default_storage.open(path, 'rb') as f:
+            return f.read()
+    except Exception:
+        return None
+
+
+def _build_smart_preview(file_detections: list, project_code: str) -> dict:
+    """Parse saved files into the smart_preview session dict."""
+    invitro_type_files = {
+        'vitro_seq': [], 'vitro_summary': [],
+        'vitro_cp': [], 'vitro_transfection': [],
+    }
+    invivo_groups = []
+    unknown_files = []
+    errors = []
+
+    for det in file_detections:
+        dtype = det['detected_type']
+        if dtype == 'unknown':
+            unknown_files.append(det['filename'])
+            continue
+
+        file_bytes = _read_from_storage(det['saved_path'])
+        if file_bytes is None:
+            errors.append(f'{det["filename"]}: 无法读取临时文件')
+            continue
+
+        if dtype in invitro_type_files:
+            invitro_type_files[dtype].append((det['filename'], file_bytes))
+        elif dtype in ('invivo_kd', 'invivo_bw'):
+            try:
+                f = _BytesFile(file_bytes)
+                parsed = parse_invivo_kd_file(f) if dtype == 'invivo_kd' else parse_body_weight_file(f)
+                invivo_groups.append({
+                    'filename': det['filename'],
+                    'saved_path': det['saved_path'],
+                    'readout_type': parsed.readout_type,
+                    'inferred_time_unit': parsed.inferred_time_unit,
+                    'needs_dose': parsed.needs_dose,
+                    'groups': [
+                        {
+                            'compound_id': g.compound_id,
+                            'dose_info': g.dose_info,
+                            'timepoints': [
+                                {'time': tp.time, 'mean': tp.mean, 'sd': tp.sd, 'n': tp.n}
+                                for tp in g.timepoints
+                            ],
+                        }
+                        for g in parsed.groups
+                    ],
+                })
+            except Exception as e:
+                errors.append(f'{det["filename"]}: 解析失败 {e}')
+
+    seq_parsed = None
+    summary_parsed = None
+    cp_parsed_list = []
+    transfection_parsed = None
+
+    for filename, file_bytes in invitro_type_files['vitro_seq']:
+        try:
+            seq_parsed = parse_seq_file(_BytesFile(file_bytes))
+        except Exception as e:
+            errors.append(f'{filename}: 序列文件解析失败 {e}')
+
+    for filename, file_bytes in invitro_type_files['vitro_summary']:
+        try:
+            summary_parsed = parse_summary_csv(_BytesFile(file_bytes))
+        except Exception as e:
+            errors.append(f'{filename}: 汇总表解析失败 {e}')
+
+    for filename, file_bytes in invitro_type_files['vitro_cp']:
+        try:
+            cp_parsed_list.append(parse_cp_file(_BytesFile(file_bytes)))
+        except Exception as e:
+            errors.append(f'{filename}: Cp 文件解析失败 {e}')
+
+    for filename, file_bytes in invitro_type_files['vitro_transfection']:
+        try:
+            transfection_parsed = parse_transfection_file(_BytesFile(file_bytes))
+        except Exception as e:
+            errors.append(f'{filename}: 转染文件解析失败 {e}')
+
+    invitro = None
+    if seq_parsed or summary_parsed or cp_parsed_list:
+        try:
+            assay_name = (
+                (summary_parsed.assay_name if summary_parsed else '')
+                or (cp_parsed_list[0].assay_name if cp_parsed_list else '')
+            )
+            invitro = build_preview(
+                seq_parsed, summary_parsed, cp_parsed_list,
+                batch_label='', assay_name=assay_name, exp_date=None,
+                transfection_parsed=transfection_parsed,
+            )
+        except Exception as e:
+            errors.append(f'体外数据整合失败：{e}')
+
+    has_no_seq = bool(invitro) and not (invitro.get('strand_map') or seq_parsed)
+
+    return {
+        'project_code': project_code,
+        'file_detections': file_detections,
+        'invitro': invitro,
+        'invivo_groups': invivo_groups,
+        'unknown_files': unknown_files,
+        'errors': errors,
+        'llm_unavailable': False,
+        'has_no_seq': has_no_seq,
+    }
+
+
+@login_required
+def smart_upload_view(request):
+    if request.method == 'POST':
+        # Re-parse with user-selected types
+        if request.POST.get('reparse'):
+            smart_preview = request.session.get('smart_preview', {})
+            project_code = smart_preview.get('project_code', '')
+            file_count = int(request.POST.get('file_count', 0))
+            file_detections = []
+            for i in range(file_count):
+                filename = request.POST.get(f'filename_{i}', '')
+                saved_path = request.POST.get(f'saved_path_{i}', '')
+                file_type = request.POST.get(f'file_type_{i}', 'unknown')
+                if filename and saved_path:
+                    file_detections.append({
+                        'filename': filename,
+                        'saved_path': saved_path,
+                        'detected_type': file_type,
+                        'confidence': 'manual',
+                    })
+            preview = _build_smart_preview(file_detections, project_code)
+            request.session['smart_preview'] = preview
+            return redirect('/upload/smart/?preview=1')
+
+        # Initial file upload
+        project_code = request.POST.get('project_code', '').strip()
+        files = request.FILES.getlist('files')
+        if not files:
+            return render(request, 'smart_upload.html', {'errors': ['请至少上传一个文件']})
+
+        from django.conf import settings as djsettings
+        from django.core.files.base import ContentFile
+        llm_key_configured = bool(getattr(djsettings, 'DEEPSEEK_API_KEY', ''))
+
+        file_detections = []
+        llm_unavailable = False
+
+        for f in files:
+            filename = f.name
+            file_bytes = f.read()
+
+            saved_path_key = f'_tmp_smart/{filename}'
+            if default_storage.exists(saved_path_key):
+                default_storage.delete(saved_path_key)
+            actual_path = default_storage.save(saved_path_key, ContentFile(file_bytes))
+
+            detected_type = detect_file_type_rules(_BytesFile(file_bytes))
+            confidence = 'rule'
+
+            if detected_type == 'unknown':
+                if llm_key_configured:
+                    detected_type = detect_file_type_llm(filename, _BytesFile(file_bytes))
+                    confidence = 'llm' if detected_type != 'unknown' else 'none'
+                else:
+                    llm_unavailable = True
+                    confidence = 'none'
+
+            file_detections.append({
+                'filename': filename,
+                'saved_path': actual_path,
+                'detected_type': detected_type,
+                'confidence': confidence,
+            })
+
+        preview = _build_smart_preview(file_detections, project_code)
+        preview['llm_unavailable'] = llm_unavailable
+        request.session['smart_preview'] = preview
+        return redirect('/upload/smart/?preview=1')
+
+    # GET
+    if request.GET.get('preview') and 'smart_preview' in request.session:
+        return render(request, 'smart_upload.html', {'preview': request.session['smart_preview']})
+
+    if 'smart_preview' in request.session:
+        del request.session['smart_preview']
+    return render(request, 'smart_upload.html', {})
+
+
+@login_required
+def smart_upload_confirm_view(request):
+    return redirect('smart_upload')
