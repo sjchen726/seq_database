@@ -1,1 +1,293 @@
-{% for e in errors %}{{ e }}{% endfor %}{% if preview %}preview{% else %}upload{% endif %}
+{% extends 'base.html' %}
+
+{% block page_title %} — 智能上传{% endblock %}
+
+{% block topbar_content %}
+  <span class="ds-topbar-title">智能上传</span>
+  <span class="ds-topbar-spacer"></span>
+  <a href="{% url 'upload' %}" class="ds-btn ds-btn-ghost">← 体外上传</a>
+  <a href="{% url 'invivo_upload' %}" class="ds-btn ds-btn-ghost">← 体内上传</a>
+{% endblock %}
+
+{% block content %}
+<div class="ds-form-page">
+<div class="ds-form-card">
+
+  {% if messages %}
+  {% for msg in messages %}
+  <div style="background:{% if 'warning' in msg.tags %}#fef9c3{% else %}#f0fdf4{% endif %};border:1px solid {% if 'warning' in msg.tags %}#fde68a{% else %}#bbf7d0{% endif %};border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:{% if 'warning' in msg.tags %}#92400e{% else %}#166534{% endif %};">
+    {{ msg }}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if errors %}
+  <div style="background:#fee2e2;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#b91c1c;">
+    {% for e in errors %}<div>✗ {{ e }}</div>{% endfor %}
+  </div>
+  {% endif %}
+
+  {% if not preview %}
+  {# ── Phase 1: Upload form ── #}
+  <div class="ds-form-card-title">智能上传</div>
+  <div style="font-size:12px;color:#64748b;margin-bottom:18px;line-height:1.7;">
+    同时上传任意组合的 CSV 文件，系统自动识别文件类型并分别解析。
+    支持：体外序列、汇总表、Cp 文件、转染方案、体内 KD%、体内体重。
+  </div>
+
+  <form method="POST" action="{% url 'smart_upload' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div style="display:grid;gap:14px;margin-bottom:18px;">
+      <div>
+        <label class="ds-form-label">项目号 *</label>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">本批次所属项目，如 3M03</div>
+        <input type="text" name="project_code" class="ds-form-control"
+               placeholder="如 3M03" required value="{{ project_code|default:'' }}">
+      </div>
+      <div>
+        <label class="ds-form-label">上传文件（可多选）*</label>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">
+          可同时选择多个 CSV 文件；系统自动识别每个文件的类型
+        </div>
+        <input type="file" name="files" multiple accept=".csv" class="ds-form-control" required>
+      </div>
+    </div>
+    <button type="submit" class="ds-btn ds-btn-primary">解析文件 →</button>
+  </form>
+
+  {% else %}
+  {# ── Phase 2: Detection results + confirm ── #}
+  <div class="ds-form-card-title">确认上传</div>
+
+  {% if preview.llm_unavailable %}
+  <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#92400e;">
+    ⚠ AI 识别暂不可用（未配置 DEEPSEEK_API_KEY），未识别文件需手动选择类型后点击"重新解析"
+  </div>
+  {% endif %}
+
+  {# File detection table + re-parse form #}
+  <form method="POST" action="{% url 'smart_upload' %}">
+    {% csrf_token %}
+    <input type="hidden" name="reparse" value="1">
+    <input type="hidden" name="file_count" value="{{ preview.file_detections|length }}">
+
+    <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">文件识别结果</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;">
+      <thead>
+        <tr style="border-bottom:1px solid #e2e8f0;">
+          <th style="text-align:left;padding:6px 8px;color:#64748b;font-weight:600;">文件名</th>
+          <th style="text-align:left;padding:6px 8px;color:#64748b;font-weight:600;">类型</th>
+          <th style="text-align:left;padding:6px 8px;color:#64748b;font-weight:600;">置信度</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for det in preview.file_detections %}
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:6px 8px;">{{ det.filename }}</td>
+          <td style="padding:6px 8px;">
+            <input type="hidden" name="saved_path_{{ forloop.counter0 }}" value="{{ det.saved_path }}">
+            <input type="hidden" name="filename_{{ forloop.counter0 }}" value="{{ det.filename }}">
+            <select name="file_type_{{ forloop.counter0 }}" class="ds-form-control"
+                    style="font-size:12px;padding:3px 6px;"
+                    {% if det.confidence == 'none' %}required{% endif %}>
+              {% if det.confidence == 'none' %}
+              <option value="">-- 请选择 --</option>
+              {% endif %}
+              <option value="vitro_summary"     {% if det.detected_type == 'vitro_summary' %}selected{% endif %}>体外汇总（IC50/MaxKD）</option>
+              <option value="vitro_seq"         {% if det.detected_type == 'vitro_seq' %}selected{% endif %}>体外序列文件</option>
+              <option value="vitro_cp"          {% if det.detected_type == 'vitro_cp' %}selected{% endif %}>Cp 原始数据</option>
+              <option value="vitro_transfection"{% if det.detected_type == 'vitro_transfection' %}selected{% endif %}>转染方案</option>
+              <option value="invivo_kd"         {% if det.detected_type == 'invivo_kd' %}selected{% endif %}>体内 KD% 时间曲线</option>
+              <option value="invivo_bw"         {% if det.detected_type == 'invivo_bw' %}selected{% endif %}>体内体重时间曲线</option>
+              <option value="unknown"           {% if det.detected_type == 'unknown' %}selected{% endif %}>未知（跳过）</option>
+            </select>
+          </td>
+          <td style="padding:6px 8px;">
+            {% if det.confidence == 'rule' %}
+              <span style="color:#15803d;font-weight:600;font-size:11px;">✓ 规则匹配</span>
+            {% elif det.confidence == 'llm' %}
+              <span style="color:#d97706;font-size:11px;">~ AI 建议，请确认</span>
+            {% elif det.confidence == 'manual' %}
+              <span style="color:#2563eb;font-size:11px;">✎ 手动选择</span>
+            {% else %}
+              <span style="color:#dc2626;font-size:11px;">✗ 请手动选择</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:24px;">
+      <button type="submit" class="ds-btn ds-btn-ghost">↻ 重新解析</button>
+      <a href="{% url 'smart_upload' %}" class="ds-btn ds-btn-ghost"
+         style="color:#64748b;">✕ 重新选择文件</a>
+    </div>
+  </form>
+
+  {# Confirm form #}
+  <form method="POST" action="{% url 'smart_upload_confirm' %}">
+    {% csrf_token %}
+
+    {% if preview.invitro %}
+    <div style="border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:20px;">
+      <div style="font-weight:600;font-size:13px;color:#1e293b;margin-bottom:12px;">
+        📋 体外数据
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:12px;">
+        <div>
+          <label class="ds-form-label">批次名称 *</label>
+          <input type="text" name="batch_label" class="ds-form-control"
+                 placeholder="如 B20260615" required>
+        </div>
+        <div>
+          <label class="ds-form-label">Assay 名称</label>
+          <input type="text" name="assay_name" class="ds-form-control"
+                 value="{{ preview.invitro.assay_name|default:'' }}">
+        </div>
+        <div>
+          <label class="ds-form-label">实验日期</label>
+          <input type="date" name="exp_date" class="ds-form-control">
+        </div>
+      </div>
+
+      {% if preview.has_no_seq %}
+      <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:5px;padding:8px 12px;font-size:11px;color:#92400e;margin-bottom:10px;">
+        ⚠ 未找到序列信息，可补传序列文件后重新解析
+      </div>
+      {% endif %}
+
+      <details>
+        <summary style="cursor:pointer;font-size:12px;color:#64748b;padding:4px 0;">
+          {{ preview.invitro.experiments|length }} 个化合物 — 点击展开预览
+        </summary>
+        <table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:8px;">
+          <thead>
+            <tr style="border-bottom:1px solid #e2e8f0;">
+              <th style="text-align:left;padding:4px 8px;color:#64748b;">化合物 ID</th>
+              <th style="text-align:left;padding:4px 8px;color:#64748b;">测量点数</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for exp in preview.invitro.experiments %}
+            <tr style="border-bottom:1px solid #f8fafc;">
+              <td style="padding:4px 8px;">{{ exp.compound_id }}</td>
+              <td style="padding:4px 8px;">{{ exp.datapoints|length }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </details>
+    </div>
+    {% endif %}
+
+    {% for g in preview.invivo_groups %}
+    <div style="border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:20px;">
+      <div style="font-weight:600;font-size:13px;color:#1e293b;margin-bottom:4px;">
+        🐭 体内数据：{{ g.filename }}
+      </div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:12px;">
+        类型：{% if g.readout_type == 'knockdown_pct' %}KD% 时间曲线{% else %}体重时间曲线{% endif %}
+        &nbsp;·&nbsp; {{ g.groups|length }} 组化合物
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:12px;">
+        <div>
+          <label class="ds-form-label">时间单位 *</label>
+          <select name="time_unit_{{ forloop.counter0 }}" class="ds-form-control" required>
+            <option value="day"  {% if g.inferred_time_unit == 'day' %}selected{% endif %}>天（day）</option>
+            <option value="week" {% if g.inferred_time_unit == 'week' %}selected{% endif %}>周（week）</option>
+            <option value="hour">小时（hour）</option>
+          </select>
+        </div>
+
+        {% if g.needs_dose %}
+        <div>
+          <label class="ds-form-label">剂量信息 *</label>
+          <input type="text" name="dose_override_{{ forloop.counter0 }}"
+                 class="ds-form-control" placeholder="如 10mpk SC" required>
+        </div>
+        {% endif %}
+
+        <div>
+          <label class="ds-form-label">物种 *</label>
+          <select name="animal_species_{{ forloop.counter0 }}" class="ds-form-control" required>
+            <option value="">-- 选择 --</option>
+            <option value="mouse">Mouse（小鼠）</option>
+            <option value="rat">Rat（大鼠）</option>
+            <option value="monkey">Monkey（猴）</option>
+            <option value="rabbit">Rabbit（兔）</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="ds-form-label">品系 *</label>
+          <input type="text" name="animal_strain_{{ forloop.counter0 }}"
+                 class="ds-form-control" placeholder="如 C57BL/6">
+        </div>
+
+        <div>
+          <label class="ds-form-label">给药途径 *</label>
+          <select name="route_{{ forloop.counter0 }}" class="ds-form-control" required>
+            <option value="">-- 选择 --</option>
+            <option value="SC">SC（皮下）</option>
+            <option value="IV">IV（静脉）</option>
+            <option value="IM">IM（肌肉）</option>
+            <option value="PO">PO（口服）</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="ds-form-label">性别 *</label>
+          <select name="gender_{{ forloop.counter0 }}" class="ds-form-control" required>
+            <option value="">-- 选择 --</option>
+            <option value="male">Male（雄）</option>
+            <option value="female">Female（雌）</option>
+            <option value="mixed">Mixed（混合）</option>
+          </select>
+        </div>
+      </div>
+
+      <details>
+        <summary style="cursor:pointer;font-size:12px;color:#64748b;padding:4px 0;">
+          {{ g.groups|length }} 个化合物 — 点击展开时间点预览
+        </summary>
+        <table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:8px;">
+          <thead>
+            <tr style="border-bottom:1px solid #e2e8f0;">
+              <th style="text-align:left;padding:4px 8px;color:#64748b;">化合物 ID</th>
+              <th style="text-align:left;padding:4px 8px;color:#64748b;">剂量</th>
+              <th style="text-align:left;padding:4px 8px;color:#64748b;">时间点数</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for grp in g.groups %}
+            <tr style="border-bottom:1px solid #f8fafc;">
+              <td style="padding:4px 8px;">{{ grp.compound_id }}</td>
+              <td style="padding:4px 8px;">{{ grp.dose_info|default:'—' }}</td>
+              <td style="padding:4px 8px;">{{ grp.timepoints|length }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </details>
+    </div>
+    {% endfor %}
+
+    {% if preview.invitro or preview.invivo_groups %}
+    <div style="display:flex;gap:10px;align-items:center;margin-top:8px;">
+      <button type="submit" class="ds-btn ds-btn-primary">确认上传 →</button>
+    </div>
+    {% else %}
+    <div style="color:#64748b;font-size:12px;margin-top:8px;">
+      未解析到可写入数据。请调整文件类型后点击"重新解析"。
+    </div>
+    {% endif %}
+  </form>
+
+  {% endif %}
+
+</div>
+</div>
+{% endblock %}
