@@ -1374,12 +1374,13 @@ class InVivoUploadViewTest(TestCase):
         self.assertTrue(Compound.objects.filter(compound_id='CompA').exists())
 
 
-from unittest.mock import patch, MagicMock
-from django.test import override_settings
-from django.core.files.uploadedfile import SimpleUploadedFile
+from unittest.mock import patch, MagicMock  # used by DetectFileLLMTest, SmartUploadViewTest
+from django.test import override_settings  # used by DetectFileLLMTest, SmartUploadConfirmTest
+from django.core.files.uploadedfile import SimpleUploadedFile  # used by all smart-upload tests
+from django.urls import reverse  # used by SmartUploadViewTest, SmartUploadConfirmTest
 
 from app01.upload_pipeline import (
-    detect_file_type_rules,
+    detect_file_type_rules,  # detect_file_type_llm added in Task 2
 )
 
 

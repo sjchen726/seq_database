@@ -1,10 +1,10 @@
 import csv
 import io
-import json
+import json  # used by detect_file_type_llm
 import logging
 import re
 import statistics
-import urllib.request
+import urllib.request  # used by detect_file_type_llm
 from collections import defaultdict
 from dataclasses import dataclass
 
@@ -757,7 +757,7 @@ def detect_file_type_rules(file) -> str:
         if any(re.match(r'^cp[\s_]?\d*$', cell) for cell in header_cells):
             body_values = []
             for row in rows[1:6]:
-                for cell in row:
+                for cell in row[1:]:
                     s = cell.strip()
                     if s:
                         try:
