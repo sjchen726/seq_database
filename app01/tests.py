@@ -1192,3 +1192,83 @@ class ParseInVivoKdFileTest(TestCase):
     def test_malformed_file_returns_empty(self):
         result = self._parse("garbage\nno data here\n")
         self.assertEqual(result.groups, [])
+
+
+from app01.upload_pipeline import (
+    parse_body_weight_file, detect_invivo_file_type,
+)
+
+BODY_WEIGHT_CSV = """\
+,CompA 3mpk Q2W3,CompA 3mpk Q2W3,CompA 3mpk Q2W3,Saline QW5,Saline QW5,Saline QW5
+0,45.2,46.1,44.8,45.0,46.3,44.9
+7,44.8,45.0*,43.9,45.5,46.0,45.1
+14,43.1,44.2,42.8*,45.2,45.8,45.0
+"""
+
+
+class ParseBodyWeightFileTest(TestCase):
+    def _parse(self, csv_text=BODY_WEIGHT_CSV):
+        class F:
+            def read(self_):
+                return csv_text.encode('utf-8')
+        return parse_body_weight_file(F())
+
+    def test_readout_type(self):
+        result = self._parse()
+        self.assertEqual(result.readout_type, 'body_weight')
+
+    def test_needs_dose_false(self):
+        result = self._parse()
+        self.assertFalse(result.needs_dose)
+
+    def test_groups_count(self):
+        result = self._parse()
+        self.assertEqual(len(result.groups), 2)
+
+    def test_dose_info_extracted(self):
+        result = self._parse()
+        comp_a = next(g for g in result.groups if g.compound_id == 'CompA')
+        self.assertEqual(comp_a.dose_info, '3mpk Q2W3')
+
+    def test_saline_group(self):
+        result = self._parse()
+        saline = next(g for g in result.groups if g.compound_id == 'Saline')
+        self.assertEqual(saline.dose_info, 'QW5')
+
+    def test_timepoints_count(self):
+        result = self._parse()
+        comp_a = next(g for g in result.groups if g.compound_id == 'CompA')
+        self.assertEqual(len(comp_a.timepoints), 3)
+
+    def test_mean_computed(self):
+        result = self._parse()
+        comp_a = next(g for g in result.groups if g.compound_id == 'CompA')
+        tp0 = next(tp for tp in comp_a.timepoints if tp.time == 0.0)
+        self.assertAlmostEqual(tp0.mean, (45.2 + 46.1 + 44.8) / 3, places=4)
+
+    def test_star_stripped(self):
+        result = self._parse()
+        comp_a = next(g for g in result.groups if g.compound_id == 'CompA')
+        tp7 = next(tp for tp in comp_a.timepoints if tp.time == 7.0)
+        self.assertAlmostEqual(tp7.mean, (44.8 + 45.0 + 43.9) / 3, places=4)
+
+    def test_time_unit_unknown_positive_only(self):
+        result = self._parse()
+        self.assertEqual(result.inferred_time_unit, 'unknown')
+
+
+class DetectInVivoFileTypeTest(TestCase):
+    def _detect(self, csv_text):
+        class F:
+            def read(self_):
+                return csv_text.encode('utf-8')
+        return detect_invivo_file_type(F())
+
+    def test_detects_body_weight(self):
+        self.assertEqual(self._detect(BODY_WEIGHT_CSV), 'body_weight')
+
+    def test_detects_kd(self):
+        self.assertEqual(self._detect(INVIVO_KD_CSV), 'knockdown_pct')
+
+    def test_unknown_on_garbage(self):
+        self.assertEqual(self._detect("hello\nworld\n"), 'unknown')

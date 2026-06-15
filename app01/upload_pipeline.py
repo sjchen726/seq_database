@@ -670,3 +670,54 @@ def parse_invivo_kd_file(file) -> ParsedInVivoFile:
     except Exception:
         _logger.exception('parse_invivo_kd_file failed')
         return ParsedInVivoFile(readout_type='knockdown_pct', groups=[], inferred_time_unit='unknown', needs_dose=True)
+
+
+def parse_body_weight_file(file) -> ParsedInVivoFile:
+    """Parse Data3-format body weight file (compound + dose in header)."""
+    try:
+        text = _read_csv_text(file)
+        rows = list(csv.reader(io.StringIO(text)))
+        if len(rows) < 2:
+            return ParsedInVivoFile(readout_type='body_weight', groups=[], inferred_time_unit='unknown', needs_dose=False)
+        groups_meta = _group_header_columns(rows[0])
+        return _parse_invivo_rows(rows, groups_meta, 'body_weight', needs_dose=False)
+    except Exception:
+        _logger.exception('parse_body_weight_file failed')
+        return ParsedInVivoFile(readout_type='body_weight', groups=[], inferred_time_unit='unknown', needs_dose=False)
+
+
+def detect_invivo_file_type(file) -> str:
+    """Return 'knockdown_pct', 'body_weight', or 'unknown'."""
+    try:
+        text = _read_csv_text(file)
+        rows = list(csv.reader(io.StringIO(text)))
+        if not rows:
+            return 'unknown'
+        header = [h.strip() for h in rows[0] if h.strip()]
+
+        # Body weight: any header cell has 2+ words (compound + dose info)
+        if any(len(h.split()) >= 2 for h in header):
+            return 'body_weight'
+
+        # KD%: single-word headers + values are all <= 10 (knockdown range -100 to ~0)
+        all_values = []
+        for row in rows[1:]:
+            for cell in row[1:]:
+                raw = _strip_star(cell)
+                if raw:
+                    try:
+                        all_values.append(float(raw))
+                    except ValueError:
+                        pass
+
+        if all_values and max(all_values) <= 10:
+            return 'knockdown_pct'
+
+        # Body weight values are typically > 10
+        if all_values and min(all_values) > 10:
+            return 'body_weight'
+
+        return 'unknown'
+    except Exception:
+        _logger.exception('detect_invivo_file_type failed')
+        return 'unknown'
