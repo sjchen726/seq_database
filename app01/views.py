@@ -1,4 +1,5 @@
 from collections import defaultdict
+import statistics as _statistics
 import copy
 import re, json, os, csv
 from django.shortcuts import render, redirect, get_object_or_404
@@ -797,6 +798,41 @@ def _build_vitro_rows(datapoints):
     ]
     mean_points.sort(key=lambda dp: -dp.x_value)
     return [{'dose': dp.x_value, 'mean': dp.value} for dp in mean_points]
+
+
+def _build_invivo_rows(datapoints, time_unit):
+    """One row per filtered timepoint with mean/SD/CV from raw replicates."""
+    grouped = defaultdict(list)
+    for dp in datapoints:
+        if not dp.is_control and dp.replicate not in ('Mean', 'SD'):
+            grouped[dp.x_value].append(dp.value)
+
+    rows = []
+    for timepoint in sorted(grouped):
+        if time_unit == 'day' and timepoint % 7 != 0 and timepoint != 0:
+            continue
+
+        vals = grouped[timepoint]
+        n = len(vals)
+        mean = _statistics.mean(vals) if n else None
+        sd = _statistics.stdev(vals) if n >= 2 else None
+        cv = (sd / abs(mean) * 100) if (sd is not None and mean) else None
+
+        if time_unit == 'day':
+            label = f'Day {int(timepoint)}'
+        elif time_unit == 'week':
+            label = f'Week {int(timepoint)}'
+        else:
+            label = f'{int(timepoint)} {time_unit}'
+
+        rows.append({
+            'label': label,
+            'mean': round(mean, 2) if mean is not None else None,
+            'sd': round(sd, 2) if sd is not None else None,
+            'cv': round(cv, 1) if cv is not None else None,
+            'n': n,
+        })
+    return rows
 
 
 def build_invivo_summary(experiments):

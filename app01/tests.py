@@ -1620,3 +1620,60 @@ class BuildVitroRowsTest(TestCase):
         rows = _build_vitro_rows(list(exp.datapoints.all()))
         self.assertEqual(len(rows), 1)
         self.assertAlmostEqual(rows[0]['dose'], 100.0)
+
+
+# ---- BuildInvivoRowsTest ----
+class BuildInvivoRowsTest(TestCase):
+    def _make_exp(self, time_unit='day'):
+        from app01.models import Compound, Experiment
+        c = Compound.objects.create(compound_id='BPR_IVTEST01')
+        return Experiment.objects.create(
+            compound=c, exp_type='in_vivo', assay_name='test',
+            batch_label='BI1', time_unit=time_unit
+        )
+
+    def test_day_unit_filters_multiples_of_7(self):
+        from app01.views import _build_invivo_rows
+        exp = self._make_exp('day')
+        for day, val in [(0.0, 0.0), (3.0, -10.0), (7.0, -30.0), (14.0, -95.0), (10.0, -50.0)]:
+            DataPoint.objects.create(experiment=exp, x_value=day, x_type='timepoint', replicate='1', value=val, readout_type='knockdown_pct')
+            DataPoint.objects.create(experiment=exp, x_value=day, x_type='timepoint', replicate='2', value=val - 2, readout_type='knockdown_pct')
+        rows = _build_invivo_rows(list(exp.datapoints.all()), 'day')
+        labels = [r['label'] for r in rows]
+        self.assertIn('Day 0', labels)
+        self.assertIn('Day 7', labels)
+        self.assertIn('Day 14', labels)
+        self.assertNotIn('Day 3', labels)
+        self.assertNotIn('Day 10', labels)
+
+    def test_week_unit_shows_all(self):
+        from app01.views import _build_invivo_rows
+        exp = self._make_exp('week')
+        for wk in [1.0, 2.0, 3.0]:
+            DataPoint.objects.create(experiment=exp, x_value=wk, x_type='timepoint', replicate='1', value=-80.0, readout_type='knockdown_pct')
+            DataPoint.objects.create(experiment=exp, x_value=wk, x_type='timepoint', replicate='2', value=-82.0, readout_type='knockdown_pct')
+        rows = _build_invivo_rows(list(exp.datapoints.all()), 'week')
+        self.assertEqual(len(rows), 3)
+        self.assertEqual(rows[0]['label'], 'Week 1')
+
+    def test_cv_calculation(self):
+        from app01.views import _build_invivo_rows
+        exp = self._make_exp('day')
+        # 3 replicates at day 7: -90, -92, -88  → mean=-90, sd≈2.0, cv≈2.22%
+        for rep, val in [('1', -90.0), ('2', -92.0), ('3', -88.0)]:
+            DataPoint.objects.create(experiment=exp, x_value=7.0, x_type='timepoint', replicate=rep, value=val, readout_type='knockdown_pct')
+        rows = _build_invivo_rows(list(exp.datapoints.all()), 'day')
+        self.assertEqual(len(rows), 1)
+        self.assertAlmostEqual(rows[0]['mean'], -90.0, places=1)
+        self.assertIsNotNone(rows[0]['sd'])
+        self.assertIsNotNone(rows[0]['cv'])
+        self.assertGreater(rows[0]['cv'], 0)
+
+    def test_mean_zero_cv_is_none(self):
+        from app01.views import _build_invivo_rows
+        exp = self._make_exp('day')
+        for rep in ['1', '2']:
+            DataPoint.objects.create(experiment=exp, x_value=0.0, x_type='timepoint', replicate=rep, value=0.0, readout_type='knockdown_pct')
+        rows = _build_invivo_rows(list(exp.datapoints.all()), 'day')
+        self.assertEqual(len(rows), 1)
+        self.assertIsNone(rows[0]['cv'])
