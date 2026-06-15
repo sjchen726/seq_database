@@ -1583,3 +1583,40 @@ class SmartUploadConfirmTest(TestCase):
             self._upload_kd()
             self._confirm_post()
         self.assertNotIn('smart_preview', self.client.session)
+
+
+# ---- BuildVitroRowsTest ----
+class BuildVitroRowsTest(TestCase):
+    def _make_exp(self):
+        c = Compound.objects.create(compound_id='BPR_VTTEST01')
+        return Experiment.objects.create(
+            compound=c, exp_type='in_vitro', assay_name='test', batch_label='BV1'
+        )
+
+    def test_sorted_high_to_low(self):
+        from app01.views import _build_vitro_rows
+        exp = self._make_exp()
+        DataPoint.objects.create(experiment=exp, x_value=1.0, x_type='concentration', replicate='Mean', value=0.87, readout_type='mRNA_remaining')
+        DataPoint.objects.create(experiment=exp, x_value=100.0, x_type='concentration', replicate='Mean', value=0.25, readout_type='mRNA_remaining')
+        DataPoint.objects.create(experiment=exp, x_value=10.0, x_type='concentration', replicate='Mean', value=0.50, readout_type='mRNA_remaining')
+        rows = _build_vitro_rows(list(exp.datapoints.all()))
+        self.assertEqual([r['dose'] for r in rows], [100.0, 10.0, 1.0])
+
+    def test_only_mean_replicate(self):
+        from app01.views import _build_vitro_rows
+        exp = self._make_exp()
+        DataPoint.objects.create(experiment=exp, x_value=100.0, x_type='concentration', replicate='Mean', value=0.25, readout_type='mRNA_remaining')
+        DataPoint.objects.create(experiment=exp, x_value=100.0, x_type='concentration', replicate='A', value=0.20, readout_type='mRNA_remaining')
+        DataPoint.objects.create(experiment=exp, x_value=100.0, x_type='concentration', replicate='B', value=0.30, readout_type='mRNA_remaining')
+        rows = _build_vitro_rows(list(exp.datapoints.all()))
+        self.assertEqual(len(rows), 1)
+        self.assertAlmostEqual(rows[0]['mean'], 0.25)
+
+    def test_skip_control(self):
+        from app01.views import _build_vitro_rows
+        exp = self._make_exp()
+        DataPoint.objects.create(experiment=exp, x_value=0.0, x_type='concentration', replicate='Mean', value=1.01, readout_type='mRNA_remaining', is_control=True)
+        DataPoint.objects.create(experiment=exp, x_value=100.0, x_type='concentration', replicate='Mean', value=0.25, readout_type='mRNA_remaining', is_control=False)
+        rows = _build_vitro_rows(list(exp.datapoints.all()))
+        self.assertEqual(len(rows), 1)
+        self.assertAlmostEqual(rows[0]['dose'], 100.0)

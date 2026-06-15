@@ -789,6 +789,16 @@ def user_profile(request):
     return render(request, 'profile.html', {'msg': msg, 'projects': projects})
 
 
+def _build_vitro_rows(datapoints):
+    """One row per concentration, only Mean replicate, sorted high to low."""
+    mean_points = [
+        dp for dp in datapoints
+        if dp.replicate == 'Mean' and not dp.is_control
+    ]
+    mean_points.sort(key=lambda dp: -dp.x_value)
+    return [{'dose': dp.x_value, 'mean': dp.value} for dp in mean_points]
+
+
 def build_invivo_summary(experiments):
     """Return {compound_id: [{batch_label, timepoints}]}. Uses Mean replicates if any exist for an experiment; otherwise averages A/B."""
     result = defaultdict(list)
