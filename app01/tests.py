@@ -1065,3 +1065,50 @@ class BatchDeleteViewTest(TestCase):
         self.assertEqual(DataPoint.objects.filter(
             experiment__batch_label='batch-del'
         ).count(), 0)
+
+
+class InVivoModelTest(TestCase):
+    def _make_experiment(self):
+        compound, _ = Compound.objects.get_or_create(compound_id='350025087')
+        return Experiment.objects.create(
+            compound=compound,
+            exp_type='in_vivo',
+            assay_name='KD% time-course',
+            batch_label='B20260615120000',
+        )
+
+    def test_experiment_has_animal_fields(self):
+        exp = self._make_experiment()
+        exp.animal_species = 'mouse'
+        exp.animal_strain = 'C57BL/6'
+        exp.route = 'SC'
+        exp.gender = 'male'
+        exp.time_unit = 'day'
+        exp.dose_info = '3mpk Q2W*3'
+        exp.save()
+        exp.refresh_from_db()
+        self.assertEqual(exp.animal_species, 'mouse')
+        self.assertEqual(exp.time_unit, 'day')
+        self.assertEqual(exp.dose_info, '3mpk Q2W*3')
+
+    def test_experiment_animal_fields_blank_by_default(self):
+        exp = self._make_experiment()
+        self.assertEqual(exp.animal_species, '')
+        self.assertEqual(exp.time_unit, '')
+
+    def test_body_weight_readout_choice_exists(self):
+        choices = dict(DataPoint.READOUT_CHOICES)
+        self.assertIn('body_weight', choices)
+
+    def test_experiment_attachment_create(self):
+        from app01.models import ExperimentAttachment
+        from django.core.files.base import ContentFile
+        exp = self._make_experiment()
+        att = ExperimentAttachment.objects.create(
+            experiment=exp,
+            label='Raw data',
+        )
+        att.file.save('test.csv', ContentFile(b'a,b\n1,2'), save=True)
+        att.refresh_from_db()
+        self.assertTrue(att.file.name.endswith('test.csv'))
+        att.file.delete()  # cleanup

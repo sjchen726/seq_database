@@ -117,6 +117,12 @@ class Experiment(models.Model):
     cell_line = models.CharField(max_length=64, blank=True)
     batch_label = models.CharField(max_length=64, blank=True)
     notes = models.TextField(blank=True)
+    animal_species = models.CharField(max_length=32, blank=True)
+    animal_strain = models.CharField(max_length=64, blank=True)
+    route = models.CharField(max_length=32, blank=True)
+    gender = models.CharField(max_length=16, blank=True)
+    time_unit = models.CharField(max_length=16, blank=True)
+    dose_info = models.CharField(max_length=64, blank=True)
     date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -133,6 +139,7 @@ class DataPoint(models.Model):
     READOUT_CHOICES = [
         ('mRNA_remaining', 'mRNA 残余%'),
         ('knockdown_pct', 'KD%'),
+        ('body_weight', '体重 g'),
     ]
 
     experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE,
@@ -166,3 +173,17 @@ class ExperimentSummary(models.Model):
 
     def __str__(self):
         return f"{self.experiment_id} | IC50={self.ic50_nm}"
+
+
+class ExperimentAttachment(models.Model):
+    experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE,
+                                   related_name='attachments')
+    file = models.FileField(upload_to='experiment_attachments/%Y/%m/', blank=True)
+    label = models.CharField(max_length=128, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'experiment_attachment'
+
+    def __str__(self):
+        return f"{self.experiment_id} | {self.label}"
