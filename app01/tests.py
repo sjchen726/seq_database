@@ -2,6 +2,7 @@ from django.test import TestCase
 from app01.models import (
     Compound, Strand, Experiment, DataPoint,
     ExperimentSummary, _parse_compound_id, LmsUser,
+    ExperimentAttachment,
 )
 
 
@@ -1673,3 +1674,38 @@ class BuildInvivoRowsTest(TestCase):
         rows = _build_invivo_rows(list(exp.datapoints.all()), 'day')
         self.assertEqual(len(rows), 1)
         self.assertIsNone(rows[0]['cv'])
+
+
+# ---- AttachmentDownloadTest ----
+class AttachmentDownloadTest(TestCase):
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='dltest', password='pass', user_type='admin'
+        )
+        self.client.login(username='dltest', password='pass')
+        c = Compound.objects.create(compound_id='BPR_ATTEST01')
+        exp = Experiment.objects.create(
+            compound=c, exp_type='in_vitro', assay_name='test', batch_label='AT1'
+        )
+        # Create attachment with an in-memory file
+        from django.core.files.base import ContentFile
+        self.att = ExperimentAttachment(experiment=exp, label='test_file.csv')
+        self.att.file.save('test_file.csv', ContentFile(b'col1,col2\n1,2\n'), save=True)
+
+    def tearDown(self):
+        if self.att.file:
+            self.att.file.delete(save=False)
+
+    def test_valid_pk_returns_file(self):
+        resp = self.client.get(f'/attachments/{self.att.pk}/download/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('attachment', resp.get('Content-Disposition', ''))
+
+    def test_invalid_pk_returns_404(self):
+        resp = self.client.get('/attachments/99999/download/')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_login_required(self):
+        self.client.logout()
+        resp = self.client.get(f'/attachments/{self.att.pk}/download/')
+        self.assertEqual(resp.status_code, 302)

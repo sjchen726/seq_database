@@ -3,7 +3,7 @@ import statistics as _statistics
 import copy
 import re, json, os, csv
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import HttpResponse, Http404, JsonResponse
+from django.http import FileResponse, HttpResponse, Http404, JsonResponse
 from django.contrib.auth import authenticate, login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q, Min, Max, Count, F, Prefetch
@@ -1682,3 +1682,12 @@ def smart_upload_confirm_view(request):
         messages.success(request, f'数据已上传：{", ".join(parts) or "0 条"}')
 
     return redirect('smart_upload')
+
+
+@login_required
+def attachment_download(request, pk):
+    att = get_object_or_404(ExperimentAttachment, pk=pk)
+    if not att.file:
+        raise Http404
+    filename = os.path.basename(att.file.name)
+    return FileResponse(att.file.open('rb'), as_attachment=True, filename=filename)

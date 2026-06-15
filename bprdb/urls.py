@@ -20,4 +20,5 @@ urlpatterns = [
     path('upload/invivo/confirm/', views.invivo_upload_confirm_view, name='invivo_upload_confirm'),
     path('upload/smart/', views.smart_upload_view, name='smart_upload'),
     path('upload/smart/confirm/', views.smart_upload_confirm_view, name='smart_upload_confirm'),
+    path('attachments/<int:pk>/download/', views.attachment_download, name='attachment_download'),
 ]
