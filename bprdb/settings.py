@@ -167,6 +167,11 @@ LOGGING = {
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# DeepSeek API for file-type classification fallback
+DEEPSEEK_API_KEY = config('DEEPSEEK_API_KEY', default='')
+DEEPSEEK_API_URL = config('DEEPSEEK_API_URL', default='https://api.deepseek.com/chat/completions')
+DEEPSEEK_MODEL = config('DEEPSEEK_MODEL', default='deepseek-chat')
+
 # ── 转录本定位工具 ──────────────────────────────────────────────────
 ENTREZ_EMAIL = 'admin@bprdb.local'   # NCBI Entrez 必填邮箱
 SW_SCORE_THRESHOLD = 15              # Smith-Waterman 最低得分阈值

@@ -1372,3 +1372,42 @@ class InVivoUploadViewTest(TestCase):
             'route': 'SC', 'gender': 'male',
         })
         self.assertTrue(Compound.objects.filter(compound_id='CompA').exists())
+
+
+from unittest.mock import patch, MagicMock
+from django.test import override_settings
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+from app01.upload_pipeline import (
+    detect_file_type_rules,
+)
+
+
+class DetectFileTypeRulesTest(TestCase):
+    def _f(self, content: str):
+        return SimpleUploadedFile('test.csv', content.encode('utf-8'))
+
+    def test_vitro_summary_ic50_header(self):
+        f = self._f('compound_id,IC50 (nM),Max KD\nBPR_3M03FN01,1.5,0.8\n')
+        self.assertEqual(detect_file_type_rules(f), 'vitro_summary')
+
+    def test_vitro_summary_max_kd_header(self):
+        f = self._f('compound_id,MaxKD (%)\nBPR_3M03FN01,0.8\n')
+        self.assertEqual(detect_file_type_rules(f), 'vitro_summary')
+
+    def test_vitro_transfection_sirna_header(self):
+        f = self._f('siRNA,compound_id,cell_line\nsiRNA-01,BPR_3M03FN01,HepG2\n')
+        self.assertEqual(detect_file_type_rules(f), 'vitro_transfection')
+
+    def test_vitro_seq_modify_seq_header(self):
+        f = self._f('compound_id,modify_seq\nBPR_3M03FN01,mAmGfUmA\n')
+        self.assertEqual(detect_file_type_rules(f), 'vitro_seq')
+
+    def test_invivo_kd_delegation(self):
+        content = 'CompA,CompA,CompA\n-7,0.0,0.1,-0.1\n14,-30.5,-31.2,-29.8\n'
+        f = self._f(content)
+        self.assertEqual(detect_file_type_rules(f), 'invivo_kd')
+
+    def test_unknown_on_garbage(self):
+        f = self._f('col1,col2,col3\nfoo,bar,baz\n')
+        self.assertEqual(detect_file_type_rules(f), 'unknown')

@@ -1,12 +1,23 @@
 import csv
 import io
+import json
 import logging
 import re
 import statistics
+import urllib.request
 from collections import defaultdict
 from dataclasses import dataclass
 
 _logger = logging.getLogger(__name__)
+
+
+class _BytesFile:
+    """Wraps bytes as a file-like object with a read() method. Avoids closure bugs in loops."""
+    def __init__(self, data: bytes):
+        self._data = data
+
+    def read(self) -> bytes:
+        return self._data
 
 
 # ── Data structures ──────────────────────────────────────────────────────────
@@ -720,4 +731,50 @@ def detect_invivo_file_type(file) -> str:
         return 'unknown'
     except Exception:
         _logger.exception('detect_invivo_file_type failed')
+        return 'unknown'
+
+
+def detect_file_type_rules(file) -> str:
+    """Rule-based file type detection. Returns one of the 7 labels or 'unknown'."""
+    try:
+        file_bytes = file.read()
+
+        # Check vitro file types first (header-keyword rules take priority)
+        text = _read_csv_text(_BytesFile(file_bytes))
+        rows = list(csv.reader(io.StringIO(text)))
+        if not rows:
+            return 'unknown'
+
+        header = ' '.join(c.strip() for c in rows[0]).lower()
+        if re.search(r'ic50|max.?kd', header):
+            return 'vitro_summary'
+        if re.search(r'sirna|transfection', header):
+            return 'vitro_transfection'
+        if re.search(r'modify.?seq|sequence.?id', header):
+            return 'vitro_seq'
+
+        header_cells = [c.strip().lower() for c in rows[0] if c.strip()]
+        if any(re.match(r'^cp[\s_]?\d*$', cell) for cell in header_cells):
+            body_values = []
+            for row in rows[1:6]:
+                for cell in row:
+                    s = cell.strip()
+                    if s:
+                        try:
+                            body_values.append(float(s))
+                        except ValueError:
+                            pass
+            if body_values and all(10 <= v <= 45 for v in body_values):
+                return 'vitro_cp'
+
+        # Fall back to in-vivo detection
+        invivo_result = detect_invivo_file_type(_BytesFile(file_bytes))
+        if invivo_result == 'knockdown_pct':
+            return 'invivo_kd'
+        if invivo_result == 'body_weight':
+            return 'invivo_bw'
+
+        return 'unknown'
+    except Exception:
+        _logger.exception('detect_file_type_rules failed')
         return 'unknown'
