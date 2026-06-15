@@ -1401,4 +1401,214 @@ def smart_upload_view(request):
 
 @login_required
 def smart_upload_confirm_view(request):
+    if request.method != 'POST':
+        return redirect('smart_upload')
+
+    smart_preview = request.session.get('smart_preview')
+    if not smart_preview:
+        return redirect('smart_upload')
+
+    invitro = smart_preview.get('invitro')
+    invivo_groups = smart_preview.get('invivo_groups', [])
+
+    batch_label = request.POST.get('batch_label', '').strip()
+    assay_name = request.POST.get('assay_name', '').strip()
+    exp_date = request.POST.get('exp_date', '').strip() or None
+
+    errors = []
+    if invitro and not batch_label:
+        errors.append('批次名称为必填项')
+
+    invivo_meta = []
+    for i, group in enumerate(invivo_groups):
+        time_unit = request.POST.get(f'time_unit_{i}', '').strip()
+        dose_override = request.POST.get(f'dose_override_{i}', '').strip()
+        animal_species = request.POST.get(f'animal_species_{i}', '').strip()
+        animal_strain = request.POST.get(f'animal_strain_{i}', '').strip()
+        route = request.POST.get(f'route_{i}', '').strip()
+        gender = request.POST.get(f'gender_{i}', '').strip()
+
+        if not time_unit:
+            errors.append(f'文件 {group["filename"]}: 请填写时间单位')
+        if group['needs_dose'] and not dose_override:
+            errors.append(f'文件 {group["filename"]}: 请填写剂量信息')
+        if not animal_species:
+            errors.append(f'文件 {group["filename"]}: 请填写动物物种')
+        if not animal_strain:
+            errors.append(f'文件 {group["filename"]}: 请填写动物品系')
+        if not route:
+            errors.append(f'文件 {group["filename"]}: 请填写给药途径')
+        if not gender:
+            errors.append(f'文件 {group["filename"]}: 请填写动物性别')
+
+        invivo_meta.append({
+            'time_unit': time_unit,
+            'dose_override': dose_override,
+            'animal_species': animal_species,
+            'animal_strain': animal_strain,
+            'route': route,
+            'gender': gender,
+        })
+
+    if errors:
+        return render(request, 'smart_upload.html', {
+            'preview': smart_preview,
+            'errors': errors,
+        })
+
+    n_experiments = 0
+    n_invivo = 0
+    invitro_errors = []
+    invivo_errors = []
+
+    # Write in-vitro (one atomic transaction)
+    if invitro:
+        preview_copy = copy.deepcopy(invitro)
+        preview_copy['batch_label'] = batch_label
+        preview_copy['assay_name'] = assay_name or preview_copy.get('assay_name', '')
+        exp_date_obj = None
+        if exp_date:
+            try:
+                exp_date_obj = date_type.fromisoformat(exp_date)
+            except ValueError:
+                pass
+
+        try:
+            with transaction.atomic():
+                for c in preview_copy.get('new_compounds', []):
+                    Compound.objects.get_or_create(compound_id=c['compound_id'])
+
+                for cid, seq_data in preview_copy.get('strand_map', {}).items():
+                    compound, _ = Compound.objects.get_or_create(compound_id=cid)
+                    if seq_data.get('ss_seq'):
+                        Strand.objects.get_or_create(
+                            compound=compound, strand_type='SS',
+                            defaults={'sequence_id': f'{cid}_SS', 'modify_seq': seq_data['ss_seq']},
+                        )
+                    if seq_data.get('as_seq'):
+                        Strand.objects.get_or_create(
+                            compound=compound, strand_type='AS',
+                            defaults={'sequence_id': f'{cid}_AS', 'modify_seq': seq_data['as_seq']},
+                        )
+
+                for exp_data in preview_copy.get('experiments', []):
+                    cid = exp_data['compound_id']
+                    compound, _ = Compound.objects.get_or_create(compound_id=cid)
+                    exp, exp_created = Experiment.objects.get_or_create(
+                        compound=compound,
+                        batch_label=preview_copy['batch_label'],
+                        assay_name=preview_copy['assay_name'],
+                        defaults={
+                            'exp_type': exp_data.get('exp_type', 'in_vitro'),
+                            'cell_line': preview_copy.get('cell_line', ''),
+                            'notes': preview_copy.get('notes', ''),
+                            'date': exp_date_obj,
+                        },
+                    )
+                    if exp_created:
+                        n_experiments += 1
+                        dp_objs = [
+                            DataPoint(
+                                experiment=exp,
+                                x_value=dp['x_value'],
+                                x_type=dp['x_type'],
+                                replicate=dp['replicate'],
+                                value=dp['value'],
+                                readout_type=dp['readout_type'],
+                                is_control=dp.get('is_control', False),
+                                raw_cp=dp.get('raw_cp'),
+                            )
+                            for dp in exp_data.get('datapoints', [])
+                        ]
+                        DataPoint.objects.bulk_create(dp_objs)
+
+                        if exp_data.get('summary'):
+                            s = exp_data['summary']
+                            ExperimentSummary.objects.create(
+                                experiment=exp,
+                                max_kd_pct=s.get('max_kd_pct'),
+                                ic50_nm=s.get('ic50_nm'),
+                                rank=s.get('rank'),
+                            )
+        except Exception as e:
+            logger.error(f'smart_upload_confirm invitro error: {e}')
+            invitro_errors.append(str(e))
+
+    # Write each in-vivo group in its own atomic transaction (independent)
+    for i, group in enumerate(invivo_groups):
+        meta = invivo_meta[i]
+        batch_label_iv = datetime.now().strftime('B%Y%m%d%H%M%S')
+        readout_type = group['readout_type']
+        assay_name_iv = 'KD% 时间曲线' if readout_type == 'knockdown_pct' else '体重时间曲线'
+        first_exp = None
+
+        try:
+            with transaction.atomic():
+                for g in group['groups']:
+                    compound, _ = Compound.objects.get_or_create(compound_id=g['compound_id'])
+                    dose_info = g['dose_info'] or meta['dose_override']
+
+                    exp = Experiment.objects.create(
+                        compound=compound,
+                        exp_type='in_vivo',
+                        assay_name=assay_name_iv,
+                        batch_label=batch_label_iv,
+                        animal_species=meta['animal_species'],
+                        animal_strain=meta['animal_strain'],
+                        route=meta['route'],
+                        gender=meta['gender'],
+                        time_unit=meta['time_unit'],
+                        dose_info=dose_info,
+                    )
+                    if first_exp is None:
+                        first_exp = exp
+                    n_invivo += 1
+
+                    dp_objs = []
+                    for tp in g['timepoints']:
+                        dp_objs.append(DataPoint(
+                            experiment=exp, x_value=tp['time'], x_type='timepoint',
+                            replicate='Mean', value=tp['mean'], readout_type=readout_type,
+                        ))
+                        dp_objs.append(DataPoint(
+                            experiment=exp, x_value=tp['time'], x_type='timepoint',
+                            replicate='SD', value=tp['sd'], readout_type=readout_type,
+                        ))
+                    DataPoint.objects.bulk_create(dp_objs)
+
+                saved_path = group.get('saved_path', '')
+                if first_exp and saved_path and default_storage.exists(saved_path):
+                    from django.core.files.base import ContentFile as CF
+                    with default_storage.open(saved_path, 'rb') as fh:
+                        content = fh.read()
+                    att = ExperimentAttachment(experiment=first_exp, label=group['filename'])
+                    att.file.save(group['filename'], CF(content), save=True)
+                    default_storage.delete(saved_path)
+        except Exception as e:
+            logger.error(f'smart_upload_confirm invivo error: {e}')
+            invivo_errors.append(f'文件 {group["filename"]}: {e}')
+
+    # Clean up in-vitro temp files
+    for det in smart_preview.get('file_detections', []):
+        if det['detected_type'] not in ('invivo_kd', 'invivo_bw'):
+            try:
+                if default_storage.exists(det['saved_path']):
+                    default_storage.delete(det['saved_path'])
+            except Exception:
+                pass
+
+    del request.session['smart_preview']
+
+    parts = []
+    if n_experiments:
+        parts.append(f'{n_experiments} 条体外实验')
+    if n_invivo:
+        parts.append(f'{n_invivo} 条体内实验')
+
+    if invitro_errors or invivo_errors:
+        all_err = invitro_errors + invivo_errors
+        messages.warning(request, f'部分写入失败：{"；".join(all_err)}')
+    else:
+        messages.success(request, f'数据已上传：{", ".join(parts) or "0 条"}')
+
     return redirect('smart_upload')

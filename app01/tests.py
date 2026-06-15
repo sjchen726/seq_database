@@ -1274,7 +1274,7 @@ class DetectInVivoFileTypeTest(TestCase):
         self.assertEqual(self._detect("hello\nworld\n"), 'unknown')
 
 
-import tempfile, os
+import tempfile, os, shutil
 
 
 class InVivoUploadViewTest(TestCase):
@@ -1518,3 +1518,63 @@ class SmartUploadViewTest(TestCase):
         })
         r = self.client.get(reverse('smart_upload') + '?preview=1')
         self.assertEqual(r.status_code, 200)
+
+
+class SmartUploadConfirmTest(TestCase):
+    def setUp(self):
+        self.tmp_media = tempfile.mkdtemp()
+        self.user = LmsUser.objects.create_user(username='confirmtester', password='pw')
+        self.client.force_login(self.user)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp_media, ignore_errors=True)
+
+    def _upload_kd(self):
+        """POST a KD file to smart_upload to populate the session."""
+        kd_csv = b'CompA,CompA,CompA\n-7,0.0,0.1,-0.1\n14,-30.5,-31.2,-29.8\n'
+        f = SimpleUploadedFile('data2.csv', kd_csv, content_type='text/csv')
+        with override_settings(MEDIA_ROOT=self.tmp_media):
+            self.client.post(reverse('smart_upload'), {'project_code': '3M03', 'files': f})
+
+    def _confirm_post(self, extra=None):
+        data = {
+            'time_unit_0': 'day',
+            'dose_override_0': '10mpk SC',
+            'animal_species_0': 'mouse',
+            'animal_strain_0': 'C57BL/6',
+            'route_0': 'SC',
+            'gender_0': 'male',
+        }
+        if extra:
+            data.update(extra)
+        with override_settings(MEDIA_ROOT=self.tmp_media):
+            return self.client.post(reverse('smart_upload_confirm'), data)
+
+    def test_missing_time_unit_returns_error(self):
+        self._upload_kd()
+        r = self._confirm_post(extra={'time_unit_0': ''})
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, '时间单位')
+
+    def test_missing_animal_species_returns_error(self):
+        self._upload_kd()
+        r = self._confirm_post(extra={'animal_species_0': ''})
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, '物种')
+
+    def test_successful_invivo_confirm_writes_experiments(self):
+        with override_settings(MEDIA_ROOT=self.tmp_media):
+            self._upload_kd()
+            r = self._confirm_post()
+        self.assertRedirects(r, reverse('smart_upload'))
+        self.assertEqual(Experiment.objects.filter(exp_type='in_vivo').count(), 1)
+        exp = Experiment.objects.get(exp_type='in_vivo')
+        self.assertEqual(exp.animal_species, 'mouse')
+        self.assertEqual(exp.time_unit, 'day')
+        self.assertEqual(DataPoint.objects.filter(experiment=exp).count(), 4)
+
+    def test_session_cleared_after_confirm(self):
+        with override_settings(MEDIA_ROOT=self.tmp_media):
+            self._upload_kd()
+            self._confirm_post()
+        self.assertNotIn('smart_preview', self.client.session)
