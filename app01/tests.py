@@ -1437,7 +1437,7 @@ class DetectFileLLMTest(TestCase):
         DEEPSEEK_MODEL='deepseek-chat',
     )
     def test_calls_api_returns_label(self):
-        with patch('urllib.request.urlopen', return_value=self._mock_response('vitro_summary')):
+        with patch('app01.upload_pipeline.urllib.request.urlopen', return_value=self._mock_response('vitro_summary')):
             result = detect_file_type_llm('mystery.csv', self._f())
         self.assertEqual(result, 'vitro_summary')
 
@@ -1447,7 +1447,7 @@ class DetectFileLLMTest(TestCase):
         DEEPSEEK_MODEL='deepseek-chat',
     )
     def test_api_failure_returns_unknown(self):
-        with patch('urllib.request.urlopen', side_effect=Exception('network error')):
+        with patch('app01.upload_pipeline.urllib.request.urlopen', side_effect=Exception('network error')):
             result = detect_file_type_llm('mystery.csv', self._f())
         self.assertEqual(result, 'unknown')
 
@@ -1457,7 +1457,7 @@ class DetectFileLLMTest(TestCase):
         DEEPSEEK_MODEL='deepseek-chat',
     )
     def test_no_api_key_skips_call(self):
-        with patch('urllib.request.urlopen') as mock_urlopen:
+        with patch('app01.upload_pipeline.urllib.request.urlopen') as mock_urlopen:
             result = detect_file_type_llm('mystery.csv', self._f())
         mock_urlopen.assert_not_called()
         self.assertEqual(result, 'unknown')

@@ -802,6 +802,7 @@ def detect_file_type_llm(filename: str, file) -> str:
         rows = list(csv.reader(io.StringIO(text)))[:20]
         csv_preview = '\n'.join(','.join(row) for row in rows)
     except Exception:
+        _logger.warning('detect_file_type_llm: failed to read CSV preview')
         return 'unknown'
 
     prompt = (
