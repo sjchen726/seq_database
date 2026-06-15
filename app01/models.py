@@ -71,6 +71,7 @@ class Compound(models.Model):
     compound_id = models.CharField(max_length=32, primary_key=True)
     project = models.CharField(max_length=32, blank=True, db_index=True)
     target = models.CharField(max_length=32, blank=True, db_index=True)
+    target_name = models.CharField(max_length=128, blank=True)
     transcript_ref = models.CharField(max_length=64, blank=True)
     remarks = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
