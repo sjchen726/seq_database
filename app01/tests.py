@@ -1093,6 +1093,7 @@ class InVivoModelTest(TestCase):
 
     def test_experiment_animal_fields_blank_by_default(self):
         exp = self._make_experiment()
+        exp.refresh_from_db()
         self.assertEqual(exp.animal_species, '')
         self.assertEqual(exp.time_unit, '')
 
@@ -1101,14 +1102,20 @@ class InVivoModelTest(TestCase):
         self.assertIn('body_weight', choices)
 
     def test_experiment_attachment_create(self):
+        import tempfile, shutil
+        from django.test import override_settings
         from app01.models import ExperimentAttachment
         from django.core.files.base import ContentFile
-        exp = self._make_experiment()
-        att = ExperimentAttachment.objects.create(
-            experiment=exp,
-            label='Raw data',
-        )
-        att.file.save('test.csv', ContentFile(b'a,b\n1,2'), save=True)
-        att.refresh_from_db()
-        self.assertTrue(att.file.name.endswith('test.csv'))
-        att.file.delete()  # cleanup
+        tmp = tempfile.mkdtemp()
+        try:
+            with override_settings(MEDIA_ROOT=tmp):
+                exp = self._make_experiment()
+                att = ExperimentAttachment.objects.create(
+                    experiment=exp,
+                    label='Raw data',
+                )
+                att.file.save('test.csv', ContentFile(b'a,b\n1,2'), save=True)
+                att.refresh_from_db()
+                self.assertTrue(att.file.name.endswith('test.csv'))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
