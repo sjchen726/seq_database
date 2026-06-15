@@ -778,3 +778,68 @@ def detect_file_type_rules(file) -> str:
     except Exception:
         _logger.exception('detect_file_type_rules failed')
         return 'unknown'
+
+
+def detect_file_type_llm(filename: str, file) -> str:
+    """Call DeepSeek to classify a CSV file. Returns one of the 7 labels or 'unknown' on failure."""
+    from django.conf import settings
+    api_key = getattr(settings, 'DEEPSEEK_API_KEY', '')
+    api_url = getattr(settings, 'DEEPSEEK_API_URL', 'https://api.deepseek.com/chat/completions')
+    model = getattr(settings, 'DEEPSEEK_MODEL', 'deepseek-chat')
+
+    if not api_key:
+        _logger.warning('detect_file_type_llm: DEEPSEEK_API_KEY not configured')
+        return 'unknown'
+
+    valid_labels = {
+        'vitro_seq', 'vitro_summary', 'vitro_cp',
+        'vitro_transfection', 'invivo_kd', 'invivo_bw', 'unknown',
+    }
+
+    try:
+        file_bytes = file.read()
+        text = _read_csv_text(_BytesFile(file_bytes))
+        rows = list(csv.reader(io.StringIO(text)))[:20]
+        csv_preview = '\n'.join(','.join(row) for row in rows)
+    except Exception:
+        return 'unknown'
+
+    prompt = (
+        f'You are classifying pharmaceutical research CSV files. The file is named "{filename}".\n'
+        f'Here are the first rows:\n\n{csv_preview}\n\n'
+        'Respond with EXACTLY one label from this list:\n'
+        'vitro_seq, vitro_summary, vitro_cp, vitro_transfection, invivo_kd, invivo_bw, unknown\n\n'
+        'Definitions:\n'
+        '- vitro_seq: sequence file with compound IDs and modification sequences\n'
+        '- vitro_summary: in vitro summary with IC50/MaxKD values per compound\n'
+        '- vitro_cp: raw RT-qPCR Cp values (LightCycler or similar format)\n'
+        '- vitro_transfection: siRNA-to-compound mapping with cell line and transfection notes\n'
+        '- invivo_kd: in vivo knockdown % time-course; headers are bare compound IDs repeated per replicate\n'
+        '- invivo_bw: in vivo body weight time-course; headers are "compound dose schedule" per replicate\n'
+        '- unknown: none of the above\n\n'
+        'Respond with only the label, nothing else.'
+    )
+
+    payload = json.dumps({
+        'model': model,
+        'messages': [{'role': 'user', 'content': prompt}],
+        'max_tokens': 20,
+        'temperature': 0,
+    }).encode('utf-8')
+
+    req = urllib.request.Request(
+        api_url,
+        data=payload,
+        headers={
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {api_key}',
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            result = json.loads(resp.read())
+        label = result['choices'][0]['message']['content'].strip().lower()
+        return label if label in valid_labels else 'unknown'
+    except Exception:
+        _logger.warning('detect_file_type_llm: API call failed')
+        return 'unknown'

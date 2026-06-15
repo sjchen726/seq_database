@@ -1381,6 +1381,7 @@ from django.urls import reverse  # used by SmartUploadViewTest, SmartUploadConfi
 
 from app01.upload_pipeline import (
     detect_file_type_rules,  # detect_file_type_llm added in Task 2
+    detect_file_type_llm,
 )
 
 
@@ -1412,3 +1413,51 @@ class DetectFileTypeRulesTest(TestCase):
     def test_unknown_on_garbage(self):
         f = self._f('col1,col2,col3\nfoo,bar,baz\n')
         self.assertEqual(detect_file_type_rules(f), 'unknown')
+
+
+import json as _json_mod
+
+
+class DetectFileLLMTest(TestCase):
+    def _f(self, content: str = 'col1,col2\nfoo,bar\n'):
+        return SimpleUploadedFile('mystery.csv', content.encode('utf-8'))
+
+    def _mock_response(self, label: str):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = _json_mod.dumps(
+            {'choices': [{'message': {'content': label}}]}
+        ).encode('utf-8')
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        return mock_resp
+
+    @override_settings(
+        DEEPSEEK_API_KEY='sk-test',
+        DEEPSEEK_API_URL='https://api.deepseek.com/chat/completions',
+        DEEPSEEK_MODEL='deepseek-chat',
+    )
+    def test_calls_api_returns_label(self):
+        with patch('urllib.request.urlopen', return_value=self._mock_response('vitro_summary')):
+            result = detect_file_type_llm('mystery.csv', self._f())
+        self.assertEqual(result, 'vitro_summary')
+
+    @override_settings(
+        DEEPSEEK_API_KEY='sk-test',
+        DEEPSEEK_API_URL='https://api.deepseek.com/chat/completions',
+        DEEPSEEK_MODEL='deepseek-chat',
+    )
+    def test_api_failure_returns_unknown(self):
+        with patch('urllib.request.urlopen', side_effect=Exception('network error')):
+            result = detect_file_type_llm('mystery.csv', self._f())
+        self.assertEqual(result, 'unknown')
+
+    @override_settings(
+        DEEPSEEK_API_KEY='',
+        DEEPSEEK_API_URL='https://api.deepseek.com/chat/completions',
+        DEEPSEEK_MODEL='deepseek-chat',
+    )
+    def test_no_api_key_skips_call(self):
+        with patch('urllib.request.urlopen') as mock_urlopen:
+            result = detect_file_type_llm('mystery.csv', self._f())
+        mock_urlopen.assert_not_called()
+        self.assertEqual(result, 'unknown')
