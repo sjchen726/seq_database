@@ -1323,13 +1323,18 @@ def smart_upload_view(request):
         if request.POST.get('reparse'):
             smart_preview = request.session.get('smart_preview', {})
             project_code = smart_preview.get('project_code', '')
+            # Build allowlist of paths already in session — prevents path traversal via crafted POST
+            allowed_paths = {
+                det['saved_path']
+                for det in smart_preview.get('file_detections', [])
+            }
             file_count = int(request.POST.get('file_count', 0))
             file_detections = []
             for i in range(file_count):
                 filename = request.POST.get(f'filename_{i}', '')
                 saved_path = request.POST.get(f'saved_path_{i}', '')
                 file_type = request.POST.get(f'file_type_{i}', 'unknown')
-                if filename and saved_path:
+                if filename and saved_path and saved_path in allowed_paths:
                     file_detections.append({
                         'filename': filename,
                         'saved_path': saved_path,
