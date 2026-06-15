@@ -612,6 +612,7 @@ class BuildInvivoSummaryTest(TestCase):
 
 
 # ---- CompoundListViewTest ----
+# ---- CompoundListViewTest ----
 class CompoundListViewTest(TestCase):
     def setUp(self):
         self.user = LmsUser.objects.create_user(
@@ -619,30 +620,34 @@ class CompoundListViewTest(TestCase):
         )
         self.client.login(username='tester', password='pass')
 
-        # 建两个 Compound
-        self.c1 = Compound.objects.create(compound_id='BPR_3M03FN01', project='3M03', target='FN')
-        self.c2 = Compound.objects.create(compound_id='BPR_3M03FN02', project='3M03', target='FN')
-        self.c3 = Compound.objects.create(compound_id='BPR_5X01TT01', project='5X01', target='TT')
-
-        # c1: 体外实验 + ExperimentSummary
-        exp_vitro = Experiment.objects.create(
-            compound=self.c1, exp_type='in_vitro', assay_name='test', batch_label='B1'
+        self.c1 = Compound.objects.create(
+            compound_id='BPR_3M03FN01', project='3M03', target='FN', target_name='FASN'
         )
-        ExperimentSummary.objects.create(experiment=exp_vitro, ic50_nm=2.0, max_kd_pct=85.0)
-
-        # c2: 体外实验 IC50=10
-        exp_vitro2 = Experiment.objects.create(
-            compound=self.c2, exp_type='in_vitro', assay_name='test', batch_label='B1'
+        self.c2 = Compound.objects.create(
+            compound_id='BPR_3M03FN02', project='3M03', target='FN', target_name='FASN'
         )
-        ExperimentSummary.objects.create(experiment=exp_vitro2, ic50_nm=10.0, max_kd_pct=70.0)
-
-        # c1: 体内实验 + DataPoint
-        exp_vivo = Experiment.objects.create(
-            compound=self.c1, exp_type='in_vivo', assay_name='mouse', batch_label='M1'
+        self.c3 = Compound.objects.create(
+            compound_id='BPR_5X01TT01', project='5X01', target='TT', target_name='PCSK9'
+        )
+        self.exp_vitro = Experiment.objects.create(
+            compound=self.c1, exp_type='in_vitro', assay_name='test', batch_label='B20260615'
+        )
+        ExperimentSummary.objects.create(experiment=self.exp_vitro, ic50_nm=2.0, max_kd_pct=85.0)
+        DataPoint.objects.create(
+            experiment=self.exp_vitro, x_value=100.0, x_type='concentration',
+            replicate='Mean', value=0.25, readout_type='mRNA_remaining'
+        )
+        self.exp_vivo = Experiment.objects.create(
+            compound=self.c1, exp_type='in_vivo', assay_name='mouse',
+            batch_label='M20260615', time_unit='day'
         )
         DataPoint.objects.create(
-            experiment=exp_vivo, x_value=7.0, x_type='timepoint',
-            replicate='Mean', readout_type='knockdown_pct', value=75.0
+            experiment=self.exp_vivo, x_value=7.0, x_type='timepoint',
+            replicate='1', value=-75.0, readout_type='knockdown_pct'
+        )
+        DataPoint.objects.create(
+            experiment=self.exp_vivo, x_value=7.0, x_type='timepoint',
+            replicate='2', value=-77.0, readout_type='knockdown_pct'
         )
 
     def test_list_returns_200(self):
@@ -654,49 +659,41 @@ class CompoundListViewTest(TestCase):
         resp = self.client.get('/compounds/')
         self.assertRedirects(resp, '/login/?next=/compounds/', fetch_redirect_response=False)
 
+    def test_compound_data_in_context(self):
+        resp = self.client.get('/compounds/')
+        self.assertIn('compound_data', resp.context)
+        ids = [item['compound'].compound_id for item in resp.context['compound_data']]
+        self.assertIn('BPR_3M03FN01', ids)
+
     def test_filter_by_project(self):
-        resp = self.client.get('/compounds/?project=3M03')
-        self.assertEqual(resp.status_code, 200)
-        ids = [c.compound_id for c in resp.context['page_obj']]
+        resp = self.client.get('/compounds/?project=5X01')
+        ids = [item['compound'].compound_id for item in resp.context['compound_data']]
+        self.assertIn('BPR_5X01TT01', ids)
+        self.assertNotIn('BPR_3M03FN01', ids)
+
+    def test_filter_by_tag_invitro(self):
+        resp = self.client.get('/compounds/?tag=in_vitro')
+        # c3 has no experiments, c1 has vitro → c1 present, c3 absent
+        ids = [item['compound'].compound_id for item in resp.context['compound_data']]
         self.assertIn('BPR_3M03FN01', ids)
         self.assertNotIn('BPR_5X01TT01', ids)
 
-    def test_filter_by_ic50_max(self):
-        resp = self.client.get('/compounds/?ic50_max=5')
-        ids = [c.compound_id for c in resp.context['page_obj']]
-        self.assertIn('BPR_3M03FN01', ids)
-        self.assertNotIn('BPR_3M03FN02', ids)
-
-    def test_filter_has_invivo(self):
-        resp = self.client.get('/compounds/?has_invivo=1')
-        ids = [c.compound_id for c in resp.context['page_obj']]
-        self.assertIn('BPR_3M03FN01', ids)
-        self.assertNotIn('BPR_3M03FN02', ids)
-
-    def test_sort_by_ic50(self):
-        resp = self.client.get('/compounds/?sort=ic50')
-        compounds = list(resp.context['page_obj'])
-        ic50s = [c.best_ic50 for c in compounds if c.best_ic50 is not None]
-        self.assertEqual(ic50s, sorted(ic50s))
-        # nulls-last: compound with no IC50 (c3) should appear after those with IC50
-        self.assertIsNone(compounds[-1].best_ic50)
-
-    def test_invivo_data_in_context(self):
+    def test_batch_groups_in_compound_data(self):
         resp = self.client.get('/compounds/')
-        invivo_data = resp.context['invivo_data']
-        self.assertIn('BPR_3M03FN01', invivo_data)
-        self.assertEqual(invivo_data['BPR_3M03FN01'][0]['batch_label'], 'M1')
+        item = next(
+            d for d in resp.context['compound_data']
+            if d['compound'].compound_id == 'BPR_3M03FN01'
+        )
+        self.assertGreaterEqual(len(item['batch_groups']), 1)
+        first_group = item['batch_groups'][0]
+        self.assertIn('rows', first_group)
+        self.assertIn('attachments', first_group)
 
-    def test_pagination(self):
-        # 已有 3 条，再插 48 条使总数 > 50
-        for i in range(48):
-            Compound.objects.create(
-                compound_id=f'BPR_PADN{i:02d}', project='PAD', target='X'
-            )
+    def test_pagination_20_per_page(self):
+        for i in range(22):
+            Compound.objects.create(compound_id=f'BPR_PADN{i:02d}')
         resp = self.client.get('/compounds/')
-        self.assertEqual(len(resp.context['page_obj']), 50)
-        resp2 = self.client.get('/compounds/?page=2')
-        self.assertGreaterEqual(len(resp2.context['page_obj']), 1)
+        self.assertEqual(len(resp.context['compound_data']), 20)
 
 
 # ---- CompoundDetailViewTest ----

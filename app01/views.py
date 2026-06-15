@@ -6,7 +6,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, Http404, JsonResponse
 from django.contrib.auth import authenticate, login, logout as auth_logout
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q, Min, Max, Count, F
+from django.db.models import Q, Min, Max, Count, F, Prefetch
 from django.core.paginator import InvalidPage, Paginator
 from django.db import transaction
 from datetime import date as date_type, datetime
@@ -835,6 +835,41 @@ def _build_invivo_rows(datapoints, time_unit):
     return rows
 
 
+def _build_batch_groups(experiments):
+    """Convert a list of Experiment objects into template-ready batch group dicts.
+
+    Experiments should be pre-ordered newest-first (by batch_label desc).
+    The first group gets default_open=True; all others default_open=False.
+    """
+    groups = []
+    for idx, exp in enumerate(experiments):
+        summary = getattr(exp, 'summary', None)
+        all_dps = list(exp.datapoints.all())
+
+        if exp.exp_type == 'in_vitro':
+            rows = _build_vitro_rows(all_dps)
+            header_ic50 = summary.ic50_nm if summary else None
+            header_maxkd = summary.max_kd_pct if summary else None
+        else:
+            rows = _build_invivo_rows(all_dps, exp.time_unit or 'day')
+            header_ic50 = None
+            header_maxkd = summary.max_kd_pct if summary else None
+
+        groups.append({
+            'experiment': exp,
+            'summary': summary,
+            'rows': rows,
+            'attachments': list(exp.attachments.all()),
+            'tag_label': '体外' if exp.exp_type == 'in_vitro' else '体内',
+            'tag_css': 'tag-vitro' if exp.exp_type == 'in_vitro' else 'tag-invivo',
+            'header_ic50': header_ic50,
+            'header_maxkd': header_maxkd,
+            'timepoint_labels': [r['label'] for r in rows] if exp.exp_type == 'in_vivo' else [],
+            'default_open': idx == 0,
+        })
+    return groups
+
+
 def build_invivo_summary(experiments):
     """Return {compound_id: [{batch_label, timepoints}]}. Uses Mean replicates if any exist for an experiment; otherwise averages A/B."""
     result = defaultdict(list)
@@ -868,81 +903,64 @@ def build_invivo_summary(experiments):
 
 @login_required
 def compound_list(request):
+    q = request.GET.get('q', '').strip()
     project = request.GET.get('project', '').strip()
-    target = request.GET.get('target', '').strip()
-    ic50_max = request.GET.get('ic50_max', '').strip()
-    has_invivo = request.GET.get('has_invivo', '')
-    sort = request.GET.get('sort', 'ic50')
-    page_num = request.GET.get('page', '1')
+    target_name_filter = request.GET.get('target_name', '').strip()
+    tag = request.GET.get('tag', '').strip()
 
-    qs = Compound.objects.annotate(
-        best_ic50=Min('experiments__summary__ic50_nm'),
-        best_maxkd=Max('experiments__summary__max_kd_pct'),
-        invivo_count=Count(
+    qs = Compound.objects.prefetch_related(
+        Prefetch('strands', queryset=Strand.objects.order_by('-strand_type')),
+        Prefetch(
             'experiments',
-            filter=Q(experiments__exp_type='in_vivo'),
-            distinct=True,
+            queryset=Experiment.objects.select_related('summary')
+                .prefetch_related('datapoints', 'attachments')
+                .order_by('-batch_label'),
         ),
-        peak_invivo_kd=Max(
-            'experiments__datapoints__value',
-            filter=Q(
-                experiments__exp_type='in_vivo',
-                experiments__datapoints__readout_type='knockdown_pct',
-            ),
-        ),
-    )
+    ).order_by('compound_id')
 
+    if q:
+        qs = qs.filter(compound_id__icontains=q)
     if project:
-        qs = qs.filter(project__icontains=project)
-    if target:
-        qs = qs.filter(target__icontains=target)
-    if ic50_max:
-        try:
-            qs = qs.filter(best_ic50__lte=float(ic50_max))
-        except ValueError:
-            pass
-    if has_invivo == '1':
-        qs = qs.filter(invivo_count__gt=0)
+        qs = qs.filter(project=project)
+    if target_name_filter:
+        qs = qs.filter(target_name__icontains=target_name_filter)
+    if tag:
+        qs = qs.filter(experiments__exp_type=tag).distinct()
 
-    sort_map = {
-        'ic50': F('best_ic50').asc(nulls_last=True),
-        'maxkd': F('best_maxkd').desc(nulls_last=True),
-        'compound_id': F('compound_id').asc(),
-    }
-    qs = qs.order_by(sort_map.get(sort, F('best_ic50').asc(nulls_last=True)))
-
-    paginator = Paginator(qs, 50)
+    paginator = Paginator(qs, 20)
     try:
-        page_obj = paginator.page(int(page_num))
+        page_obj = paginator.page(int(request.GET.get('page', 1)))
     except (ValueError, InvalidPage):
         page_obj = paginator.page(1)
 
-    page_compound_ids = [c.compound_id for c in page_obj]
-    invivo_experiments = (
-        Experiment.objects
-        .filter(compound_id__in=page_compound_ids, exp_type='in_vivo')
-        .prefetch_related('datapoints')
-        .order_by('compound_id', 'batch_label')
+    compound_data = []
+    for compound in page_obj:
+        exps = list(compound.experiments.all())
+        if tag:
+            exps = [e for e in exps if e.exp_type == tag]
+        strand_map = [(s.strand_type, s.modify_seq) for s in compound.strands.all()]
+        compound_data.append({
+            'compound': compound,
+            'strand_map': strand_map,
+            'batch_groups': _build_batch_groups(exps),
+        })
+
+    all_projects = sorted(
+        Compound.objects.exclude(project='').values_list('project', flat=True).distinct()
     )
-    invivo_data = build_invivo_summary(invivo_experiments)
+    all_targets = sorted(
+        Compound.objects.exclude(target_name='').values_list('target_name', flat=True).distinct()
+    )
 
-    strand_map = {}
-    for s in Strand.objects.filter(compound_id__in=page_compound_ids).order_by('strand_type'):
-        strand_map.setdefault(s.compound_id, []).append(s)
-
-    filter_params = {
-        'project': project,
-        'target': target,
-        'ic50_max': ic50_max,
-        'has_invivo': has_invivo,
-        'sort': sort,
-    }
     return render(request, 'compound_list.html', {
+        'compound_data': compound_data,
         'page_obj': page_obj,
-        'invivo_data': invivo_data,
-        'strand_map': strand_map,
-        'filter_params': filter_params,
-        'total_count': page_obj.paginator.count,
+        'all_projects': all_projects,
+        'all_targets': all_targets,
+        'q': q,
+        'project': project,
+        'target_name': target_name_filter,
+        'tag': tag,
     })
 
 
