@@ -1119,3 +1119,76 @@ class InVivoModelTest(TestCase):
                 self.assertTrue(att.file.name.endswith('test.csv'))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+
+
+from app01.upload_pipeline import (
+    ParsedInVivoFile, ParsedInVivoGroup, ParsedInVivoTimepoint,
+    parse_invivo_kd_file,
+)
+
+INVIVO_KD_CSV = """\
+,CompA ,CompA ,CompA ,CompB ,CompB ,CompB
+-7,0,0,0,0,0,0
+14,-95.67,-94.49,-95.24*,-80.1,-82.3,-81.5
+28,-97.16,-96.57,-93.37*,-85.0,-87.2,-86.1
+"""
+
+
+class ParseInVivoKdFileTest(TestCase):
+    def _parse(self, csv_text=INVIVO_KD_CSV):
+        class F:
+            def read(self_):
+                return csv_text.encode('utf-8')
+        return parse_invivo_kd_file(F())
+
+    def test_readout_type(self):
+        result = self._parse()
+        self.assertEqual(result.readout_type, 'knockdown_pct')
+
+    def test_needs_dose(self):
+        result = self._parse()
+        self.assertTrue(result.needs_dose)
+
+    def test_groups_count(self):
+        result = self._parse()
+        self.assertEqual(len(result.groups), 2)
+
+    def test_compound_ids(self):
+        result = self._parse()
+        ids = {g.compound_id for g in result.groups}
+        self.assertIn('CompA', ids)
+        self.assertIn('CompB', ids)
+
+    def test_timepoints_correct(self):
+        result = self._parse()
+        comp_a = next(g for g in result.groups if g.compound_id == 'CompA')
+        tp14 = next(tp for tp in comp_a.timepoints if tp.time == 14.0)
+        self.assertAlmostEqual(tp14.mean, (-95.67 + -94.49 + -95.24) / 3, places=2)
+        self.assertEqual(tp14.n, 3)
+
+    def test_star_stripped(self):
+        result = self._parse()
+        comp_a = next(g for g in result.groups if g.compound_id == 'CompA')
+        tp28 = next(tp for tp in comp_a.timepoints if tp.time == 28.0)
+        self.assertAlmostEqual(tp28.mean, (-97.16 + -96.57 + -93.37) / 3, places=2)
+
+    def test_time_unit_day_when_negatives(self):
+        result = self._parse()
+        self.assertEqual(result.inferred_time_unit, 'day')
+
+    def test_time_unit_unknown_when_no_negatives(self):
+        csv_text = ",CompA ,CompA ,CompA\n14,-95.67,-94.49,-95.24\n28,-97.16,-96.57,-93.37\n"
+        result = self._parse(csv_text)
+        self.assertEqual(result.inferred_time_unit, 'unknown')
+
+    def test_empty_cells_skipped(self):
+        csv_text = ",CompA ,CompA ,CompA\n14,-95.67,,-95.24\n"
+        result = self._parse(csv_text)
+        comp_a = result.groups[0]
+        tp14 = comp_a.timepoints[0]
+        self.assertEqual(tp14.n, 2)
+        self.assertAlmostEqual(tp14.mean, (-95.67 + -95.24) / 2, places=2)
+
+    def test_malformed_file_returns_empty(self):
+        result = self._parse("garbage\nno data here\n")
+        self.assertEqual(result.groups, [])

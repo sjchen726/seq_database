@@ -2,6 +2,7 @@ import csv
 import io
 import logging
 import re
+import statistics
 from collections import defaultdict
 from dataclasses import dataclass
 
@@ -38,6 +39,29 @@ class ParsedTransfectionFile:
     cell_line: str
     notes: str
     mapping: dict  # {'siRNA-01': 'BPR_3M03FN01', ...}
+
+
+@dataclass
+class ParsedInVivoTimepoint:
+    time: float
+    mean: float
+    sd: float
+    n: int
+
+
+@dataclass
+class ParsedInVivoGroup:
+    compound_id: str
+    dose_info: str
+    timepoints: list  # List[ParsedInVivoTimepoint]
+
+
+@dataclass
+class ParsedInVivoFile:
+    readout_type: str        # 'knockdown_pct' | 'body_weight'
+    groups: list             # List[ParsedInVivoGroup]
+    inferred_time_unit: str  # 'day' | 'unknown'
+    needs_dose: bool
 
 
 # ── Internal helpers ─────────────────────────────────────────────────────────
@@ -541,3 +565,108 @@ def parse_transfection_file(file) -> ParsedTransfectionFile:
                 mapping[sirna] = cid
 
     return ParsedTransfectionFile(cell_line=cell_line, notes=notes, mapping=mapping)
+
+
+# ── In vivo file parsers ─────────────────────────────────────────────────────
+
+def _strip_star(val: str) -> str:
+    return val.strip().rstrip('*')
+
+
+def _group_header_columns(header_row: list) -> list:
+    """Group consecutive identical non-empty header cells into dicts with compound_id, dose_info, indices."""
+    groups = []
+    current_key = None
+    current_indices = []
+    for i, cell in enumerate(header_row):
+        cell = cell.strip()
+        if not cell:
+            continue
+        if cell != current_key:
+            if current_key is not None:
+                parts = current_key.split(None, 1)
+                groups.append({
+                    'compound_id': parts[0],
+                    'dose_info': parts[1] if len(parts) > 1 else '',
+                    'indices': current_indices,
+                })
+            current_key = cell
+            current_indices = [i]
+        else:
+            current_indices.append(i)
+    if current_key is not None:
+        parts = current_key.split(None, 1)
+        groups.append({
+            'compound_id': parts[0],
+            'dose_info': parts[1] if len(parts) > 1 else '',
+            'indices': current_indices,
+        })
+    return groups
+
+
+def _parse_invivo_rows(rows: list, groups_meta: list, readout_type: str, needs_dose: bool) -> ParsedInVivoFile:
+    """Shared parsing logic for KD% and body weight files."""
+    has_negative_time = False
+    group_data = {i: [] for i in range(len(groups_meta))}
+
+    for row in rows[1:]:  # skip header
+        if not row or not row[0].strip():
+            continue
+        try:
+            time_val = float(_strip_star(row[0]))
+        except ValueError:
+            continue
+        if time_val < 0:
+            has_negative_time = True
+
+        for gi, gm in enumerate(groups_meta):
+            values = []
+            for col_idx in gm['indices']:
+                if col_idx < len(row):
+                    raw = _strip_star(row[col_idx])
+                    if raw:
+                        try:
+                            values.append(float(raw))
+                        except ValueError:
+                            pass
+            if values:
+                group_data[gi].append((time_val, values))
+
+    result_groups = []
+    for gi, gm in enumerate(groups_meta):
+        tps = []
+        for time_val, values in group_data[gi]:
+            n = len(values)
+            mean = statistics.mean(values)
+            sd = statistics.stdev(values) if n > 1 else 0.0
+            tps.append(ParsedInVivoTimepoint(time=time_val, mean=mean, sd=sd, n=n))
+        tps.sort(key=lambda tp: tp.time)
+        if tps:
+            result_groups.append(ParsedInVivoGroup(
+                compound_id=gm['compound_id'],
+                dose_info=gm['dose_info'],
+                timepoints=tps,
+            ))
+
+    return ParsedInVivoFile(
+        readout_type=readout_type,
+        groups=result_groups,
+        inferred_time_unit='day' if has_negative_time else 'unknown',
+        needs_dose=needs_dose,
+    )
+
+
+def parse_invivo_kd_file(file) -> ParsedInVivoFile:
+    """Parse Data2-format in vivo KD% file (bare compound IDs in header, no dose info)."""
+    try:
+        text = _read_csv_text(file)
+        rows = list(csv.reader(io.StringIO(text)))
+        if len(rows) < 2:
+            return ParsedInVivoFile(readout_type='knockdown_pct', groups=[], inferred_time_unit='unknown', needs_dose=True)
+        groups_meta = _group_header_columns(rows[0])
+        for gm in groups_meta:
+            gm['dose_info'] = ''
+        return _parse_invivo_rows(rows, groups_meta, 'knockdown_pct', needs_dose=True)
+    except Exception:
+        _logger.exception('parse_invivo_kd_file failed')
+        return ParsedInVivoFile(readout_type='knockdown_pct', groups=[], inferred_time_unit='unknown', needs_dose=True)
