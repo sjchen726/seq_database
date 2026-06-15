@@ -8,12 +8,15 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Q, Min, Max, Count, F
 from django.core.paginator import InvalidPage, Paginator
 from django.db import transaction
-from datetime import date as date_type
+from datetime import date as date_type, datetime
+from django.contrib import messages
+from django.core.files.storage import default_storage
 import logging
 
 from app01.models import (
     LmsUser, SeqModule, LinkerModule, DeliveryModule,
     Compound, Strand, Experiment, DataPoint, ExperimentSummary,
+    ExperimentAttachment,
 )
 
 logger = logging.getLogger("bprdb_log")
@@ -542,6 +545,7 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
 from app01.upload_pipeline import (
     parse_seq_file, parse_summary_csv, parse_cp_file,
     build_preview, normalize_compound_ids, parse_transfection_file,
+    parse_invivo_kd_file, parse_body_weight_file, detect_invivo_file_type,
 )
 
 
@@ -1007,7 +1011,188 @@ def batch_delete(request, batch_label):
         from django.http import Http404
         raise Http404
     Experiment.objects.filter(batch_label=batch_label).delete()
-    from django.contrib import messages
     messages.success(request, f'批次 {batch_label} 已删除（化合物记录保留）')
     return redirect('batch_list')
 
+
+@login_required
+def invivo_upload_view(request):
+    if request.method == 'POST':
+        project_code = request.POST.get('project_code', '').strip()
+        file_type_override = request.POST.get('file_type_override', '').strip()
+        errors = []
+
+        if not project_code:
+            errors.append('项目号为必填项')
+
+        if 'invivo_file' not in request.FILES or not request.FILES['invivo_file'].name:
+            errors.append('请上传体内数据文件（.csv）')
+
+        if errors:
+            return render(request, 'invivo_upload.html', {'errors': errors})
+
+        invivo_file = request.FILES['invivo_file']
+        filename = invivo_file.name
+        file_bytes = invivo_file.read()
+
+        class _BytesFile:
+            def read(self, size=-1):
+                return file_bytes
+
+        if file_type_override:
+            file_type = file_type_override
+        else:
+            file_type = detect_invivo_file_type(_BytesFile())
+
+        if file_type not in ('knockdown_pct', 'body_weight'):
+            return render(request, 'invivo_upload.html', {
+                'errors': [],
+                'ask_file_type': True,
+                'project_code': project_code,
+            })
+
+        try:
+            if file_type == 'knockdown_pct':
+                parsed = parse_invivo_kd_file(_BytesFile())
+            else:
+                parsed = parse_body_weight_file(_BytesFile())
+        except Exception as e:
+            return render(request, 'invivo_upload.html', {'errors': [f'文件解析失败：{e}']})
+
+        if not parsed.groups:
+            return render(request, 'invivo_upload.html', {'errors': ['文件解析结果为空，请检查格式']})
+
+        from django.core.files.base import ContentFile
+        saved_path = default_storage.save(f'_tmp_invivo/{filename}', ContentFile(file_bytes))
+
+        preview = {
+            'project_code': project_code,
+            'filename': filename,
+            'saved_path': saved_path,
+            'readout_type': parsed.readout_type,
+            'inferred_time_unit': parsed.inferred_time_unit,
+            'needs_dose': parsed.needs_dose,
+            'groups': [
+                {
+                    'compound_id': g.compound_id,
+                    'dose_info': g.dose_info,
+                    'timepoints': [
+                        {'time': tp.time, 'mean': round(tp.mean, 4),
+                         'sd': round(tp.sd, 4), 'n': tp.n}
+                        for tp in g.timepoints
+                    ],
+                }
+                for g in parsed.groups
+            ],
+        }
+        request.session['invivo_preview'] = preview
+        return redirect('/upload/invivo/?preview=1')
+
+    # GET
+    preview = None
+    if request.GET.get('preview') and 'invivo_preview' in request.session:
+        preview = request.session['invivo_preview']
+    return render(request, 'invivo_upload.html', {'preview': preview})
+
+
+@login_required
+def invivo_upload_confirm_view(request):
+    if request.method != 'POST':
+        return redirect('invivo_upload')
+
+    preview = request.session.get('invivo_preview')
+    if not preview:
+        return redirect('invivo_upload')
+
+    time_unit = request.POST.get('time_unit', '').strip()
+    dose_override = request.POST.get('dose_override', '').strip()
+    animal_species = request.POST.get('animal_species', '').strip()
+    animal_strain = request.POST.get('animal_strain', '').strip()
+    route = request.POST.get('route', '').strip()
+    gender = request.POST.get('gender', '').strip()
+
+    errors = []
+    if not time_unit:
+        errors.append('请填写时间单位（天 / 周）')
+    if preview['needs_dose'] and not dose_override:
+        errors.append('请填写剂量信息（文件中未检测到剂量）')
+    if not animal_species:
+        errors.append('请填写动物物种')
+    if not animal_strain:
+        errors.append('请填写动物品系')
+    if not route:
+        errors.append('请填写给药途径')
+    if not gender:
+        errors.append('请填写动物性别')
+
+    if errors:
+        return render(request, 'invivo_upload.html', {
+            'preview': preview,
+            'errors': errors,
+        })
+
+    batch_label = datetime.now().strftime('B%Y%m%d%H%M%S')
+    readout_type = preview['readout_type']
+    assay_name_label = 'KD% 时间曲线' if readout_type == 'knockdown_pct' else '体重时间曲线'
+    first_exp = None
+
+    try:
+        with transaction.atomic():
+            for g in preview['groups']:
+                compound, _ = Compound.objects.get_or_create(compound_id=g['compound_id'])
+                dose_info = g['dose_info'] or dose_override
+
+                exp = Experiment.objects.create(
+                    compound=compound,
+                    exp_type='in_vivo',
+                    assay_name=assay_name_label,
+                    batch_label=batch_label,
+                    animal_species=animal_species,
+                    animal_strain=animal_strain,
+                    route=route,
+                    gender=gender,
+                    time_unit=time_unit,
+                    dose_info=dose_info,
+                )
+                if first_exp is None:
+                    first_exp = exp
+
+                dp_objs = []
+                for tp in g['timepoints']:
+                    dp_objs.append(DataPoint(
+                        experiment=exp,
+                        x_value=tp['time'],
+                        x_type='timepoint',
+                        replicate='Mean',
+                        value=tp['mean'],
+                        readout_type=readout_type,
+                    ))
+                    dp_objs.append(DataPoint(
+                        experiment=exp,
+                        x_value=tp['time'],
+                        x_type='timepoint',
+                        replicate='SD',
+                        value=tp['sd'],
+                        readout_type=readout_type,
+                    ))
+                DataPoint.objects.bulk_create(dp_objs)
+
+            saved_path = preview.get('saved_path', '')
+            if first_exp and saved_path and default_storage.exists(saved_path):
+                from django.core.files.base import ContentFile
+                with default_storage.open(saved_path, 'rb') as f:
+                    content = f.read()
+                att = ExperimentAttachment(experiment=first_exp, label=preview['filename'])
+                att.file.save(preview['filename'], ContentFile(content), save=True)
+                default_storage.delete(saved_path)
+
+    except Exception as e:
+        logger.error(f'invivo_upload_confirm error: {e}')
+        return render(request, 'invivo_upload.html', {
+            'preview': preview,
+            'errors': [f'写库失败：{e}'],
+        })
+
+    del request.session['invivo_preview']
+    messages.success(request, f'体内数据已上传，批次号 {batch_label}，共 {len(preview["groups"])} 个化合物')
+    return redirect('invivo_upload')

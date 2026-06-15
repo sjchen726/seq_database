@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+
+{% block page_title %} — 上传体内数据{% endblock %}
+
+{% block topbar_content %}
+  <span class="ds-topbar-title">上传体内数据</span>
+  <span class="ds-topbar-spacer"></span>
+  <a href="{% url 'index' %}" class="ds-btn ds-btn-ghost">← 首页</a>
+{% endblock %}
+
+{% block content %}
+<div class="ds-form-page">
+<div class="ds-form-card">
+
+  {% if messages %}
+  {% for m in messages %}
+  <div style="background:#dcfce7;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#15803d;">
+    ✓ {{ m }}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if errors %}
+  <div style="background:#fee2e2;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#b91c1c;">
+    {% for e in errors %}<div>✗ {{ e }}</div>{% endfor %}
+  </div>
+  {% endif %}
+
+  {% if ask_file_type %}
+  <div class="ds-form-card-title">请选择文件类型</div>
+  <p style="font-size:13px;color:#64748b;margin-bottom:14px;">系统无法自动识别文件类型，请手动指定：</p>
+  <form method="POST" action="{% url 'invivo_upload' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="hidden" name="project_code" value="{{ project_code }}">
+    <div style="display:flex;gap:10px;margin-bottom:16px;">
+      <button type="submit" name="file_type_override" value="knockdown_pct" class="ds-btn ds-btn-primary">
+        KD% 时间曲线
+      </button>
+      <button type="submit" name="file_type_override" value="body_weight" class="ds-btn ds-btn-secondary">
+        体重时间曲线
+      </button>
+    </div>
+  </form>
+  {% elif preview %}
+  <div class="ds-form-card-title">预览 — 确认并填写实验信息</div>
+  <p style="font-size:12px;color:#64748b;margin-bottom:14px;">
+    项目：<strong>{{ preview.project_code }}</strong> ·
+    文件：<strong>{{ preview.filename }}</strong> ·
+    类型：<strong>{{ preview.readout_type }}</strong> ·
+    共 <strong>{{ preview.groups|length }}</strong> 个化合物
+  </p>
+
+  <form method="POST" action="{% url 'invivo_upload_confirm' %}">
+    {% csrf_token %}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;">
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">时间单位 *</label>
+        <select name="time_unit" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+          <option value="">-- 选择 --</option>
+          <option value="day"{% if preview.inferred_time_unit == 'day' %} selected{% endif %}>天 (day)</option>
+          <option value="week"{% if preview.inferred_time_unit == 'week' %} selected{% endif %}>周 (week)</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">
+          剂量信息{% if preview.needs_dose %} *{% endif %}
+        </label>
+        <input type="text" name="dose_override" placeholder="如：10mpk SC Q2W"
+               style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;">
+        {% if not preview.needs_dose %}
+        <div style="font-size:11px;color:#6b7280;margin-top:2px;">（已从文件列标题解析，可留空或覆盖）</div>
+        {% endif %}
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">动物物种 *</label>
+        <input type="text" name="animal_species" placeholder="如：mouse / rat"
+               style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">动物品系 *</label>
+        <input type="text" name="animal_strain" placeholder="如：C57BL/6"
+               style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">给药途径 *</label>
+        <input type="text" name="route" placeholder="如：SC / IV"
+               style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">动物性别 *</label>
+        <select name="gender" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+          <option value="">-- 选择 --</option>
+          <option value="male">雄性 (male)</option>
+          <option value="female">雌性 (female)</option>
+          <option value="mixed">混合 (mixed)</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="margin-bottom:18px;">
+      <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">数据预览</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:#f1f5f9;">
+            <th style="padding:6px 10px;border:1px solid #e2e8f0;text-align:left;">化合物</th>
+            <th style="padding:6px 10px;border:1px solid #e2e8f0;text-align:left;">剂量（文件）</th>
+            <th style="padding:6px 10px;border:1px solid #e2e8f0;text-align:left;">时间点</th>
+            <th style="padding:6px 10px;border:1px solid #e2e8f0;text-align:right;">均值</th>
+            <th style="padding:6px 10px;border:1px solid #e2e8f0;text-align:right;">SD</th>
+            <th style="padding:6px 10px;border:1px solid #e2e8f0;text-align:right;">n</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for g in preview.groups %}
+          {% for tp in g.timepoints %}
+          <tr>
+            {% if forloop.first %}<td rowspan="{{ g.timepoints|length }}" style="padding:6px 10px;border:1px solid #e2e8f0;font-weight:600;">{{ g.compound_id }}</td>
+            <td rowspan="{{ g.timepoints|length }}" style="padding:6px 10px;border:1px solid #e2e8f0;color:#6b7280;">{{ g.dose_info|default:"-" }}</td>{% endif %}
+            <td style="padding:6px 10px;border:1px solid #e2e8f0;">{{ tp.time }}</td>
+            <td style="padding:6px 10px;border:1px solid #e2e8f0;text-align:right;">{{ tp.mean }}</td>
+            <td style="padding:6px 10px;border:1px solid #e2e8f0;text-align:right;">{{ tp.sd }}</td>
+            <td style="padding:6px 10px;border:1px solid #e2e8f0;text-align:right;">{{ tp.n }}</td>
+          </tr>
+          {% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display:flex;gap:10px;">
+      <button type="submit" class="ds-btn ds-btn-primary">确认写入数据库</button>
+      <a href="{% url 'invivo_upload' %}" class="ds-btn ds-btn-ghost">取消</a>
+    </div>
+  </form>
+  {% else %}
+  <div class="ds-form-card-title">上传体内数据</div>
+  <div style="font-size:12px;color:#64748b;margin-bottom:18px;line-height:1.7;">
+    上传体内实验数据文件（KD% 时间曲线或体重变化），系统自动解析化合物分组和时间点均值/SD，确认后写入数据库。
+  </div>
+
+  <form method="POST" action="{% url 'invivo_upload' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div style="display:grid;gap:14px;margin-bottom:18px;">
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">项目号 *</label>
+        <input type="text" name="project_code" placeholder="如：3M03"
+               style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">体内数据文件 (.csv) *</label>
+        <input type="file" name="invivo_file" accept=".csv"
+               style="font-size:13px;">
+      </div>
+    </div>
+    <button type="submit" class="ds-btn ds-btn-primary">解析文件</button>
+  </form>
+  {% endif %}
+
+</div>
+</div>
+{% endblock %}

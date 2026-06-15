@@ -1272,3 +1272,103 @@ class DetectInVivoFileTypeTest(TestCase):
 
     def test_unknown_on_garbage(self):
         self.assertEqual(self._detect("hello\nworld\n"), 'unknown')
+
+
+import tempfile, os
+
+
+class InVivoUploadViewTest(TestCase):
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='uploader', password='pass', user_type='data_admin'
+        )
+        self.client.login(username='uploader', password='pass')
+
+    def _kd_file(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        content = b",CompA ,CompA ,CompA\n-7,0,0,0\n14,-95.0,-94.0,-93.0\n"
+        return SimpleUploadedFile('data2.csv', content, content_type='text/csv')
+
+    def _bw_file(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        content = b",CompA 3mpk SC,CompA 3mpk SC,CompA 3mpk SC\n0,45,46,44\n7,43,44,42\n"
+        return SimpleUploadedFile('data3.csv', content, content_type='text/csv')
+
+    def test_get_renders_form(self):
+        r = self.client.get(reverse('invivo_upload'))
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'invivo_file')
+
+    def test_get_requires_login(self):
+        self.client.logout()
+        r = self.client.get(reverse('invivo_upload'))
+        self.assertRedirects(r, '/login/?next=/upload/invivo/')
+
+    def test_post_without_file_shows_error(self):
+        r = self.client.post(reverse('invivo_upload'), {'project_code': '3M03'})
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, '请上传')
+
+    def test_post_without_project_code_shows_error(self):
+        r = self.client.post(reverse('invivo_upload'), {'invivo_file': self._kd_file()})
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, '项目号')
+
+    def test_post_kd_file_stores_preview_in_session(self):
+        r = self.client.post(reverse('invivo_upload'), {
+            'project_code': '3M03',
+            'invivo_file': self._kd_file(),
+        })
+        self.assertRedirects(r, '/upload/invivo/?preview=1')
+        self.assertIn('invivo_preview', self.client.session)
+        preview = self.client.session['invivo_preview']
+        self.assertEqual(preview['readout_type'], 'knockdown_pct')
+        self.assertTrue(preview['needs_dose'])
+
+    def test_confirm_writes_experiments(self):
+        # Step 1: upload
+        self.client.post(reverse('invivo_upload'), {
+            'project_code': '3M03',
+            'invivo_file': self._kd_file(),
+        })
+        # Step 2: confirm
+        r = self.client.post(reverse('invivo_upload_confirm'), {
+            'time_unit': 'day',
+            'dose_override': '10mpk SC',
+            'animal_species': 'mouse',
+            'animal_strain': 'C57BL/6',
+            'route': 'SC',
+            'gender': 'male',
+        })
+        self.assertRedirects(r, reverse('invivo_upload'))
+        self.assertEqual(Experiment.objects.filter(exp_type='in_vivo').count(), 1)
+        exp = Experiment.objects.get(exp_type='in_vivo')
+        self.assertEqual(exp.animal_species, 'mouse')
+        self.assertEqual(exp.time_unit, 'day')
+        self.assertEqual(exp.dose_info, '10mpk SC')
+        # DataPoints: day -7 (Mean=0, SD=0) + day 14 (Mean, SD) = 4 DataPoints
+        self.assertEqual(DataPoint.objects.filter(experiment=exp).count(), 4)
+
+    def test_confirm_missing_fields_rerenders(self):
+        self.client.post(reverse('invivo_upload'), {
+            'project_code': '3M03',
+            'invivo_file': self._kd_file(),
+        })
+        r = self.client.post(reverse('invivo_upload_confirm'), {
+            'time_unit': 'day',
+            # missing dose_override, animal_species, etc.
+        })
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, '请填写')
+
+    def test_confirm_creates_compound_if_missing(self):
+        self.client.post(reverse('invivo_upload'), {
+            'project_code': '3M03',
+            'invivo_file': self._kd_file(),
+        })
+        self.client.post(reverse('invivo_upload_confirm'), {
+            'time_unit': 'day', 'dose_override': '10mpk',
+            'animal_species': 'mouse', 'animal_strain': 'C57BL/6',
+            'route': 'SC', 'gender': 'male',
+        })
+        self.assertTrue(Compound.objects.filter(compound_id='CompA').exists())

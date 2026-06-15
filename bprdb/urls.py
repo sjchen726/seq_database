@@ -16,4 +16,6 @@ urlpatterns = [
     path('profile/', views.user_profile, name='user_profile'),
     path('batches/', views.batch_list, name='batch_list'),
     path('batches/<str:batch_label>/delete/', views.batch_delete, name='batch_delete'),
+    path('upload/invivo/', views.invivo_upload_view, name='invivo_upload'),
+    path('upload/invivo/confirm/', views.invivo_upload_confirm_view, name='invivo_upload_confirm'),
 ]
