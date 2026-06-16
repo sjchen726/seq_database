@@ -166,6 +166,20 @@
   </div>
   {% endwith %}
 
+  {# 体内各批次图表 #}
+  {% for item in invivo_chart_data %}
+  {% if item.series %}
+  <div style="padding:4px 14px 8px;">
+    <div style="font-size:11px;font-weight:600;color:#92400e;margin-bottom:4px;">
+      {{ item.batch_label }}
+      · {% if item.readout_type == 'knockdown_pct' %}KD%{% else %}体重 (g){% endif %}
+      时间曲线
+    </div>
+    <div id="invivo-chart-{{ item.exp_id }}" style="height:200px;"></div>
+  </div>
+  {% endif %}
+  {% endfor %}
+
   {# 体内折线图 #}
   <div style="padding:8px 14px 14px;">
     <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;">
@@ -194,18 +208,21 @@
 {# JSON 数据内联 #}
 {{ vitro_chart_data|json_script:"vitro-chart-data" }}
 {{ invivo_batches|json_script:"invivo-batches-data" }}
+{{ invivo_chart_data|json_script:"invivo-chart-data" }}
 
 {% endblock %}
 
 {% block extra_scripts %}
 <script src="/static/vendors/flot/jquery.flot.js"></script>
+<script src="/static/vendors/flot/jquery.flot.errorbars.js"></script>
 <script>
 (function() {
 
 // ── 常量 ──────────────────────────────────────────────────────────────────
 const LOG_TICKS = [[-3,'0.001'],[-2,'0.01'],[-1,'0.1'],[0,'1'],[1,'10'],[2,'100'],[3,'1000']];
-const VITRO_DATA  = JSON.parse(document.getElementById('vitro-chart-data').textContent);
-const INVIVO_DATA = JSON.parse(document.getElementById('invivo-batches-data').textContent);
+const VITRO_DATA        = JSON.parse(document.getElementById('vitro-chart-data').textContent);
+const INVIVO_DATA       = JSON.parse(document.getElementById('invivo-batches-data').textContent);
+const INVIVO_CHART_DATA = JSON.parse(document.getElementById('invivo-chart-data').textContent);
 const chartInited = {};   // {expId: true} 记录已初始化的图表
 
 // ── 工具 ──────────────────────────────────────────────────────────────────
@@ -321,6 +338,41 @@ function initInvivoChart() {
   });
 }
 
+// ── 体内各批次图表 ────────────────────────────────────────────────────────
+function initInvivoBatchCharts() {
+  var colors = ['#f97316','#3b82f6','#10b981','#a855f7','#ec4899'];
+  INVIVO_CHART_DATA.forEach(function(d) {
+    var container = document.getElementById('invivo-chart-' + d.exp_id);
+    if (!container || !d.series.length) return;
+
+    var series = d.series.map(function(s, i) {
+      return {
+        label: s.label,
+        color: colors[i % colors.length],
+        data: s.points.map(function(p) {
+          var lo = p.mean - p.sd;
+          var hi = p.mean + p.sd;
+          return [p.x, p.mean, lo, hi];
+        }),
+        points: {
+          show: true,
+          errorbars: 'y',
+          yerr: { show: true, upperCap: '-', lowerCap: '-', radius: 3, lineWidth: 1.5 }
+        },
+        lines: { show: true, lineWidth: 2 }
+      };
+    });
+
+    var yLabel = d.readout_type === 'knockdown_pct' ? 'KD %' : '体重 (g)';
+    $.plot(container, series, {
+      xaxis: { axisLabel: d.time_unit, tickLength: 4 },
+      yaxis: { min: 0, axisLabel: yLabel, labelWidth: 30 },
+      grid:  { hoverable: false, borderWidth: 1, borderColor: '#fde68a' },
+      legend: { show: d.series.length > 1, position: 'topright', backgroundOpacity: 0.7 }
+    });
+  });
+}
+
 // ── 批次手风琴 ────────────────────────────────────────────────────────────
 $(document).on('click', '.detail-batch-hdr', function() {
   var batchId = $(this).data('batch-id');
@@ -373,6 +425,8 @@ $(function() {
     var firstId = $firstBody.data('batch-id');
     initVitroChart(firstId);
   }
+  // 初始化体内各批次图表
+  initInvivoBatchCharts();
   // 初始化体内折线图
   initInvivoChart();
   // 体内折线图开关
