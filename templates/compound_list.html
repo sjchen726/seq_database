@@ -159,7 +159,7 @@
           <label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;color:#374151;">
             <input type="checkbox" checked
                    data-tp="{{ label }}"
-                   onchange="filterTimepoint(this, '{{ forloop.parentloop.counter }}_{{ forloop.parentloop.parentloop.counter }}')">
+                   onchange="filterTimepoint(this, '{{ forloop.parentloop.parentloop.counter }}_{{ forloop.parentloop.counter }}')">
             {{ label }}
           </label>
           {% endfor %}
@@ -223,19 +223,19 @@
     <span>第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页，共 {{ page_obj.paginator.count }} 个化合物</span>
     <div style="display:flex;gap:4px;">
       {% if page_obj.has_previous %}
-      <a href="?q={{ q }}&project={{ project }}&target_name={{ target_name }}&tag={{ tag }}&page={{ page_obj.previous_page_number }}"
+      <a href="?q={{ q|urlencode }}&project={{ project|urlencode }}&target_name={{ target_name|urlencode }}&tag={{ tag|urlencode }}&page={{ page_obj.previous_page_number }}"
          style="padding:3px 8px;border:1px solid #e2e8f0;border-radius:4px;background:white;text-decoration:none;color:#475569;">◀</a>
       {% endif %}
       {% for num in page_obj.paginator.page_range %}
         {% if num == page_obj.number %}
         <span style="padding:3px 8px;border:1px solid #3b82f6;border-radius:4px;background:#3b82f6;color:white;">{{ num }}</span>
         {% elif num >= page_obj.number|add:"-3" and num <= page_obj.number|add:"3" %}
-        <a href="?q={{ q }}&project={{ project }}&target_name={{ target_name }}&tag={{ tag }}&page={{ num }}"
+        <a href="?q={{ q|urlencode }}&project={{ project|urlencode }}&target_name={{ target_name|urlencode }}&tag={{ tag|urlencode }}&page={{ num }}"
            style="padding:3px 8px;border:1px solid #e2e8f0;border-radius:4px;background:white;text-decoration:none;color:#475569;">{{ num }}</a>
         {% endif %}
       {% endfor %}
       {% if page_obj.has_next %}
-      <a href="?q={{ q }}&project={{ project }}&target_name={{ target_name }}&tag={{ tag }}&page={{ page_obj.next_page_number }}"
+      <a href="?q={{ q|urlencode }}&project={{ project|urlencode }}&target_name={{ target_name|urlencode }}&tag={{ tag|urlencode }}&page={{ page_obj.next_page_number }}"
          style="padding:3px 8px;border:1px solid #e2e8f0;border-radius:4px;background:white;text-decoration:none;color:#475569;">▶</a>
       {% endif %}
     </div>
@@ -248,6 +248,7 @@
 <script>
 function toggleGroup(btn) {
     const body = btn.nextElementSibling;
+    if (!body) return;
     const arrow = btn.querySelector('.toggle-arrow');
     const isOpen = body.style.display !== 'none';
     body.style.display = isOpen ? 'none' : 'block';
