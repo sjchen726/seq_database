@@ -997,13 +997,18 @@ def compound_list(request):
                         'points': pts,
                     })
             else:
-                pts = [
+                mrna_pts = [
                     [round(math.log10(r['dose']), 4), round(r['mean'] * 100, 2)]
                     for r in g['rows']
                     if r.get('dose') and r['dose'] > 0 and r.get('mean') is not None
                 ]
-                if pts:
-                    cl_vitro_charts.append({'exp_id': exp.id, 'points': pts})
+                if mrna_pts:
+                    kd_pts = [[x, round(max(0.0, 100 - y), 2)] for x, y in mrna_pts]
+                    cl_vitro_charts.append({
+                        'exp_id': exp.id,
+                        'mrna_pts': mrna_pts,
+                        'kd_pts': kd_pts,
+                    })
         compound_data.append({
             'compound': compound,
             'strand_map': strand_map,

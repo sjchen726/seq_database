@@ -329,11 +329,22 @@ code.cl-seq {
     </table>
     {# 体外剂量-响应曲线 #}
     <div style="padding:6px 16px 10px;max-width:52%;">
-      <div style="font-size:11px;font-weight:600;color:#1e3a5f;margin-bottom:4px;">
-        mRNA 残余 (%) vs 浓度 (nM)
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <div style="font-size:11px;font-weight:600;color:#1e3a5f;">
+          <span id="cl-vt-title-{{ group.experiment.id }}">mRNA 残余 (%)</span> vs 浓度 (nM)
+        </div>
+        <div style="display:flex;gap:3px;">
+          <button class="cl-vt-tgl" data-exp="{{ group.experiment.id }}" data-mode="mrna"
+                  style="font-size:10px;padding:1px 7px;border-radius:3px;border:1px solid #3b82f6;
+                         background:#3b82f6;color:white;cursor:pointer;line-height:1.6;">mRNA%</button>
+          <button class="cl-vt-tgl" data-exp="{{ group.experiment.id }}" data-mode="kd"
+                  style="font-size:10px;padding:1px 7px;border-radius:3px;border:1px solid #cbd5e1;
+                         background:white;color:#64748b;cursor:pointer;line-height:1.6;">KD%</button>
+        </div>
       </div>
       <div style="display:flex;align-items:stretch;gap:2px;">
-        <div style="writing-mode:vertical-rl;transform:rotate(180deg);
+        <div id="cl-vt-ylabel-{{ group.experiment.id }}"
+             style="writing-mode:vertical-rl;transform:rotate(180deg);
                     font-size:10px;color:#1e3a5f;white-space:nowrap;
                     text-align:center;flex-shrink:0;padding:4px 0;">
           mRNA 残余 (%)
@@ -487,24 +498,51 @@ $(function() {
 
   // 体外图
   var vtCharts = JSON.parse(document.getElementById('cl-vitro-charts-data').textContent);
-  vtCharts.forEach(function(d) {
-    var container = document.getElementById('cl-vt-' + d.exp_id);
-    if (!container || !d.points.length || container.offsetWidth === 0) return;
+  var vtDataMap = {};
+  vtCharts.forEach(function(d) { vtDataMap[d.exp_id] = d; });
 
-    var vtMaxY = Math.max.apply(null, d.points.map(function(p) { return p[1]; }));
+  function renderVitro(expId, mode) {
+    var container = document.getElementById('cl-vt-' + expId);
+    if (!container || container.offsetWidth === 0) return;
+    var d = vtDataMap[expId];
+    if (!d) return;
+    var pts = mode === 'kd' ? d.kd_pts : d.mrna_pts;
+    if (!pts || !pts.length) return;
+    var ymax = Math.max.apply(null, pts.map(function(p) { return p[1]; }));
     try {
       $.plot(container, [{
-        data: d.points,
+        data: pts,
         color: '#3b82f6',
         lines: { show: true, lineWidth: 2 },
         points: { show: true, radius: 3 }
       }], {
         xaxis: { ticks: LOG_TICKS, tickLength: 4 },
-        yaxis: { min: 0, max: Math.max(vtMaxY * 1.12, 110), labelWidth: 30 },
+        yaxis: { min: 0, max: Math.max(ymax * 1.12, 110), labelWidth: 30 },
         grid: { hoverable: false, borderWidth: 1, borderColor: '#bfdbfe' },
         legend: { show: false }
       });
     } catch(e) {}
+  }
+
+  vtCharts.forEach(function(d) { renderVitro(d.exp_id, 'mrna'); });
+
+  $(document).on('click', '.cl-vt-tgl', function() {
+    var expId = $(this).data('exp');
+    var mode  = $(this).data('mode');
+    $('[data-exp="' + expId + '"].cl-vt-tgl').each(function() {
+      var active = $(this).data('mode') === mode;
+      $(this).css({
+        background: active ? '#3b82f6' : 'white',
+        color:      active ? 'white'   : '#64748b',
+        'border-color': active ? '#3b82f6' : '#cbd5e1'
+      });
+    });
+    var label = mode === 'kd' ? 'KD (%)' : 'mRNA 残余 (%)';
+    var el = document.getElementById('cl-vt-ylabel-' + expId);
+    if (el) el.textContent = label;
+    var title = document.getElementById('cl-vt-title-' + expId);
+    if (title) title.textContent = label;
+    renderVitro(expId, mode);
   });
 });
 </script>
