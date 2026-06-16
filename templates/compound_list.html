@@ -491,6 +491,7 @@ $(function() {
     var container = document.getElementById('cl-vt-' + d.exp_id);
     if (!container || !d.points.length || container.offsetWidth === 0) return;
 
+    var vtMaxY = Math.max.apply(null, d.points.map(function(p) { return p[1]; }));
     try {
       $.plot(container, [{
         data: d.points,
@@ -499,7 +500,7 @@ $(function() {
         points: { show: true, radius: 3 }
       }], {
         xaxis: { ticks: LOG_TICKS, tickLength: 4 },
-        yaxis: { min: 0, max: 120, labelWidth: 30 },
+        yaxis: { min: 0, max: Math.max(vtMaxY * 1.12, 110), labelWidth: 30 },
         grid: { hoverable: false, borderWidth: 1, borderColor: '#bfdbfe' },
         legend: { show: false }
       });
