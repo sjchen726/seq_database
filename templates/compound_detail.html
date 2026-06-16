@@ -214,7 +214,6 @@
 
 {% block extra_scripts %}
 <script src="/static/vendors/flot/jquery.flot.js"></script>
-<script src="/static/vendors/flot/jquery.flot.errorbars.js"></script>
 <script>
 (function() {
 
@@ -345,29 +344,46 @@ function initInvivoBatchCharts() {
     var container = document.getElementById('invivo-chart-' + d.exp_id);
     if (!container || !d.series.length) return;
 
-    var series = d.series.map(function(s, i) {
+    var seriesData = d.series.map(function(s, i) {
       return {
         label: s.label,
         color: colors[i % colors.length],
-        data: s.points.map(function(p) {
-          return [p.x, p.mean, p.sd];
-        }),
-        points: {
-          show: true,
-          errorbars: 'y',
-          yerr: { show: true, upperCap: '-', lowerCap: '-', radius: 3, lineWidth: 1.5 }
-        },
-        lines: { show: true, lineWidth: 2 }
+        data: s.points.map(function(p) { return [p.x, p.mean]; }),
+        lines: { show: true, lineWidth: 2 },
+        points: { show: true, radius: 3 }
       };
     });
 
     var yLabel = d.readout_type === 'knockdown_pct' ? 'KD %' : '体重 (g)';
-    $.plot(container, series, {
+    var plot = $.plot(container, seriesData, {
       xaxis: { axisLabel: d.time_unit, tickLength: 4 },
       yaxis: { min: 0, axisLabel: yLabel, labelWidth: 30 },
       grid:  { hoverable: false, borderWidth: 1, borderColor: '#fde68a' },
-      legend: { show: d.series.length > 1, position: 'topright', backgroundOpacity: 0.7 }
+      legend: { show: seriesData.length > 1, position: 'topright', backgroundOpacity: 0.7 }
     });
+
+    // Draw SD error bars directly on the Flot canvas
+    var ctx = plot.getCanvas().getContext('2d');
+    var offset = plot.getPlotOffset();
+    var xaxis = plot.getAxes().xaxis;
+    var yaxis = plot.getAxes().yaxis;
+    ctx.save();
+    ctx.translate(offset.left, offset.top);
+    d.series.forEach(function(s, i) {
+      ctx.strokeStyle = colors[i % colors.length];
+      ctx.lineWidth = 1.5;
+      s.points.forEach(function(p) {
+        if (!p.sd) return;
+        var cx  = xaxis.p2c(p.x);
+        var ylo = yaxis.p2c(Math.max(0, p.mean - p.sd));
+        var yhi = yaxis.p2c(p.mean + p.sd);
+        var cap = 4;
+        ctx.beginPath(); ctx.moveTo(cx, ylo); ctx.lineTo(cx, yhi); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx - cap, yhi); ctx.lineTo(cx + cap, yhi); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx - cap, ylo); ctx.lineTo(cx + cap, ylo); ctx.stroke();
+      });
+    });
+    ctx.restore();
   });
 }
 
