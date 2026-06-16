@@ -1836,9 +1836,6 @@ class SmartUploadConfirmTargetNameTest(TestCase):
 # ---- BuildInvivoChartDataTest ----
 class BuildInvivoChartDataTest(TestCase):
     def _make_exp(self, batch='B1', time_unit='day', dose_info='10mpk SC'):
-        user = LmsUser.objects.create_user(
-            username=f'u_{batch}', password='pass', user_type='admin'
-        )
         cmp = Compound.objects.create(compound_id=f'BPR_TEST_{batch}', project='T')
         return Experiment.objects.create(
             compound=cmp, exp_type='in_vivo',

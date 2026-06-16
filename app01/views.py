@@ -1059,7 +1059,7 @@ def _build_invivo_chart_data(exp):
         return {
             'exp_id':       exp.id,
             'batch_label':  exp.batch_label,
-            'readout_type': 'knockdown_pct',
+            'readout_type': 'knockdown_pct',  # safe default for empty series; chart never renders
             'time_unit':    exp.time_unit or 'day',
             'series':       [],
         }
