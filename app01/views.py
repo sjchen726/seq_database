@@ -1313,6 +1313,69 @@ def _read_from_storage(path: str):
         return None
 
 
+_GENE_RE = re.compile(r'^[A-Z][A-Z0-9]{1,9}$')
+_GENE_SKIP = {'BPR', 'IC50', 'EC50', 'CSV', 'DATA', 'FILE', 'TEST', 'MEAN', 'PCSK', 'KD', 'SD', 'CP', 'RNA', 'DNA', 'siRNA', 'MRNA', 'UNKNOWN'}
+
+
+def _extract_target_name_rules(filename: str, file_bytes: bytes) -> str | None:
+    """Rule-based target_name extraction from filename then file content.
+
+    Returns uppercase gene symbol (e.g. 'FASN', 'PCSK9') or None if uncertain.
+    """
+    stem = filename.rsplit('.', 1)[0]
+    for part in stem.replace('-', '_').split('_'):
+        # Only treat already-uppercase segments as potential gene symbols
+        if part and part == part.upper() and part[0].isalpha():
+            candidate = part.upper()
+            if _GENE_RE.match(candidate) and candidate not in _GENE_SKIP and len(candidate) >= 2:
+                return candidate
+
+    try:
+        text = file_bytes[:4096].decode('utf-8', errors='replace')
+    except Exception:
+        return None
+    for line in text.splitlines()[:30]:
+        m = re.search(r'(?:Target|Gene|靶点|target|gene)\s*[:\t,]\s*([A-Za-z][A-Za-z0-9]{1,9})', line)
+        if m:
+            candidate = m.group(1).upper()
+            if candidate not in _GENE_SKIP:
+                return candidate
+    return None
+
+
+def _extract_target_name_llm(filename: str, file_bytes: bytes) -> str | None:
+    """DeepSeek fallback for target_name extraction. Returns None if unavailable or uncertain."""
+    from django.conf import settings as _ds
+    api_key = getattr(_ds, 'DEEPSEEK_API_KEY', '')
+    if not api_key:
+        return None
+    try:
+        import httpx
+        snippet = file_bytes[:2000].decode('utf-8', errors='replace')
+        resp = httpx.post(
+            'https://api.deepseek.com/v1/chat/completions',
+            headers={'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'},
+            json={
+                'model': 'deepseek-chat',
+                'messages': [{'role': 'user', 'content': (
+                    f'文件名: {filename}\n文件内容片段:\n{snippet}\n\n'
+                    '这个文件研究的是哪个靶基因或靶点？'
+                    '请只回答基因名（2-10个大写字母，可含数字如PCSK9），无法判断则回答UNKNOWN。'
+                )}],
+                'max_tokens': 20,
+                'temperature': 0,
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        answer = resp.json()['choices'][0]['message']['content'].strip().upper()
+        if _GENE_RE.match(answer) and answer not in _GENE_SKIP:
+            return answer
+    except Exception:
+        pass
+    return None
+
+
 def _build_smart_preview(file_detections: list, project_code: str) -> dict:
     """Parse saved files into the smart_preview session dict."""
     invitro_type_files = {
@@ -1407,6 +1470,23 @@ def _build_smart_preview(file_detections: list, project_code: str) -> dict:
 
     has_no_seq = bool(invitro) and not (invitro.get('strand_map') or seq_parsed)
 
+    # Extract target_name: collect candidates from every file, pick first hit; LLM fallback
+    all_file_pairs = [
+        (fname, fbytes)
+        for pairs in invitro_type_files.values()
+        for fname, fbytes in pairs
+    ]
+    extracted_target = None
+    for fname, fbytes in all_file_pairs:
+        extracted_target = _extract_target_name_rules(fname, fbytes)
+        if extracted_target:
+            break
+    if not extracted_target:
+        for fname, fbytes in all_file_pairs:
+            extracted_target = _extract_target_name_llm(fname, fbytes)
+            if extracted_target:
+                break
+
     return {
         'project_code': project_code,
         'file_detections': file_detections,
@@ -1416,6 +1496,7 @@ def _build_smart_preview(file_detections: list, project_code: str) -> dict:
         'errors': errors,
         'llm_unavailable': False,
         'has_no_seq': has_no_seq,
+        'target_name': extracted_target or '',
     }
 
 
@@ -1523,6 +1604,7 @@ def smart_upload_confirm_view(request):
     batch_label = request.POST.get('batch_label', '').strip()
     assay_name = request.POST.get('assay_name', '').strip()
     exp_date = request.POST.get('exp_date', '').strip() or None
+    target_name_input = request.POST.get('target_name', '').strip()
 
     errors = []
     if invitro and not batch_label:
@@ -1705,6 +1787,22 @@ def smart_upload_confirm_view(request):
                     default_storage.delete(det['saved_path'])
             except Exception:
                 pass
+
+    # Update target_name for all compounds touched in this upload (only fills blank values)
+    if target_name_input and not (invitro_errors and invivo_errors):
+        touched_cids = set()
+        if invitro:
+            for cid in invitro.get('strand_map', {}):
+                touched_cids.add(cid)
+            for exp_data in invitro.get('experiments', []):
+                touched_cids.add(exp_data['compound_id'])
+        for group in invivo_groups:
+            for g in group['groups']:
+                touched_cids.add(g['compound_id'])
+        if touched_cids:
+            Compound.objects.filter(compound_id__in=touched_cids, target_name='').update(
+                target_name=target_name_input
+            )
 
     del request.session['smart_preview']
 

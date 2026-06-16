@@ -1,268 +1,408 @@
 {% extends "base.html" %}
 {% block page_title %} — 化合物列表{% endblock %}
+
+{% block topbar_content %}
+  <span class="ds-topbar-title">化合物列表</span>
+  <span style="background:#e2e8f0;border-radius:10px;padding:2px 9px;font-size:12px;margin-left:8px;color:#475569;">
+    {{ page_obj.paginator.count }}
+  </span>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+.cl-filter-bar {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 8px 14px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 12px;
+  margin-bottom: 16px;
+}
+.cl-filter-bar select,
+.cl-filter-bar input[type="text"] {
+  font-size: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  padding: 3px 8px;
+  background: white;
+  outline: none;
+}
+.cl-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.cl-card-head {
+  background: #f8fafc;
+  padding: 9px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.cl-compound-id {
+  font-weight: 700;
+  font-size: 14px;
+  color: #1d4ed8;
+  font-family: monospace;
+  text-decoration: none;
+}
+.cl-compound-id:hover { text-decoration: underline; }
+.cl-target { font-size: 12px; font-weight: 600; color: #475569; }
+.cl-project {
+  font-size: 11px; color: #94a3b8;
+  background: #f1f5f9;
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+.cl-seq-area {
+  padding: 6px 16px;
+  background: #fafafa;
+  border-bottom: 1px solid #f0f4f8;
+}
+.cl-seq-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 2px; }
+.cl-seq-row:last-child { margin-bottom: 0; }
+.cl-strand-label {
+  width: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+.cl-seq-ss { background: #f0fdf4; color: #166534; }
+.cl-seq-as { background: #fef9c3; color: #78350f; }
+code.cl-seq {
+  font-size: 10px;
+  border-radius: 4px;
+  padding: 2px 6px;
+  word-break: break-all;
+  line-height: 1.5;
+}
+.cl-batch {
+  border-top: 1px solid #f0f4f8;
+  padding: 0;
+}
+.cl-batch-head {
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: #fafafa;
+  border-bottom: 1px solid #f0f4f8;
+}
+.cl-tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.cl-tag-vitro { background: #dbeafe; color: #1e40af; }
+.cl-tag-vivo  { background: #fef9c3; color: #854d0e; }
+.cl-stat { font-size: 12px; color: #475569; }
+.cl-stat b { color: #15803d; }
+.cl-batch-label {
+  margin-left: auto;
+  font-size: 11px;
+  color: #94a3b8;
+  font-family: monospace;
+}
+.cl-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.cl-data-table th {
+  padding: 5px 16px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+}
+.cl-data-table th.r { text-align: right; }
+.cl-data-table td {
+  padding: 5px 16px;
+  border-top: 1px solid #f1f5f9;
+  color: #374151;
+}
+.cl-data-table td.r { text-align: right; }
+.cl-data-table td.dim { color: #94a3b8; }
+.cl-foot {
+  padding: 7px 16px;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  background: #fafafa;
+  border-radius: 0 0 8px 8px;
+}
+.cl-att-link {
+  font-size: 11px;
+  color: #475569;
+  text-decoration: none;
+}
+.cl-detail-link {
+  margin-left: auto;
+  font-size: 11px;
+  color: #3b82f6;
+  text-decoration: none;
+  font-weight: 500;
+}
+.cl-empty { padding: 10px 16px; color: #94a3b8; font-size: 11px; }
+.cl-route-info { padding: 4px 16px; font-size: 11px; color: #64748b; border-bottom: 1px solid #f8fafc; }
+.cl-tp-bar {
+  padding: 5px 16px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  background: #fffbeb;
+  border-bottom: 1px solid #fef3c7;
+  align-items: center;
+}
+.cl-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 8px;
+  padding: 6px 0;
+}
+.cl-page-btns { display: flex; gap: 4px; }
+.cl-page-btn {
+  padding: 3px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: white;
+  text-decoration: none;
+  color: #475569;
+}
+.cl-page-btn.active {
+  border-color: #3b82f6;
+  background: #3b82f6;
+  color: white;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 
-<div class="ds-topbar">
-  <div class="ds-topbar-left">
-    <span class="ds-topbar-title">化合物列表</span>
-    <span style="background:#e2e8f0;border-radius:10px;padding:2px 9px;font-size:12px;margin-left:8px;">
-      {{ page_obj.paginator.count }}
+<!-- 过滤栏 -->
+<form method="get" action="">
+  <div class="cl-filter-bar">
+    <span style="color:#64748b;font-weight:600;">过滤：</span>
+    <span style="display:inline-flex;align-items:center;gap:4px;background:white;border:1px solid #cbd5e1;border-radius:5px;padding:3px 8px;">
+      🔍 <input type="text" name="q" value="{{ q }}" placeholder="化合物 ID" style="border:none;width:120px;">
     </span>
+    <select name="project">
+      <option value="">全部项目</option>
+      {% for p in all_projects %}
+      <option value="{{ p }}" {% if p == project %}selected{% endif %}>{{ p }}</option>
+      {% endfor %}
+    </select>
+    <select name="target_name">
+      <option value="">全部靶点</option>
+      {% for t in all_targets %}
+      <option value="{{ t }}" {% if t == target_name %}selected{% endif %}>{{ t }}</option>
+      {% endfor %}
+    </select>
+    <select name="tag">
+      <option value="" {% if not tag %}selected{% endif %}>全部类型</option>
+      <option value="in_vitro" {% if tag == 'in_vitro' %}selected{% endif %}>体外</option>
+      <option value="in_vivo" {% if tag == 'in_vivo' %}selected{% endif %}>体内</option>
+    </select>
+    <button type="submit" class="ds-btn ds-btn-primary" style="font-size:12px;padding:4px 14px;">搜索</button>
+    <a href="{% url 'compound_list' %}" style="font-size:12px;color:#64748b;text-decoration:none;padding:4px 8px;">清除</a>
   </div>
-</div>
+</form>
 
-<div class="ds-content">
+<!-- 化合物列表 -->
+{% for item in compound_data %}
+<div class="cl-card">
 
-  <!-- 过滤栏 -->
-  <form method="get" action="">
-    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;margin-bottom:16px;">
-      <span style="color:#64748b;font-weight:600;">过滤：</span>
-
-      <span style="display:inline-flex;align-items:center;gap:4px;background:white;border:1px solid #cbd5e1;border-radius:5px;padding:3px 8px;">
-        🔍 <input name="q" value="{{ q }}" placeholder="化合物 ID"
-                  style="border:none;outline:none;width:120px;font-size:12px;">
-      </span>
-
-      <select name="project" style="font-size:12px;border:1px solid #cbd5e1;border-radius:5px;padding:3px 8px;background:white;">
-        <option value="">全部项目</option>
-        {% for p in all_projects %}
-        <option value="{{ p }}" {% if p == project %}selected{% endif %}>{{ p }}</option>
-        {% endfor %}
-      </select>
-
-      <select name="target_name" style="font-size:12px;border:1px solid #cbd5e1;border-radius:5px;padding:3px 8px;background:white;">
-        <option value="">全部靶点</option>
-        {% for t in all_targets %}
-        <option value="{{ t }}" {% if t == target_name %}selected{% endif %}>{{ t }}</option>
-        {% endfor %}
-      </select>
-
-      <select name="tag" style="font-size:12px;border:1px solid #cbd5e1;border-radius:5px;padding:3px 8px;background:white;">
-        <option value="" {% if not tag %}selected{% endif %}>全部类型</option>
-        <option value="in_vitro" {% if tag == 'in_vitro' %}selected{% endif %}>体外</option>
-        <option value="in_vivo" {% if tag == 'in_vivo' %}selected{% endif %}>体内</option>
-      </select>
-
-      <button type="submit" class="ds-btn ds-btn-primary" style="font-size:12px;padding:4px 14px;">搜索</button>
-      <a href="{% url 'compound_list' %}" style="font-size:12px;color:#64748b;text-decoration:none;padding:4px 8px;">清除</a>
-    </div>
-  </form>
-
-  <!-- 化合物卡片 -->
-  {% for item in compound_data %}
-  <div style="border:1px solid #e2e8f0;border-radius:8px;margin-bottom:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-
-    <!-- 卡片头：化合物 ID / 靶点 / 项目 -->
-    <div style="background:#f8fafc;padding:10px 16px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:12px;">
-      <a href="{% url 'compound_detail' item.compound.compound_id %}"
-         style="font-weight:700;font-size:14px;color:#1d4ed8;font-family:monospace;text-decoration:none;">
-        {{ item.compound.compound_id }}
-      </a>
-      {% if item.compound.target_name %}
-      <span style="font-size:12px;font-weight:600;color:#475569;">{{ item.compound.target_name }}</span>
-      {% endif %}
-      {% if item.compound.project %}
-      <span style="font-size:11px;color:#94a3b8;background:#f1f5f9;border-radius:4px;padding:2px 7px;">{{ item.compound.project }}</span>
-      {% endif %}
-    </div>
-
-    <!-- 序列区 -->
-    {% if item.strand_map %}
-    <div style="padding:6px 16px;background:#fafafa;border-bottom:1px solid #f1f5f9;">
-      {% for strand_type, modify_seq in item.strand_map %}
-      <div style="display:flex;align-items:baseline;gap:6px;{% if not forloop.last %}margin-bottom:3px;{% endif %}">
-        <span style="width:20px;font-size:10px;font-weight:700;color:#94a3b8;flex-shrink:0;">{{ strand_type }}</span>
-        <code style="font-size:10px;
-          {% if strand_type == 'SS' %}background:#f0fdf4;color:#166534;{% else %}background:#fef9c3;color:#78350f;{% endif %}
-          border-radius:4px;padding:2px 6px;word-break:break-all;line-height:1.5;">{{ modify_seq }}</code>
-      </div>
-      {% endfor %}
-    </div>
+  <!-- 卡片头 -->
+  <div class="cl-card-head">
+    <a href="{% url 'compound_detail' item.compound.compound_id %}" class="cl-compound-id">
+      {{ item.compound.compound_id }}
+    </a>
+    {% if item.compound.target_name %}
+    <span class="cl-target">{{ item.compound.target_name }}</span>
     {% endif %}
+    {% if item.compound.project %}
+    <span class="cl-project">{{ item.compound.project }}</span>
+    {% endif %}
+  </div>
 
-    <!-- 批次折叠块 -->
-    {% for group in item.batch_groups %}
-    <div style="border-top:1px solid #f1f5f9;">
-
-      <!-- 折叠头（按钮） -->
-      <button onclick="toggleGroup(this)"
-              style="width:100%;background:{% if group.default_open %}white{% else %}#fafafa{% endif %};border:none;border-bottom:{% if group.default_open %}1px solid #f1f5f9{% else %}none{% endif %};padding:10px 16px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:12px;">
-
-        <!-- Tag 徽章 -->
-        <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;flex-shrink:0;
-          {% if group.experiment.exp_type == 'in_vitro' %}background:#dbeafe;color:#1e40af;
-          {% else %}background:#fef9c3;color:#854d0e;{% endif %}">
-          {{ group.tag_label }}
-        </span>
-
-        {% if group.experiment.exp_type == 'in_vitro' %}
-          {% if group.header_ic50 is not None %}
-          <span style="color:#475569;">IC50: <b style="color:#15803d;">{{ group.header_ic50|floatformat:2 }} nM</b></span>
-          {% endif %}
-          {% if group.header_maxkd is not None %}
-          <span style="color:#475569;">MaxKD: <b>{{ group.header_maxkd|floatformat:0 }}%</b></span>
-          {% endif %}
-        {% else %}
-          {% if group.header_maxkd is not None %}
-          <span style="color:#475569;">MaxKD: <b>{{ group.header_maxkd|floatformat:0 }}%</b></span>
-          {% endif %}
-          {% if group.experiment.dose_info %}
-          <span style="color:#94a3b8;">{{ group.experiment.dose_info }}</span>
-          {% endif %}
-          {% if group.experiment.animal_species %}
-          <span style="color:#94a3b8;font-size:11px;">{{ group.experiment.animal_species }}{% if group.experiment.animal_strain %} {{ group.experiment.animal_strain }}{% endif %}</span>
-          {% endif %}
-        {% endif %}
-
-        <span style="margin-left:auto;font-size:11px;color:#94a3b8;font-family:monospace;">{{ group.experiment.batch_label }}</span>
-        <span class="toggle-arrow" style="color:#94a3b8;font-size:11px;flex-shrink:0;">{% if group.default_open %}▲{% else %}▼{% endif %}</span>
-      </button>
-
-      <!-- 折叠体 -->
-      <div class="group-body" style="display:{% if group.default_open %}block{% else %}none{% endif %};">
-
-        {% if group.experiment.exp_type == 'in_vitro' %}
-        <!-- 体外数据表 -->
-        <table style="width:100%;border-collapse:collapse;font-size:12px;">
-          <thead>
-            <tr style="background:#f8fafc;color:#64748b;font-size:11px;">
-              <th style="padding:5px 16px;text-align:left;font-weight:600;">Dose (nM)</th>
-              <th style="padding:5px 16px;text-align:right;font-weight:600;">Mean</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in group.rows %}
-            <tr style="border-top:1px solid #f1f5f9;">
-              <td style="padding:5px 16px;font-weight:600;color:#374151;">{{ row.dose }}</td>
-              <td style="padding:5px 16px;text-align:right;color:#374151;">{{ row.mean|floatformat:3 }}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="2" style="padding:10px 16px;color:#94a3b8;font-size:11px;">无浓度数据</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-
-        {% else %}
-        <!-- 体内数据表 -->
-        {% if group.experiment.route or group.experiment.gender %}
-        <div style="padding:5px 16px;font-size:11px;color:#64748b;border-bottom:1px solid #f8fafc;">
-          给药途径: {{ group.experiment.route|default:"—" }} &nbsp;|&nbsp;
-          性别: {{ group.experiment.gender|default:"—" }}
-        </div>
-        {% endif %}
-
-        <!-- 时间点筛选 -->
-        {% if group.timepoint_labels %}
-        <div class="tp-filter" style="padding:6px 16px;display:flex;gap:8px;flex-wrap:wrap;font-size:11px;background:#fffbeb;border-bottom:1px solid #fef3c7;">
-          <span style="color:#78350f;font-weight:600;flex-shrink:0;">显示时间点：</span>
-          {% for label in group.timepoint_labels %}
-          <label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;color:#374151;">
-            <input type="checkbox" checked
-                   data-tp="{{ label }}"
-                   onchange="filterTimepoint(this, '{{ forloop.parentloop.parentloop.counter }}_{{ forloop.parentloop.counter }}')">
-            {{ label }}
-          </label>
-          {% endfor %}
-        </div>
-        {% endif %}
-
-        <table class="invivo-table" style="width:100%;border-collapse:collapse;font-size:12px;"
-               data-tpkey="{{ forloop.parentloop.counter }}_{{ forloop.counter }}">
-          <thead>
-            <tr style="background:#f8fafc;color:#64748b;font-size:11px;">
-              <th style="padding:5px 16px;text-align:left;font-weight:600;">时间点</th>
-              <th style="padding:5px 16px;text-align:right;font-weight:600;">Mean</th>
-              <th style="padding:5px 16px;text-align:right;font-weight:600;">SD</th>
-              <th style="padding:5px 16px;text-align:right;font-weight:600;">CV%</th>
-              <th style="padding:5px 8px;text-align:right;font-weight:600;color:#94a3b8;">n</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in group.rows %}
-            <tr data-tp="{{ row.label }}" style="border-top:1px solid #f1f5f9;">
-              <td style="padding:5px 16px;font-weight:600;color:#374151;">{{ row.label }}</td>
-              <td style="padding:5px 16px;text-align:right;">{% if row.mean is not None %}{{ row.mean|floatformat:1 }}%{% else %}<span style="color:#94a3b8;">—</span>{% endif %}</td>
-              <td style="padding:5px 16px;text-align:right;color:#64748b;">{% if row.sd is not None %}{{ row.sd|floatformat:2 }}{% else %}<span style="color:#94a3b8;">—</span>{% endif %}</td>
-              <td style="padding:5px 16px;text-align:right;color:#64748b;">{% if row.cv is not None %}{{ row.cv|floatformat:1 }}%{% else %}<span style="color:#94a3b8;">—</span>{% endif %}</td>
-              <td style="padding:5px 8px;text-align:right;color:#94a3b8;">{% if row.n is not None %}{{ row.n }}{% else %}<span style="color:#e2e8f0;">—</span>{% endif %}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="5" style="padding:10px 16px;color:#94a3b8;font-size:11px;">无时间点数据</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        {% endif %}
-
-        <!-- 附件 + 详情链接 -->
-        <div style="padding:7px 16px;border-top:1px solid #f1f5f9;display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#fafafa;">
-          {% for att in group.attachments %}
-          <a href="{% url 'attachment_download' att.pk %}"
-             style="font-size:11px;color:#475569;text-decoration:none;display:inline-flex;align-items:center;gap:3px;"
-             title="{{ att.label }}">
-            📎 {{ att.label|default:"附件" }}
-          </a>
-          {% endfor %}
-          <a href="{% url 'compound_detail' item.compound.compound_id %}"
-             style="margin-left:auto;font-size:11px;color:#3b82f6;text-decoration:none;font-weight:500;">
-            📊 查看详情 →
-          </a>
-        </div>
-
-      </div><!-- /group-body -->
+  <!-- 序列 -->
+  {% if item.strand_map %}
+  <div class="cl-seq-area">
+    {% for strand_type, modify_seq in item.strand_map %}
+    <div class="cl-seq-row">
+      <span class="cl-strand-label">{{ strand_type }}</span>
+      <code class="cl-seq {% if strand_type == 'SS' %}cl-seq-ss{% else %}cl-seq-as{% endif %}">{{ modify_seq }}</code>
     </div>
-    {% endfor %}<!-- /batch groups -->
-
-  </div><!-- /compound card -->
-  {% empty %}
-  <div style="text-align:center;padding:48px;color:#94a3b8;">没有找到符合条件的化合物</div>
-  {% endfor %}
-
-  <!-- 分页 -->
-  {% if page_obj.paginator.num_pages > 1 %}
-  <div style="padding:10px 4px;display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#64748b;margin-top:8px;">
-    <span>第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页，共 {{ page_obj.paginator.count }} 个化合物</span>
-    <div style="display:flex;gap:4px;">
-      {% if page_obj.has_previous %}
-      <a href="?q={{ q|urlencode }}&project={{ project|urlencode }}&target_name={{ target_name|urlencode }}&tag={{ tag|urlencode }}&page={{ page_obj.previous_page_number }}"
-         style="padding:3px 8px;border:1px solid #e2e8f0;border-radius:4px;background:white;text-decoration:none;color:#475569;">◀</a>
-      {% endif %}
-      {% for num in page_obj.paginator.page_range %}
-        {% if num == page_obj.number %}
-        <span style="padding:3px 8px;border:1px solid #3b82f6;border-radius:4px;background:#3b82f6;color:white;">{{ num }}</span>
-        {% elif num >= page_obj.number|add:"-3" and num <= page_obj.number|add:"3" %}
-        <a href="?q={{ q|urlencode }}&project={{ project|urlencode }}&target_name={{ target_name|urlencode }}&tag={{ tag|urlencode }}&page={{ num }}"
-           style="padding:3px 8px;border:1px solid #e2e8f0;border-radius:4px;background:white;text-decoration:none;color:#475569;">{{ num }}</a>
-        {% endif %}
-      {% endfor %}
-      {% if page_obj.has_next %}
-      <a href="?q={{ q|urlencode }}&project={{ project|urlencode }}&target_name={{ target_name|urlencode }}&tag={{ tag|urlencode }}&page={{ page_obj.next_page_number }}"
-         style="padding:3px 8px;border:1px solid #e2e8f0;border-radius:4px;background:white;text-decoration:none;color:#475569;">▶</a>
-      {% endif %}
-    </div>
-    <span>每页 20 个</span>
+    {% endfor %}
   </div>
   {% endif %}
 
-</div><!-- /ds-content -->
+  <!-- 批次数据 -->
+  {% for group in item.batch_groups %}
+  <div class="cl-batch">
+
+    <!-- 批次头 -->
+    <div class="cl-batch-head">
+      <span class="cl-tag {% if group.experiment.exp_type == 'in_vitro' %}cl-tag-vitro{% else %}cl-tag-vivo{% endif %}">
+        {{ group.tag_label }}
+      </span>
+      {% if group.experiment.exp_type == 'in_vitro' %}
+        {% if group.header_ic50 is not None %}
+        <span class="cl-stat">IC50: <b>{{ group.header_ic50|floatformat:2 }} nM</b></span>
+        {% endif %}
+        {% if group.header_maxkd is not None %}
+        <span class="cl-stat">MaxKD: <b style="color:#374151;">{{ group.header_maxkd|floatformat:0 }}%</b></span>
+        {% endif %}
+      {% else %}
+        {% if group.header_maxkd is not None %}
+        <span class="cl-stat">MaxKD: <b>{{ group.header_maxkd|floatformat:0 }}%</b></span>
+        {% endif %}
+        {% if group.experiment.dose_info %}
+        <span style="font-size:11px;color:#94a3b8;">{{ group.experiment.dose_info }}</span>
+        {% endif %}
+        {% if group.experiment.animal_species %}
+        <span style="font-size:11px;color:#94a3b8;">{{ group.experiment.animal_species }}{% if group.experiment.animal_strain %} {{ group.experiment.animal_strain }}{% endif %}</span>
+        {% endif %}
+      {% endif %}
+      <span class="cl-batch-label">{{ group.experiment.batch_label }}</span>
+    </div>
+
+    <!-- 体内元信息 -->
+    {% if group.experiment.exp_type == 'in_vivo' %}
+      {% if group.experiment.route or group.experiment.gender %}
+      <div class="cl-route-info">
+        给药途径: {{ group.experiment.route|default:"—" }} &nbsp;|&nbsp; 性别: {{ group.experiment.gender|default:"—" }}
+      </div>
+      {% endif %}
+      {% if group.timepoint_labels %}
+      <div class="cl-tp-bar">
+        <span style="color:#78350f;font-weight:600;flex-shrink:0;">显示时间点：</span>
+        {% for label in group.timepoint_labels %}
+        <label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;color:#374151;">
+          <input type="checkbox" checked
+                 data-tp="{{ label }}"
+                 onchange="filterTp(this,'{{ forloop.parentloop.parentloop.counter }}_{{ forloop.parentloop.counter }}')">
+          {{ label }}
+        </label>
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endif %}
+
+    <!-- 数据表 -->
+    {% if group.experiment.exp_type == 'in_vitro' %}
+    <table class="cl-data-table">
+      <thead><tr>
+        <th>Dose (nM)</th>
+        <th class="r">Mean mRNA 残余%</th>
+      </tr></thead>
+      <tbody>
+        {% for row in group.rows %}
+        <tr>
+          <td style="font-weight:600;">{{ row.dose }}</td>
+          <td class="r">{{ row.mean|floatformat:3 }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="2" class="cl-empty">无浓度数据</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <table class="cl-data-table" data-tpkey="{{ forloop.parentloop.counter }}_{{ forloop.counter }}">
+      <thead><tr>
+        <th>时间点</th>
+        <th class="r">Mean KD%</th>
+        <th class="r">SD</th>
+        <th class="r">CV%</th>
+        <th class="r" style="color:#94a3b8;">n</th>
+      </tr></thead>
+      <tbody>
+        {% for row in group.rows %}
+        <tr data-tp="{{ row.label }}">
+          <td style="font-weight:600;">{{ row.label }}</td>
+          <td class="r">{% if row.mean is not None %}{{ row.mean|floatformat:1 }}%{% else %}<span class="dim">—</span>{% endif %}</td>
+          <td class="r dim">{% if row.sd is not None %}{{ row.sd|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td class="r dim">{% if row.cv is not None %}{{ row.cv|floatformat:1 }}%{% else %}—{% endif %}</td>
+          <td class="r dim">{% if row.n is not None %}{{ row.n }}{% else %}—{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="cl-empty">无时间点数据</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+  </div>
+  {% endfor %}
+
+  <!-- 卡片底部：附件 + 详情链接 -->
+  <div class="cl-foot">
+    {% for group in item.batch_groups %}{% for att in group.attachments %}
+    <a href="{% url 'attachment_download' att.pk %}" class="cl-att-link" title="{{ att.label }}">
+      📎 {{ att.label|default:"附件" }}
+    </a>
+    {% endfor %}{% endfor %}
+    <a href="{% url 'compound_detail' item.compound.compound_id %}" class="cl-detail-link">
+      📊 查看详情 →
+    </a>
+  </div>
+
+</div>
+{% empty %}
+<div style="text-align:center;padding:48px;color:#94a3b8;">没有找到符合条件的化合物</div>
+{% endfor %}
+
+<!-- 分页 -->
+{% if page_obj.paginator.num_pages > 1 %}
+<div class="cl-pagination">
+  <span>第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页，共 {{ page_obj.paginator.count }} 个化合物</span>
+  <div class="cl-page-btns">
+    {% if page_obj.has_previous %}
+    <a class="cl-page-btn" href="?q={{ q|urlencode }}&project={{ project|urlencode }}&target_name={{ target_name|urlencode }}&tag={{ tag|urlencode }}&page={{ page_obj.previous_page_number }}">◀</a>
+    {% endif %}
+    {% for num in page_obj.paginator.page_range %}
+      {% if num == page_obj.number %}
+      <span class="cl-page-btn active">{{ num }}</span>
+      {% elif num >= page_obj.number|add:"-3" and num <= page_obj.number|add:"3" %}
+      <a class="cl-page-btn" href="?q={{ q|urlencode }}&project={{ project|urlencode }}&target_name={{ target_name|urlencode }}&tag={{ tag|urlencode }}&page={{ num }}">{{ num }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}
+    <a class="cl-page-btn" href="?q={{ q|urlencode }}&project={{ project|urlencode }}&target_name={{ target_name|urlencode }}&tag={{ tag|urlencode }}&page={{ page_obj.next_page_number }}">▶</a>
+    {% endif %}
+  </div>
+  <span>每页 20 个</span>
+</div>
+{% endif %}
 
 <script>
-function toggleGroup(btn) {
-    const body = btn.nextElementSibling;
-    if (!body) return;
-    const arrow = btn.querySelector('.toggle-arrow');
-    const isOpen = body.style.display !== 'none';
-    body.style.display = isOpen ? 'none' : 'block';
-    btn.style.background = isOpen ? '#fafafa' : 'white';
-    if (arrow) arrow.textContent = isOpen ? '▼' : '▲';
-}
-
-function filterTimepoint(checkbox, tpkey) {
-    const tp = checkbox.dataset.tp;
-    const table = document.querySelector(`.invivo-table[data-tpkey="${tpkey}"]`);
-    if (!table) return;
-    table.querySelectorAll(`tr[data-tp="${tp}"]`).forEach(row => {
-        row.style.display = checkbox.checked ? '' : 'none';
-    });
+function filterTp(cb, key) {
+  var tp = cb.getAttribute('data-tp');
+  var tbl = document.querySelector('table[data-tpkey="' + key + '"]');
+  if (!tbl) return;
+  tbl.querySelectorAll('tr[data-tp="' + tp + '"]').forEach(function(r) {
+    r.style.display = cb.checked ? '' : 'none';
+  });
 }
 </script>
 

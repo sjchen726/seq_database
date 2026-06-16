@@ -276,6 +276,19 @@
     {% endfor %}
 
     {% if preview.invitro or preview.invivo_groups %}
+    <div style="border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;margin-bottom:16px;background:#f8fafc;">
+      <div style="font-weight:600;font-size:13px;color:#1e293b;margin-bottom:10px;">🏷 靶点信息</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <label class="ds-form-label" style="margin-bottom:0;flex-shrink:0;">靶点名称</label>
+        <input type="text" name="target_name" value="{{ preview.target_name }}"
+               class="ds-form-control" style="width:180px;"
+               placeholder="如 FASN、PCSK9（留空则不更新）">
+        {% if preview.target_name %}
+        <span style="font-size:11px;color:#64748b;background:#e0f2fe;border-radius:4px;padding:2px 7px;">自动提取</span>
+        {% endif %}
+        <span style="font-size:11px;color:#94a3b8;">本批所有空白靶点将更新为此值</span>
+      </div>
+    </div>
     <div style="display:flex;gap:10px;align-items:center;margin-top:8px;">
       <button type="submit" class="ds-btn ds-btn-primary">确认上传 →</button>
     </div>

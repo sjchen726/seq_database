@@ -1738,3 +1738,96 @@ class AttachmentDownloadTest(TestCase):
         self.client.logout()
         resp = self.client.get(f'/attachments/{self.att.pk}/download/')
         self.assertEqual(resp.status_code, 302)
+
+
+# ---- ExtractTargetNameTest ----
+class ExtractTargetNameTest(TestCase):
+    def _fn(self, filename, content=b''):
+        from app01.views import _extract_target_name_rules
+        return _extract_target_name_rules(filename, content)
+
+    def test_gene_from_filename_first_segment(self):
+        self.assertEqual(self._fn('FASN_IC50_2026.csv'), 'FASN')
+
+    def test_gene_with_digit_suffix(self):
+        self.assertEqual(self._fn('PCSK9_vitro_summary.csv'), 'PCSK9')
+
+    def test_bpr_prefix_skipped(self):
+        # 'BPR' is in skip list, fall through to content
+        result = self._fn('BPR_3M03FN01.csv', b'')
+        self.assertIsNone(result)
+
+    def test_gene_from_content_target_label(self):
+        content = b'Report\nTarget: APOC3\nSample ID,IC50\n'
+        self.assertEqual(self._fn('unknown.csv', content), 'APOC3')
+
+    def test_gene_from_content_gene_label(self):
+        content = b'Gene: HBB\nCompound,Value\n'
+        self.assertEqual(self._fn('data.csv', content), 'HBB')
+
+    def test_no_match_returns_none(self):
+        result = self._fn('report_2026.csv', b'col1,col2\n1,2\n')
+        self.assertIsNone(result)
+
+
+# ---- SmartUploadConfirmTargetNameTest ----
+class SmartUploadConfirmTargetNameTest(TestCase):
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='tn_test', password='pass', user_type='admin'
+        )
+        self.client.login(username='tn_test', password='pass')
+
+    def _make_session(self, compound_ids):
+        """Store minimal smart_preview in session with given compound IDs."""
+        experiments = [{'compound_id': cid, 'datapoints': [], 'summary': None} for cid in compound_ids]
+        preview = {
+            'project_code': 'TEST',
+            'file_detections': [],
+            'invitro': {
+                'experiments': experiments,
+                'strand_map': {cid: {} for cid in compound_ids},
+                'new_compounds': [{'compound_id': cid} for cid in compound_ids],
+                'assay_name': 'TestAssay',
+                'cell_line': '',
+                'notes': '',
+            },
+            'invivo_groups': [],
+            'unknown_files': [],
+            'errors': [],
+            'llm_unavailable': False,
+            'has_no_seq': True,
+            'target_name': 'FASN',
+        }
+        session = self.client.session
+        session['smart_preview'] = preview
+        session.save()
+
+    def test_target_name_saved_to_blank_compounds(self):
+        Compound.objects.create(compound_id='BPR_TNTEST01', target_name='')
+        Compound.objects.create(compound_id='BPR_TNTEST02', target_name='')
+        self._make_session(['BPR_TNTEST01', 'BPR_TNTEST02'])
+        self.client.post('/upload/smart/confirm/', {
+            'batch_label': 'T1',
+            'target_name': 'FASN',
+        })
+        self.assertEqual(Compound.objects.get(compound_id='BPR_TNTEST01').target_name, 'FASN')
+        self.assertEqual(Compound.objects.get(compound_id='BPR_TNTEST02').target_name, 'FASN')
+
+    def test_existing_target_name_not_overwritten(self):
+        Compound.objects.create(compound_id='BPR_TNTEST03', target_name='PCSK9')
+        self._make_session(['BPR_TNTEST03'])
+        self.client.post('/upload/smart/confirm/', {
+            'batch_label': 'T1',
+            'target_name': 'FASN',
+        })
+        self.assertEqual(Compound.objects.get(compound_id='BPR_TNTEST03').target_name, 'PCSK9')
+
+    def test_empty_target_name_skips_update(self):
+        Compound.objects.create(compound_id='BPR_TNTEST04', target_name='')
+        self._make_session(['BPR_TNTEST04'])
+        self.client.post('/upload/smart/confirm/', {
+            'batch_label': 'T1',
+            'target_name': '',
+        })
+        self.assertEqual(Compound.objects.get(compound_id='BPR_TNTEST04').target_name, '')
