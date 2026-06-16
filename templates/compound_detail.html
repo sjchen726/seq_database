@@ -401,4 +401,24 @@ $(function() {
 
 })();
 </script>
+
+{% if all_attachments %}
+<div style="margin-top:24px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+  <div style="background:#f8fafc;padding:10px 16px;border-bottom:1px solid #e2e8f0;font-weight:600;font-size:13px;color:#374151;">
+    📎 原始文件附件
+  </div>
+  <div style="padding:8px 16px;">
+    {% for att in all_attachments %}
+    <div style="display:flex;align-items:center;gap:10px;padding:6px 0;{% if not forloop.last %}border-bottom:1px solid #f1f5f9;{% endif %}">
+      <span style="font-size:11px;color:#94a3b8;font-family:monospace;min-width:100px;">{{ att.experiment.batch_label }}</span>
+      <a href="{% url 'attachment_download' att.pk %}"
+         style="font-size:12px;color:#3b82f6;text-decoration:none;">
+        {{ att.label|default:att.file.name }}
+      </a>
+      <span style="margin-left:auto;font-size:11px;color:#94a3b8;">{{ att.uploaded_at|date:"Y-m-d H:i" }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
 {% endblock %}

@@ -1034,12 +1034,18 @@ def compound_detail(request, compound_id):
     )
     vitro_chart_data = [_build_vitro_chart_data(exp) for exp in vitro]
     invivo_batches = build_invivo_summary(vivo).get(compound_id, [])
+    all_attachments = list(
+        ExperimentAttachment.objects.filter(
+            experiment__compound_id=compound_id
+        ).select_related('experiment').order_by('-uploaded_at')
+    )
     return render(request, 'compound_detail.html', {
         'compound':         compound,
         'strands':          strands,
         'vitro_batches':    vitro,
         'vitro_chart_data': vitro_chart_data,
         'invivo_batches':   invivo_batches,
+        'all_attachments':  all_attachments,
     })
 
 
