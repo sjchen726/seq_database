@@ -1016,7 +1016,7 @@ def compound_list(request):
         'project': project,
         'target_name': target_name_filter,
         'tag': tag,
-        'cl_invivo_charts_json': json.dumps(cl_invivo_charts),
+        'cl_invivo_charts': cl_invivo_charts,
     })
 
 
