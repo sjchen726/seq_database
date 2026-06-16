@@ -331,7 +331,7 @@ code.cl-seq {
     <table class="cl-data-table" data-tpkey="{{ forloop.parentloop.counter }}_{{ forloop.counter }}">
       <thead><tr>
         <th>时间点</th>
-        <th class="r">Mean KD%</th>
+        <th class="r">{% if group.invivo_readout == 'knockdown_pct' %}Mean KD%{% else %}Mean 体重变化%{% endif %}</th>
         <th class="r">SD</th>
         <th class="r">CV%</th>
         <th class="r" style="color:#94a3b8;">n</th>
@@ -350,6 +350,26 @@ code.cl-seq {
         {% endfor %}
       </tbody>
     </table>
+    {# 体内曲线图 #}
+    <div style="padding:6px 16px 10px;max-width:52%;">
+      <div style="font-size:11px;font-weight:600;color:#92400e;margin-bottom:4px;">
+        {% if group.invivo_readout == 'knockdown_pct' %}KD (%){% else %}体重变化 (%){% endif %}
+        vs 时间（{{ group.experiment.time_unit|default:"day" }}）
+      </div>
+      <div style="display:flex;align-items:stretch;gap:2px;">
+        <div style="writing-mode:vertical-rl;transform:rotate(180deg);
+                    font-size:10px;color:#92400e;white-space:nowrap;
+                    text-align:center;flex-shrink:0;padding:4px 0;">
+          {% if group.invivo_readout == 'knockdown_pct' %}KD (%){% else %}体重变化 (%){% endif %}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div id="cl-iv-{{ group.experiment.id }}" style="height:180px;"></div>
+          <div style="text-align:center;font-size:10px;color:#92400e;margin-top:2px;">
+            时间（{{ group.experiment.time_unit|default:"day" }}）
+          </div>
+        </div>
+      </div>
+    </div>
     {% endif %}
 
   </div>
@@ -406,4 +426,41 @@ function filterTp(cb, key) {
 }
 </script>
 
+{{ cl_invivo_charts_json|json_script:"cl-invivo-charts-data" }}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/vendors/flot/jquery.flot.js"></script>
+<script>
+(function() {
+  var charts = JSON.parse(document.getElementById('cl-invivo-charts-data').textContent);
+  var colors = ['#f97316','#3b82f6','#10b981','#a855f7','#ec4899'];
+
+  charts.forEach(function(d) {
+    var container = document.getElementById('cl-iv-' + d.exp_id);
+    if (!container || !d.points.length) return;
+
+    var allY = d.points.map(function(p) { return p[1]; });
+    var ymin = Math.min.apply(null, allY);
+    var ymax = Math.max.apply(null, allY);
+    var ypad = Math.max((ymax - ymin) * 0.12, 2);
+    var yOpts = d.readout_type === 'knockdown_pct'
+      ? { min: 0, max: Math.max(ymax + ypad, 110) }
+      : { min: ymin - ypad, max: ymax + ypad };
+
+    $.plot(container, [{
+      data: d.points,
+      color: colors[0],
+      lines: { show: true, lineWidth: 2 },
+      points: { show: true, radius: 3 }
+    }], {
+      xaxis: { tickLength: 4 },
+      yaxis: yOpts,
+      grid: { hoverable: false, borderWidth: 1, borderColor: '#fde68a' },
+      legend: { show: false }
+    });
+  });
+})();
+</script>
 {% endblock %}

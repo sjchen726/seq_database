@@ -840,6 +840,7 @@ def _build_invivo_rows(datapoints, time_unit):
             cv = (sd / abs(mean) * 100) if (sd is not None and mean) else None
             rows.append({
                 'label': _make_label(timepoint),
+                'x_value': timepoint,
                 'mean': round(mean, 2) if mean is not None else None,
                 'sd': round(sd, 2) if sd is not None else None,
                 'cv': round(cv, 1) if cv is not None else None,
@@ -860,6 +861,7 @@ def _build_invivo_rows(datapoints, time_unit):
 
         rows.append({
             'label': _make_label(timepoint),
+            'x_value': timepoint,
             'mean': round(mean, 2) if mean is not None else None,
             'sd': round(sd, 2) if sd is not None else None,
             'cv': round(cv, 1) if cv is not None else None,
@@ -887,6 +889,13 @@ def _build_batch_groups(experiments):
             rows = _build_invivo_rows(all_dps, exp.time_unit or 'day')
             header_ic50 = None
             header_maxkd = summary.max_kd_pct if summary else None
+            readout_types = {dp.readout_type for dp in all_dps if dp.x_type == 'timepoint' and not dp.is_control}
+            if 'knockdown_pct' in readout_types:
+                invivo_readout = 'knockdown_pct'
+            elif readout_types:
+                invivo_readout = next(iter(readout_types))
+            else:
+                invivo_readout = 'knockdown_pct'
 
         groups.append({
             'experiment': exp,
@@ -898,6 +907,7 @@ def _build_batch_groups(experiments):
             'header_ic50': header_ic50,
             'header_maxkd': header_maxkd,
             'timepoint_labels': [r['label'] for r in rows] if exp.exp_type == 'in_vivo' else [],
+            'invivo_readout': invivo_readout if exp.exp_type == 'in_vivo' else None,
             'default_open': idx == 0,
         })
     return groups
@@ -967,15 +977,27 @@ def compound_list(request):
         page_obj = paginator.page(1)
 
     compound_data = []
+    cl_invivo_charts = []
     for compound in page_obj:
         exps = list(compound.experiments.all())
         if tag:
             exps = [e for e in exps if e.exp_type == tag]
         strand_map = [(s.strand_type, s.modify_seq) for s in compound.strands.all()]
+        groups = _build_batch_groups(exps)
+        for g in groups:
+            if g['experiment'].exp_type == 'in_vivo':
+                pts = [[r['x_value'], r['mean']] for r in g['rows'] if r.get('mean') is not None]
+                if pts:
+                    cl_invivo_charts.append({
+                        'exp_id': g['experiment'].id,
+                        'readout_type': g['invivo_readout'],
+                        'time_unit': g['experiment'].time_unit or 'day',
+                        'points': pts,
+                    })
         compound_data.append({
             'compound': compound,
             'strand_map': strand_map,
-            'batch_groups': _build_batch_groups(exps),
+            'batch_groups': groups,
         })
 
     all_projects = sorted(
@@ -994,6 +1016,7 @@ def compound_list(request):
         'project': project,
         'target_name': target_name_filter,
         'tag': tag,
+        'cl_invivo_charts_json': json.dumps(cl_invivo_charts),
     })
 
 
