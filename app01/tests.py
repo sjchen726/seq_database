@@ -1933,3 +1933,37 @@ class BuildInvivoChartDataTest(TestCase):
         result = _build_invivo_chart_data(exp)
         self.assertEqual(result['time_unit'], 'week')
         self.assertEqual(result['batch_label'], 'T7')
+
+
+# ---- CompoundDetailInvivoChartContextTest ----
+class CompoundDetailInvivoChartContextTest(TestCase):
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='ctx_tester', password='pass', user_type='admin'
+        )
+        self.client.login(username='ctx_tester', password='pass')
+        self.cmp = Compound.objects.create(compound_id='BPR_CTX01', project='CTX')
+        self.exp = Experiment.objects.create(
+            compound=self.cmp, exp_type='in_vivo',
+            batch_label='B2026', time_unit='day', dose_info='5mpk SC'
+        )
+        DataPoint.objects.create(
+            experiment=self.exp, x_type='timepoint', x_value=7.0,
+            replicate='Mean', readout_type='knockdown_pct', value=70.0, is_control=False
+        )
+
+    def test_invivo_chart_data_in_context(self):
+        resp = self.client.get(f'/compounds/BPR_CTX01/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('invivo_chart_data', resp.context)
+
+    def test_invivo_chart_data_has_correct_structure(self):
+        resp = self.client.get(f'/compounds/BPR_CTX01/')
+        data = resp.context['invivo_chart_data']
+        self.assertEqual(len(data), 1)
+        item = data[0]
+        self.assertEqual(item['exp_id'], self.exp.id)
+        self.assertEqual(item['batch_label'], 'B2026')
+        self.assertEqual(item['readout_type'], 'knockdown_pct')
+        self.assertEqual(len(item['series']), 1)
+        self.assertEqual(item['series'][0]['points'][0]['x'], 7.0)
