@@ -174,10 +174,13 @@
   <div style="padding:4px 14px 8px;">
     <div style="font-size:11px;font-weight:600;color:#92400e;margin-bottom:4px;">
       {{ item.batch_label }}
-      · {% if item.readout_type == 'knockdown_pct' %}KD%{% else %}体重 (g){% endif %}
-      时间曲线
+      · {% if item.readout_type == 'knockdown_pct' %}KD%{% else %}体重变化 (%){% endif %}
+      vs 时间（{{ item.time_unit }}）
     </div>
-    <div id="invivo-chart-{{ item.exp_id }}" style="height:200px;"></div>
+    <div id="invivo-chart-{{ item.exp_id }}" style="height:210px;"></div>
+    <div style="text-align:center;font-size:10px;color:#92400e;margin-top:2px;">
+      时间（{{ item.time_unit }}）
+    </div>
   </div>
   {% endif %}
   {% endfor %}
@@ -358,10 +361,27 @@ function initInvivoBatchCharts() {
       };
     });
 
-    var yLabel = d.readout_type === 'knockdown_pct' ? 'KD %' : '体重 (g)';
+    // 计算 y 轴范围（含 SD），避免负值数据被截掉
+    var allY = [];
+    d.series.forEach(function(s) {
+      s.points.forEach(function(p) {
+        allY.push(p.mean + p.sd);
+        allY.push(p.mean - p.sd);
+      });
+    });
+    var ymin = allY.length ? Math.min.apply(null, allY) : 0;
+    var ymax = allY.length ? Math.max.apply(null, allY) : 100;
+    var ypad = Math.max((ymax - ymin) * 0.12, 2);
+    var yOpts;
+    if (d.readout_type === 'knockdown_pct') {
+      yOpts = { min: 0, max: Math.max(ymax + ypad, 110), labelWidth: 30 };
+    } else {
+      yOpts = { min: ymin - ypad, max: ymax + ypad, labelWidth: 30 };
+    }
+
     var plot = $.plot(container, seriesData, {
-      xaxis: { axisLabel: d.time_unit, tickLength: 4 },
-      yaxis: { min: 0, axisLabel: yLabel, labelWidth: 30 },
+      xaxis: { tickLength: 4 },
+      yaxis: yOpts,
       grid:  { hoverable: false, borderWidth: 1, borderColor: '#fde68a' },
       legend: { show: seriesData.length > 1, position: 'topright', backgroundOpacity: 0.7 }
     });
