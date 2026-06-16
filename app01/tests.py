@@ -1831,3 +1831,108 @@ class SmartUploadConfirmTargetNameTest(TestCase):
             'target_name': '',
         })
         self.assertEqual(Compound.objects.get(compound_id='BPR_TNTEST04').target_name, '')
+
+
+# ---- BuildInvivoChartDataTest ----
+class BuildInvivoChartDataTest(TestCase):
+    def _make_exp(self, batch='B1', time_unit='day', dose_info='10mpk SC'):
+        user = LmsUser.objects.create_user(
+            username=f'u_{batch}', password='pass', user_type='admin'
+        )
+        cmp = Compound.objects.create(compound_id=f'BPR_TEST_{batch}', project='T')
+        return Experiment.objects.create(
+            compound=cmp, exp_type='in_vivo',
+            batch_label=batch, time_unit=time_unit, dose_info=dose_info
+        )
+
+    def test_individual_replicates_mean_and_sd(self):
+        from app01.views import _build_invivo_chart_data
+        exp = self._make_exp('T1')
+        for x, rep, val in [
+            (7.0, 'A', 80.0), (7.0, 'B', 60.0),
+            (14.0, 'A', 50.0), (14.0, 'B', 50.0),
+        ]:
+            DataPoint.objects.create(
+                experiment=exp, x_type='timepoint', x_value=x,
+                replicate=rep, readout_type='knockdown_pct', value=val, is_control=False
+            )
+        result = _build_invivo_chart_data(exp)
+        self.assertEqual(result['readout_type'], 'knockdown_pct')
+        pts = result['series'][0]['points']
+        self.assertEqual(len(pts), 2)
+        self.assertAlmostEqual(pts[0]['mean'], 70.0)   # mean(80, 60)
+        self.assertAlmostEqual(pts[0]['sd'], 14.14, places=1)  # stdev(80, 60)
+        self.assertAlmostEqual(pts[1]['sd'], 0.0)
+
+    def test_n1_replicate_sd_is_zero(self):
+        from app01.views import _build_invivo_chart_data
+        exp = self._make_exp('T2')
+        DataPoint.objects.create(
+            experiment=exp, x_type='timepoint', x_value=7.0,
+            replicate='A', readout_type='knockdown_pct', value=75.0, is_control=False
+        )
+        result = _build_invivo_chart_data(exp)
+        self.assertEqual(result['series'][0]['points'][0]['sd'], 0.0)
+        self.assertEqual(result['series'][0]['points'][0]['n'], 1)
+
+    def test_mean_sd_fallback_when_no_individual_replicates(self):
+        from app01.views import _build_invivo_chart_data
+        exp = self._make_exp('T3')
+        DataPoint.objects.create(
+            experiment=exp, x_type='timepoint', x_value=7.0,
+            replicate='Mean', readout_type='knockdown_pct', value=70.0, is_control=False
+        )
+        DataPoint.objects.create(
+            experiment=exp, x_type='timepoint', x_value=7.0,
+            replicate='SD', readout_type='knockdown_pct', value=8.5, is_control=False
+        )
+        result = _build_invivo_chart_data(exp)
+        pts = result['series'][0]['points']
+        self.assertAlmostEqual(pts[0]['mean'], 70.0)
+        self.assertAlmostEqual(pts[0]['sd'], 8.5)
+        self.assertEqual(pts[0]['n'], 1)
+
+    def test_body_weight_readout_type(self):
+        from app01.views import _build_invivo_chart_data
+        exp = self._make_exp('T4')
+        DataPoint.objects.create(
+            experiment=exp, x_type='timepoint', x_value=0.0,
+            replicate='Mean', readout_type='body_weight', value=22.0, is_control=False
+        )
+        result = _build_invivo_chart_data(exp)
+        self.assertEqual(result['readout_type'], 'body_weight')
+
+    def test_controls_excluded(self):
+        from app01.views import _build_invivo_chart_data
+        exp = self._make_exp('T5')
+        DataPoint.objects.create(
+            experiment=exp, x_type='timepoint', x_value=7.0,
+            replicate='A', readout_type='knockdown_pct', value=5.0, is_control=True
+        )
+        DataPoint.objects.create(
+            experiment=exp, x_type='timepoint', x_value=7.0,
+            replicate='A', readout_type='knockdown_pct', value=80.0, is_control=False
+        )
+        result = _build_invivo_chart_data(exp)
+        pts = result['series'][0]['points']
+        self.assertEqual(len(pts), 1)
+        self.assertAlmostEqual(pts[0]['mean'], 80.0)
+
+    def test_empty_datapoints_returns_empty_series(self):
+        from app01.views import _build_invivo_chart_data
+        exp = self._make_exp('T6')
+        result = _build_invivo_chart_data(exp)
+        self.assertEqual(result['series'], [])
+        self.assertEqual(result['exp_id'], exp.id)
+        self.assertEqual(result['batch_label'], 'T6')
+
+    def test_time_unit_and_batch_label_in_result(self):
+        from app01.views import _build_invivo_chart_data
+        exp = self._make_exp('T7', time_unit='week')
+        DataPoint.objects.create(
+            experiment=exp, x_type='timepoint', x_value=1.0,
+            replicate='Mean', readout_type='knockdown_pct', value=60.0, is_control=False
+        )
+        result = _build_invivo_chart_data(exp)
+        self.assertEqual(result['time_unit'], 'week')
+        self.assertEqual(result['batch_label'], 'T7')

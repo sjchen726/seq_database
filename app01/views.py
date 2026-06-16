@@ -1048,6 +1048,64 @@ def _build_vitro_chart_data(exp):
     }
 
 
+def _build_invivo_chart_data(exp):
+    all_dps = list(exp.datapoints.all())
+    timepoint_dps = [
+        dp for dp in all_dps
+        if dp.x_type == 'timepoint' and not dp.is_control
+        and dp.x_value is not None and dp.value is not None
+    ]
+    if not timepoint_dps:
+        return {
+            'exp_id':       exp.id,
+            'batch_label':  exp.batch_label,
+            'readout_type': 'knockdown_pct',
+            'time_unit':    exp.time_unit or 'day',
+            'series':       [],
+        }
+
+    readout_types = {dp.readout_type for dp in timepoint_dps}
+    if 'knockdown_pct' in readout_types:
+        readout_type = 'knockdown_pct'
+    elif 'body_weight' in readout_types:
+        readout_type = 'body_weight'
+    else:
+        readout_type = next(iter(readout_types))
+
+    dps = [dp for dp in timepoint_dps if dp.readout_type == readout_type]
+    individual = [dp for dp in dps if dp.replicate not in ('Mean', 'SD')]
+
+    if individual:
+        grouped = defaultdict(list)
+        for dp in individual:
+            grouped[dp.x_value].append(dp.value)
+        points = []
+        for x in sorted(grouped):
+            vals = grouped[x]
+            n = len(vals)
+            mean = _statistics.mean(vals)
+            sd = _statistics.stdev(vals) if n >= 2 else 0.0
+            points.append({'x': x, 'mean': round(mean, 2), 'sd': round(sd, 2), 'n': n})
+    else:
+        mean_map = {dp.x_value: dp.value for dp in dps if dp.replicate == 'Mean'}
+        sd_map   = {dp.x_value: dp.value for dp in dps if dp.replicate == 'SD'}
+        points = []
+        for x in sorted(mean_map):
+            mean = mean_map[x]
+            sd   = sd_map.get(x, 0.0) or 0.0
+            points.append({'x': x, 'mean': round(mean, 2), 'sd': round(sd, 2), 'n': 1})
+
+    label = (exp.dose_info or '').strip() or exp.batch_label
+
+    return {
+        'exp_id':       exp.id,
+        'batch_label':  exp.batch_label,
+        'readout_type': readout_type,
+        'time_unit':    exp.time_unit or 'day',
+        'series': [{'label': label, 'points': points}] if points else [],
+    }
+
+
 @login_required
 def compound_detail(request, compound_id):
     compound = get_object_or_404(Compound, pk=compound_id)
