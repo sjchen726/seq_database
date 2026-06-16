@@ -880,6 +880,7 @@ def _build_batch_groups(experiments):
     for idx, exp in enumerate(experiments):
         summary = getattr(exp, 'summary', None)
         all_dps = list(exp.datapoints.all())
+        invivo_readout = None  # always defined; overwritten in the in_vivo branch
 
         if exp.exp_type == 'in_vitro':
             rows = _build_vitro_rows(all_dps)
@@ -950,6 +951,7 @@ def compound_list(request):
     project = request.GET.get('project', '').strip()
     target_name_filter = request.GET.get('target_name', '').strip()
     tag = request.GET.get('tag', '').strip()
+    group = request.GET.get('group', 'compound').strip()
 
     qs = Compound.objects.prefetch_related(
         Prefetch('strands', queryset=Strand.objects.order_by('-strand_type')),
@@ -976,7 +978,7 @@ def compound_list(request):
     except (ValueError, InvalidPage):
         page_obj = paginator.page(1)
 
-    compound_data = []
+    row_data = []
     cl_invivo_charts = []
     cl_vitro_charts = []
     for compound in page_obj:
@@ -1009,11 +1011,11 @@ def compound_list(request):
                         'mrna_pts': mrna_pts,
                         'kd_pts': kd_pts,
                     })
-        compound_data.append({
-            'compound': compound,
-            'strand_map': strand_map,
-            'batch_groups': groups,
-        })
+            row_data.append({
+                'compound': compound,
+                'strand_map': strand_map,
+                'group': g,
+            })
 
     all_projects = sorted(
         Compound.objects.exclude(project='').values_list('project', flat=True).distinct()
@@ -1023,7 +1025,7 @@ def compound_list(request):
     )
 
     return render(request, 'compound_list.html', {
-        'compound_data': compound_data,
+        'row_data': row_data,
         'page_obj': page_obj,
         'all_projects': all_projects,
         'all_targets': all_targets,
@@ -1031,6 +1033,7 @@ def compound_list(request):
         'project': project,
         'target_name': target_name_filter,
         'tag': tag,
+        'group': group,
         'cl_invivo_charts': cl_invivo_charts,
         'cl_vitro_charts': cl_vitro_charts,
     })
