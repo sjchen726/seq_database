@@ -1,7 +1,7 @@
 from collections import defaultdict
 import statistics as _statistics
 import copy
-import re, json, os, csv
+import re, json, os, csv, math
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import FileResponse, HttpResponse, Http404, JsonResponse
 from django.contrib.auth import authenticate, login, logout as auth_logout
@@ -978,6 +978,7 @@ def compound_list(request):
 
     compound_data = []
     cl_invivo_charts = []
+    cl_vitro_charts = []
     for compound in page_obj:
         exps = list(compound.experiments.all())
         if tag:
@@ -985,15 +986,24 @@ def compound_list(request):
         strand_map = [(s.strand_type, s.modify_seq) for s in compound.strands.all()]
         groups = _build_batch_groups(exps)
         for g in groups:
-            if g['experiment'].exp_type == 'in_vivo':
+            exp = g['experiment']
+            if exp.exp_type == 'in_vivo':
                 pts = [[r['x_value'], r['mean']] for r in g['rows'] if r.get('mean') is not None]
                 if pts:
                     cl_invivo_charts.append({
-                        'exp_id': g['experiment'].id,
+                        'exp_id': exp.id,
                         'readout_type': g['invivo_readout'],
-                        'time_unit': g['experiment'].time_unit or 'day',
+                        'time_unit': exp.time_unit or 'day',
                         'points': pts,
                     })
+            else:
+                pts = [
+                    [round(math.log10(r['dose']), 4), round(r['mean'] * 100, 2)]
+                    for r in g['rows']
+                    if r.get('dose') and r['dose'] > 0 and r.get('mean') is not None
+                ]
+                if pts:
+                    cl_vitro_charts.append({'exp_id': exp.id, 'points': pts})
         compound_data.append({
             'compound': compound,
             'strand_map': strand_map,
@@ -1017,6 +1027,7 @@ def compound_list(request):
         'target_name': target_name_filter,
         'tag': tag,
         'cl_invivo_charts': cl_invivo_charts,
+        'cl_vitro_charts': cl_vitro_charts,
     })
 
 

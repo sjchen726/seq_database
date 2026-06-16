@@ -327,6 +327,25 @@ code.cl-seq {
         {% endfor %}
       </tbody>
     </table>
+    {# 体外剂量-响应曲线 #}
+    <div style="padding:6px 16px 10px;max-width:52%;">
+      <div style="font-size:11px;font-weight:600;color:#1e3a5f;margin-bottom:4px;">
+        mRNA 残余 (%) vs 浓度 (nM)
+      </div>
+      <div style="display:flex;align-items:stretch;gap:2px;">
+        <div style="writing-mode:vertical-rl;transform:rotate(180deg);
+                    font-size:10px;color:#1e3a5f;white-space:nowrap;
+                    text-align:center;flex-shrink:0;padding:4px 0;">
+          mRNA 残余 (%)
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div id="cl-vt-{{ group.experiment.id }}" style="height:180px;"></div>
+          <div style="text-align:center;font-size:10px;color:#1e3a5f;margin-top:2px;">
+            浓度 (nM，log₁₀)
+          </div>
+        </div>
+      </div>
+    </div>
     {% else %}
     <table class="cl-data-table" data-tpkey="{{ forloop.parentloop.counter }}_{{ forloop.counter }}">
       <thead><tr>
@@ -427,6 +446,7 @@ function filterTp(cb, key) {
 </script>
 
 {{ cl_invivo_charts|json_script:"cl-invivo-charts-data" }}
+{{ cl_vitro_charts|json_script:"cl-vitro-charts-data" }}
 
 {% endblock %}
 
@@ -434,13 +454,13 @@ function filterTp(cb, key) {
 <script src="/static/vendors/flot/jquery.flot.js"></script>
 <script>
 $(function() {
-  var charts = JSON.parse(document.getElementById('cl-invivo-charts-data').textContent);
-  var colors = ['#f97316','#3b82f6','#10b981','#a855f7','#ec4899'];
+  var LOG_TICKS = [[-3,'0.001'],[-2,'0.01'],[-1,'0.1'],[0,'1'],[1,'10'],[2,'100'],[3,'1000']];
 
-  charts.forEach(function(d) {
+  // 体内图
+  var ivcCharts = JSON.parse(document.getElementById('cl-invivo-charts-data').textContent);
+  ivcCharts.forEach(function(d) {
     var container = document.getElementById('cl-iv-' + d.exp_id);
-    if (!container || !d.points.length) return;
-    if (container.offsetWidth === 0) return;
+    if (!container || !d.points.length || container.offsetWidth === 0) return;
 
     var allY = d.points.map(function(p) { return p[1]; });
     var ymin = Math.min.apply(null, allY);
@@ -453,13 +473,34 @@ $(function() {
     try {
       $.plot(container, [{
         data: d.points,
-        color: colors[0],
+        color: '#f97316',
         lines: { show: true, lineWidth: 2 },
         points: { show: true, radius: 3 }
       }], {
         xaxis: { tickLength: 4 },
         yaxis: yOpts,
         grid: { hoverable: false, borderWidth: 1, borderColor: '#fde68a' },
+        legend: { show: false }
+      });
+    } catch(e) {}
+  });
+
+  // 体外图
+  var vtCharts = JSON.parse(document.getElementById('cl-vitro-charts-data').textContent);
+  vtCharts.forEach(function(d) {
+    var container = document.getElementById('cl-vt-' + d.exp_id);
+    if (!container || !d.points.length || container.offsetWidth === 0) return;
+
+    try {
+      $.plot(container, [{
+        data: d.points,
+        color: '#3b82f6',
+        lines: { show: true, lineWidth: 2 },
+        points: { show: true, radius: 3 }
+      }], {
+        xaxis: { ticks: LOG_TICKS, tickLength: 4 },
+        yaxis: { min: 0, max: 120, labelWidth: 30 },
+        grid: { hoverable: false, borderWidth: 1, borderColor: '#bfdbfe' },
         legend: { show: false }
       });
     } catch(e) {}
