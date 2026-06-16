@@ -801,15 +801,55 @@ def _build_vitro_rows(datapoints):
 
 
 def _build_invivo_rows(datapoints, time_unit):
-    """One row per filtered timepoint with mean/SD/CV from raw replicates."""
+    """One row per filtered timepoint with mean/SD/CV.
+
+    Prefers computing from individual replicates (1/2/3/A/B).
+    Falls back to stored Mean/SD replicates when no individual replicates exist
+    (which is the case for files uploaded via smart_upload / invivo_upload).
+    """
     grouped = defaultdict(list)
     for dp in datapoints:
         if not dp.is_control and dp.replicate not in ('Mean', 'SD') and dp.x_type == 'timepoint':
             grouped[dp.x_value].append(dp.value)
 
+    def _make_label(timepoint):
+        if time_unit == 'day':
+            return f'Day {int(timepoint)}'
+        elif time_unit == 'week':
+            return f'Week {int(timepoint)}'
+        return f'{int(timepoint)} {time_unit}'
+
+    def _passes_filter(timepoint):
+        return not (time_unit == 'day' and timepoint % 7 != 0 and timepoint != 0)
+
+    # Fallback: use stored Mean/SD when no individual replicates exist
+    if not grouped:
+        mean_map, sd_map = {}, {}
+        for dp in datapoints:
+            if dp.x_type == 'timepoint' and not dp.is_control:
+                if dp.replicate == 'Mean':
+                    mean_map[dp.x_value] = dp.value
+                elif dp.replicate == 'SD':
+                    sd_map[dp.x_value] = dp.value
+        rows = []
+        for timepoint in sorted(mean_map):
+            if not _passes_filter(timepoint):
+                continue
+            mean = mean_map[timepoint]
+            sd = sd_map.get(timepoint)
+            cv = (sd / abs(mean) * 100) if (sd is not None and mean) else None
+            rows.append({
+                'label': _make_label(timepoint),
+                'mean': round(mean, 2) if mean is not None else None,
+                'sd': round(sd, 2) if sd is not None else None,
+                'cv': round(cv, 1) if cv is not None else None,
+                'n': None,
+            })
+        return rows
+
     rows = []
     for timepoint in sorted(grouped):
-        if time_unit == 'day' and timepoint % 7 != 0 and timepoint != 0:
+        if not _passes_filter(timepoint):
             continue
 
         vals = grouped[timepoint]
@@ -818,15 +858,8 @@ def _build_invivo_rows(datapoints, time_unit):
         sd = _statistics.stdev(vals) if n >= 2 else None
         cv = (sd / abs(mean) * 100) if (sd is not None and mean) else None
 
-        if time_unit == 'day':
-            label = f'Day {int(timepoint)}'
-        elif time_unit == 'week':
-            label = f'Week {int(timepoint)}'
-        else:
-            label = f'{int(timepoint)} {time_unit}'
-
         rows.append({
-            'label': label,
+            'label': _make_label(timepoint),
             'mean': round(mean, 2) if mean is not None else None,
             'sd': round(sd, 2) if sd is not None else None,
             'cv': round(cv, 1) if cv is not None else None,

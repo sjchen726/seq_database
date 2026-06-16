@@ -184,7 +184,7 @@
               <td style="padding:5px 16px;text-align:right;">{% if row.mean is not None %}{{ row.mean|floatformat:1 }}%{% else %}<span style="color:#94a3b8;">—</span>{% endif %}</td>
               <td style="padding:5px 16px;text-align:right;color:#64748b;">{% if row.sd is not None %}{{ row.sd|floatformat:2 }}{% else %}<span style="color:#94a3b8;">—</span>{% endif %}</td>
               <td style="padding:5px 16px;text-align:right;color:#64748b;">{% if row.cv is not None %}{{ row.cv|floatformat:1 }}%{% else %}<span style="color:#94a3b8;">—</span>{% endif %}</td>
-              <td style="padding:5px 8px;text-align:right;color:#94a3b8;">{{ row.n }}</td>
+              <td style="padding:5px 8px;text-align:right;color:#94a3b8;">{% if row.n is not None %}{{ row.n }}{% else %}<span style="color:#e2e8f0;">—</span>{% endif %}</td>
             </tr>
             {% empty %}
             <tr><td colspan="5" style="padding:10px 16px;color:#94a3b8;font-size:11px;">无时间点数据</td></tr>

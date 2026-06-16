@@ -1687,6 +1687,23 @@ class BuildInvivoRowsTest(TestCase):
         self.assertEqual(len(rows), 1)
         self.assertIsNone(rows[0]['cv'])
 
+    def test_precomputed_mean_sd_fallback(self):
+        """Uploaded in-vivo files only store Mean/SD — fallback must use them."""
+        from app01.views import _build_invivo_rows
+        exp = self._make_exp('day')
+        DataPoint.objects.create(experiment=exp, x_value=7.0, x_type='timepoint', replicate='Mean', value=-80.0, readout_type='knockdown_pct')
+        DataPoint.objects.create(experiment=exp, x_value=7.0, x_type='timepoint', replicate='SD', value=3.5, readout_type='knockdown_pct')
+        DataPoint.objects.create(experiment=exp, x_value=14.0, x_type='timepoint', replicate='Mean', value=-90.0, readout_type='knockdown_pct')
+        DataPoint.objects.create(experiment=exp, x_value=14.0, x_type='timepoint', replicate='SD', value=2.0, readout_type='knockdown_pct')
+        rows = _build_invivo_rows(list(exp.datapoints.all()), 'day')
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]['label'], 'Day 7')
+        self.assertAlmostEqual(rows[0]['mean'], -80.0, places=1)
+        self.assertAlmostEqual(rows[0]['sd'], 3.5, places=1)
+        self.assertIsNotNone(rows[0]['cv'])
+        self.assertIsNone(rows[0]['n'])
+        self.assertEqual(rows[1]['label'], 'Day 14')
+
 
 # ---- AttachmentDownloadTest ----
 class AttachmentDownloadTest(TestCase):
