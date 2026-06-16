@@ -123,7 +123,7 @@
 {% endif %}
 
 {# ④ 体内实验 #}
-{% if invivo_batches %}
+{% if invivo_batches or invivo_chart_data %}
 <div style="font-size:13px;font-weight:700;color:#92400e;
             border-bottom:2px solid #fde68a;padding-bottom:5px;margin:14px 0 10px;">
   ■ 体内实验
@@ -132,7 +132,8 @@
 <div style="background:white;border:1px solid #fde68a;border-radius:8px;
             padding:0;margin-bottom:0;overflow:hidden;">
 
-  {# 汇总表 — 动态 day 列 #}
+  {# 汇总表 — 只有 KD% 数据时显示 #}
+  {% if invivo_batches %}
   {% with all_days=invivo_batches|all_days %}
   <div style="overflow-x:auto;padding:10px 14px 0;">
     <table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -165,6 +166,7 @@
     </table>
   </div>
   {% endwith %}
+  {% endif %}
 
   {# 体内各批次图表 #}
   {% for item in invivo_chart_data %}
@@ -180,7 +182,8 @@
   {% endif %}
   {% endfor %}
 
-  {# 体内折线图 #}
+  {# KD% 多批次折线图 — 只有 KD% 数据时显示 #}
+  {% if invivo_batches %}
   <div style="padding:8px 14px 14px;">
     <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -201,6 +204,7 @@
       <div id="chart-invivo" style="height:200px;"></div>
     </div>
   </div>
+  {% endif %}
 
 </div>
 {% endif %}
