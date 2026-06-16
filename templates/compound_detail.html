@@ -350,9 +350,7 @@ function initInvivoBatchCharts() {
         label: s.label,
         color: colors[i % colors.length],
         data: s.points.map(function(p) {
-          var lo = p.mean - p.sd;
-          var hi = p.mean + p.sd;
-          return [p.x, p.mean, lo, hi];
+          return [p.x, p.mean, p.sd];
         }),
         points: {
           show: true,
