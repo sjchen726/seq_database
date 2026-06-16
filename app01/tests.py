@@ -678,6 +678,18 @@ class CompoundListViewTest(TestCase):
         self.assertIn('BPR_3M03FN01', ids)
         self.assertNotIn('BPR_5X01TT01', ids)
 
+    def test_filter_by_q_search(self):
+        resp = self.client.get('/compounds/?q=3M03FN01')
+        ids = [item['compound'].compound_id for item in resp.context['compound_data']]
+        self.assertIn('BPR_3M03FN01', ids)
+        self.assertNotIn('BPR_5X01TT01', ids)
+
+    def test_filter_by_target_name(self):
+        resp = self.client.get('/compounds/?target_name=FASN')
+        ids = [item['compound'].compound_id for item in resp.context['compound_data']]
+        self.assertIn('BPR_3M03FN01', ids)
+        self.assertNotIn('BPR_5X01TT01', ids)
+
     def test_batch_groups_in_compound_data(self):
         resp = self.client.get('/compounds/')
         item = next(

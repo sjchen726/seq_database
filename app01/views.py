@@ -794,7 +794,7 @@ def _build_vitro_rows(datapoints):
     """One row per concentration, only Mean replicate, sorted high to low."""
     mean_points = [
         dp for dp in datapoints
-        if dp.replicate == 'Mean' and not dp.is_control
+        if dp.replicate == 'Mean' and not dp.is_control and dp.x_type == 'concentration'
     ]
     mean_points.sort(key=lambda dp: -dp.x_value)
     return [{'dose': dp.x_value, 'mean': dp.value} for dp in mean_points]
@@ -804,7 +804,7 @@ def _build_invivo_rows(datapoints, time_unit):
     """One row per filtered timepoint with mean/SD/CV from raw replicates."""
     grouped = defaultdict(list)
     for dp in datapoints:
-        if not dp.is_control and dp.replicate not in ('Mean', 'SD'):
+        if not dp.is_control and dp.replicate not in ('Mean', 'SD') and dp.x_type == 'timepoint':
             grouped[dp.x_value].append(dp.value)
 
     rows = []
