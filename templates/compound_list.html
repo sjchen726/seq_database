@@ -608,8 +608,8 @@ $(function () {
       renderedRows[idx] = true;
       setTimeout(function () {
         (function tryRender(attempts) {
-          var vtEl = er.querySelector('[id^="cl-vt-"]');
-          var ivEl = er.querySelector('[id^="cl-iv-"]');
+          var vtEl = er.querySelector('.cl-chart-plot[id^="cl-vt-"]');
+          var ivEl = er.querySelector('.cl-chart-plot[id^="cl-iv-"]');
           var probe = vtEl || ivEl;
           if (probe && probe.offsetWidth > 0) {
             if (vtEl) renderVitro(parseInt(vtEl.id.replace('cl-vt-', '')), 'mrna');
