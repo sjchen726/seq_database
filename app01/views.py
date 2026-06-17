@@ -951,7 +951,7 @@ def compound_list(request):
     project = request.GET.get('project', '').strip()
     target_name_filter = request.GET.get('target_name', '').strip()
     tag = request.GET.get('tag', '').strip()
-    group = request.GET.get('group', 'compound').strip()
+    group = request.GET.get('group', 'batch').strip()
 
     qs = Compound.objects.prefetch_related(
         Prefetch('strands', queryset=Strand.objects.order_by('-strand_type')),

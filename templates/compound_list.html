@@ -1069,6 +1069,16 @@ $(function () {
   window.setGroup = function (mode) {
     if (mode === 'batch') applyBatchGrouping();
     else restoreCompoundOrder();
+
+    // Keep URL in sync so pagination links carry the current group
+    var url = new URL(window.location.href);
+    url.searchParams.set('group', mode);
+    history.replaceState(null, '', url.toString());
+    document.querySelectorAll('.cl-page-btn[href]').forEach(function (a) {
+      var pu = new URL(a.href, window.location.href);
+      pu.searchParams.set('group', mode);
+      a.href = pu.toString();
+    });
   };
 
   var urlParams = new URLSearchParams(window.location.search);
