@@ -1578,13 +1578,14 @@ class SmartUploadConfirmTest(TestCase):
 
     def _confirm_post(self, extra=None):
         data = {
+            'batch_label': 'TESTBATCH',
             'time_unit_0': 'day',
             'dose_override_0': '10mpk SC',
             'animal_species_0': 'mouse',
             'animal_strain_0': 'C57BL/6',
             'route_0': 'SC',
             'gender_0': 'male',
-            'target_name': 'TARGET',  # required since the smart-upload overhaul
+            'target_name': 'TARGET',
         }
         if extra:
             data.update(extra)

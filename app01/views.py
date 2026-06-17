@@ -1737,8 +1737,19 @@ def smart_upload_confirm_view(request):
     if not target_name_input:
         errors.append('靶点必填,不能为空')
 
-    if invitro and not batch_label:
+    if (invitro or invivo_groups) and not batch_label:
         errors.append('批次名称为必填项')
+
+    if batch_label:
+        existing_cids = list(
+            Experiment.objects.filter(batch_label=batch_label)
+            .values_list('compound_id', flat=True).distinct()
+        )
+        if existing_cids:
+            ids_str = '、'.join(sorted(existing_cids)[:10])
+            if len(existing_cids) > 10:
+                ids_str += f' 等共 {len(existing_cids)} 个'
+            errors.append(f'批次 {batch_label} 已存在，包含化合物：{ids_str}。请更改批次号或先删除旧数据')
 
     invivo_meta = []
     for i, group in enumerate(invivo_groups):
@@ -1866,7 +1877,7 @@ def smart_upload_confirm_view(request):
     # Write each in-vivo group in its own atomic transaction (independent)
     for i, group in enumerate(invivo_groups):
         meta = invivo_meta[i]
-        batch_label_iv = datetime.now().strftime('B%Y%m%d%H%M%S') + f'{i:02d}'
+        batch_label_iv = batch_label
         readout_code = group['readout_code']
         readout_label = group.get('readout_label', readout_code)
         assay_name_iv = f'{readout_label} 时间曲线'
