@@ -1504,26 +1504,43 @@ class SmartUploadViewTest(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, '请至少')
 
-    def test_post_invivo_kd_file_creates_invivo_groups(self):
+    def test_post_invivo_kd_file_then_reparse_creates_invivo_groups(self):
+        # Phase 1: upload — file is saved, no classification yet
         r = self.client.post(reverse('smart_upload'), {
             'project_code': '3M03',
             'files': self._kd_csv(),
         })
         self.assertRedirects(r, '/upload/smart/?preview=1')
         preview = self.client.session['smart_preview']
-        self.assertEqual(len(preview['invivo_groups']), 1)
-        self.assertEqual(preview['invivo_groups'][0]['readout_type'], 'knockdown_pct')
-        self.assertIsNone(preview['invitro'])
+        self.assertEqual(len(preview['invivo_groups']), 0)  # not yet classified
+        saved_path = preview['file_detections'][0]['saved_path']
 
-    def test_post_vitro_file_detected_as_summary(self):
+        # Phase 2: user picks invivo_summary + knockdown_pct, hits reparse
+        r2 = self.client.post(reverse('smart_upload'), {
+            'reparse': '1',
+            'file_count': '1',
+            'filename_0': 'data2.csv',
+            'saved_path_0': saved_path,
+            'file_type_0': 'invivo_summary',
+            'readout_0': 'knockdown_pct',
+        })
+        self.assertRedirects(r2, '/upload/smart/?preview=1')
+        preview2 = self.client.session['smart_preview']
+        self.assertEqual(len(preview2['invivo_groups']), 1)
+        self.assertEqual(preview2['invivo_groups'][0]['readout_code'], 'knockdown_pct')
+        self.assertIsNone(preview2['invitro'])
+
+    def test_post_file_creates_unclassified_file_detection(self):
+        # New behavior: initial POST stores the file with empty file_type_code;
+        # user must classify in reparse step.
         r = self.client.post(reverse('smart_upload'), {
             'project_code': '3M03',
             'files': self._summary_csv(),
         })
         self.assertRedirects(r, '/upload/smart/?preview=1')
         preview = self.client.session['smart_preview']
-        self.assertEqual(preview['file_detections'][0]['detected_type'], 'vitro_summary')
-        self.assertEqual(preview['file_detections'][0]['confidence'], 'rule')
+        self.assertEqual(len(preview['file_detections']), 1)
+        self.assertEqual(preview['file_detections'][0]['file_type_code'], '')
 
     def test_get_preview_renders_phase2(self):
         self.client.post(reverse('smart_upload'), {
@@ -1544,11 +1561,20 @@ class SmartUploadConfirmTest(TestCase):
         shutil.rmtree(self.tmp_media, ignore_errors=True)
 
     def _upload_kd(self):
-        """POST a KD file to smart_upload to populate the session."""
+        """POST a KD file + reparse step to fully classify as invivo_summary/knockdown_pct."""
         kd_csv = b'CompA,CompA,CompA\n-7,0.0,0.1,-0.1\n14,-30.5,-31.2,-29.8\n'
         f = SimpleUploadedFile('data2.csv', kd_csv, content_type='text/csv')
         with override_settings(MEDIA_ROOT=self.tmp_media):
             self.client.post(reverse('smart_upload'), {'project_code': '3M03', 'files': f})
+            saved_path = self.client.session['smart_preview']['file_detections'][0]['saved_path']
+            self.client.post(reverse('smart_upload'), {
+                'reparse': '1',
+                'file_count': '1',
+                'filename_0': 'data2.csv',
+                'saved_path_0': saved_path,
+                'file_type_0': 'invivo_summary',
+                'readout_0': 'knockdown_pct',
+            })
 
     def _confirm_post(self, extra=None):
         data = {
@@ -1558,6 +1584,7 @@ class SmartUploadConfirmTest(TestCase):
             'animal_strain_0': 'C57BL/6',
             'route_0': 'SC',
             'gender_0': 'male',
+            'target_name': 'TARGET',  # required since the smart-upload overhaul
         }
         if extra:
             data.update(extra)
