@@ -149,6 +149,10 @@
       ci.style.display = (sel.value === '__new__') ? 'block' : 'none';
       ci.required = (sel.value === '__new__');
     }
+    function onAttContext(sel, i) {
+      document.getElementById('att_vitro_' + i).style.display = (sel.value === 'vitro') ? 'block' : 'none';
+      document.getElementById('att_invivo_' + i).style.display = (sel.value === 'invivo') ? 'block' : 'none';
+    }
   </script>
 
   {# Confirm form #}
@@ -165,7 +169,8 @@
         <div>
           <label class="ds-form-label">批次名称 *</label>
           <input type="text" name="batch_label" class="ds-form-control"
-                 placeholder="如 B20260615" required>
+                 value="{{ suggested_batch_label|default:'' }}"
+                 placeholder="如 20260617-001" required>
         </div>
         <div>
           <label class="ds-form-label">Assay 名称</label>
@@ -302,10 +307,54 @@
     {% endfor %}
 
     {% if preview.attachment_files %}
-    <div style="border:1px solid #fde68a;background:#fef9c3;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#92400e;">
-      ⓘ {{ preview.attachment_files|length }} 个附件文件将作为项目附件保存,不参与数据解析:
+    <div style="border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;margin-bottom:16px;background:#f8fafc;">
+      <div style="font-weight:600;font-size:13px;color:#1e293b;margin-bottom:10px;">📎 附件文件（不解析，作为项目附件保存）</div>
       {% for af in preview.attachment_files %}
-        <span style="background:white;border:1px solid #fde68a;border-radius:3px;padding:1px 6px;font-size:11px;margin-right:4px;">{{ af.filename }} ({{ af.label }})</span>
+      <div style="border:1px solid #e2e8f0;border-radius:6px;padding:10px 12px;margin-bottom:10px;background:white;">
+        <div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:8px;">
+          {{ af.filename }}
+          <span style="font-weight:400;color:#94a3b8;margin-left:6px;">{{ af.label }}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <label style="font-size:12px;color:#475569;flex-shrink:0;">实验关联</label>
+          <select name="att_{{ forloop.counter0 }}_context" class="ds-form-control" style="width:140px;font-size:12px;"
+                  onchange="onAttContext(this, {{ forloop.counter0 }})">
+            <option value="">-- 不填 --</option>
+            <option value="vitro">体外实验</option>
+            <option value="invivo">体内实验</option>
+          </select>
+        </div>
+        <div id="att_vitro_{{ forloop.counter0 }}" style="display:none;margin-top:8px;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <label style="font-size:12px;color:#475569;flex-shrink:0;">细胞系</label>
+            <input type="text" name="att_{{ forloop.counter0 }}_cell_line"
+                   class="ds-form-control" style="width:180px;font-size:12px;"
+                   placeholder="如 Hepa1-6、HepG2">
+          </div>
+        </div>
+        <div id="att_invivo_{{ forloop.counter0 }}" style="display:none;margin-top:8px;">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <div>
+              <label style="font-size:11px;color:#64748b;display:block;">动物模型</label>
+              <input type="text" name="att_{{ forloop.counter0 }}_animal_model"
+                     class="ds-form-control" style="width:150px;font-size:12px;"
+                     placeholder="如 C57BL/6 小鼠">
+            </div>
+            <div>
+              <label style="font-size:11px;color:#64748b;display:block;">剂量</label>
+              <input type="text" name="att_{{ forloop.counter0 }}_dose"
+                     class="ds-form-control" style="width:120px;font-size:12px;"
+                     placeholder="如 5 mg/kg">
+            </div>
+            <div>
+              <label style="font-size:11px;color:#64748b;display:block;">数据类型</label>
+              <input type="text" name="att_{{ forloop.counter0 }}_data_type"
+                     class="ds-form-control" style="width:180px;font-size:12px;"
+                     placeholder="如 体重、mRNA剩余量、肿瘤体积">
+            </div>
+          </div>
+        </div>
+      </div>
       {% endfor %}
     </div>
     {% endif %}

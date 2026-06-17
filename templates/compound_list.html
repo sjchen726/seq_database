@@ -540,7 +540,7 @@
           {{ row.group.experiment.dose_info }}
         {% else %}<span class="cl-dim">—</span>{% endif %}
       </td>
-      <td class="cl-meta">{{ row.group.experiment.assay_name|default:"—" }}</td>
+      <td class="cl-meta">{% if row.group.experiment.exp_type == 'in_vitro' %}体外{% elif row.group.experiment.exp_type == 'in_vivo' %}体内{% else %}—{% endif %}</td>
       <td class="cl-batch-id">{{ row.group.experiment.batch_label }}</td>
       <td class="cl-chevron">▼</td>
     </tr>

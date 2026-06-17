@@ -235,6 +235,7 @@ class ProjectAttachment(models.Model):
         related_name='project_attachments',
     )
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    notes = models.JSONField(null=True, blank=True)
 
     class Meta:
         db_table = 'project_attachment'

@@ -1424,6 +1424,24 @@ def _read_from_storage(path: str):
         return None
 
 
+def _generate_batch_label() -> str:
+    """Return today's rolling batch label, e.g. 20260617-001."""
+    from datetime import date
+    prefix = date.today().strftime('%Y%m%d')
+    existing = Experiment.objects.filter(
+        batch_label__startswith=prefix + '-'
+    ).values_list('batch_label', flat=True)
+    used_nums = set()
+    for bl in existing:
+        tail = bl[len(prefix) + 1:]
+        if tail.isdigit():
+            used_nums.add(int(tail))
+    n = 1
+    while n in used_nums:
+        n += 1
+    return f'{prefix}-{n:03d}'
+
+
 def _slugify_custom_code(label: str) -> str:
     """Stable slug for user-typed custom labels (handles CJK via allow_unicode=True)."""
     from django.utils.text import slugify
@@ -1684,6 +1702,7 @@ def smart_upload_view(request):
             'preview': request.session['smart_preview'],
             'vocab_file_types': vocab_file_types,
             'vocab_readouts': vocab_readouts,
+            'suggested_batch_label': _generate_batch_label(),
         })
 
     if 'smart_preview' in request.session:
@@ -1755,9 +1774,13 @@ def smart_upload_confirm_view(request):
         })
 
     if errors:
+        from app01.models import UploadVocabulary
         return render(request, 'smart_upload.html', {
             'preview': smart_preview,
             'errors': errors,
+            'vocab_file_types': list(UploadVocabulary.objects.filter(category='file_type').order_by('-is_builtin', 'label')),
+            'vocab_readouts': list(UploadVocabulary.objects.filter(category='invivo_readout').order_by('-is_builtin', 'label')),
+            'suggested_batch_label': _generate_batch_label(),
         })
 
     n_experiments = 0
@@ -1899,7 +1922,7 @@ def smart_upload_confirm_view(request):
     if attachment_files:
         from app01.models import ProjectAttachment
         from django.core.files.base import ContentFile as CF
-        for af in attachment_files:
+        for att_idx, af in enumerate(attachment_files):
             saved_path = af['saved_path']
             try:
                 if not default_storage.exists(saved_path):
@@ -1907,12 +1930,27 @@ def smart_upload_confirm_view(request):
                     continue
                 with default_storage.open(saved_path, 'rb') as fh:
                     content = fh.read()
+                att_context = request.POST.get(f'att_{att_idx}_context', '').strip()
+                att_notes = {}
+                if att_context == 'vitro':
+                    att_notes = {
+                        'context': 'vitro',
+                        'cell_line': request.POST.get(f'att_{att_idx}_cell_line', '').strip(),
+                    }
+                elif att_context == 'invivo':
+                    att_notes = {
+                        'context': 'invivo',
+                        'animal_model': request.POST.get(f'att_{att_idx}_animal_model', '').strip(),
+                        'dose': request.POST.get(f'att_{att_idx}_dose', '').strip(),
+                        'data_type': request.POST.get(f'att_{att_idx}_data_type', '').strip(),
+                    }
                 pa = ProjectAttachment(
                     project=project_code,
                     label=af['label'],
                     vocab_code=af['vocab_code'],
                     original_filename=af['filename'],
                     uploaded_by=request.user if request.user.is_authenticated else None,
+                    notes=att_notes or None,
                 )
                 pa.file.save(af['filename'], CF(content), save=True)
                 default_storage.delete(saved_path)
