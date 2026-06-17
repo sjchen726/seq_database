@@ -188,3 +188,57 @@ class ExperimentAttachment(models.Model):
 
     def __str__(self):
         return f"{self.experiment_id} | {self.label}"
+
+
+class UploadVocabulary(models.Model):
+    """
+    Extensible dropdown vocabulary for the smart upload page.
+
+    Two categories drive two dropdowns: file_type and invivo_readout.
+    Built-in entries are seeded by migration; user-added entries have
+    is_builtin=False and appear in the dropdown for future uploads.
+    """
+
+    CATEGORY_CHOICES = [
+        ('file_type', '文件类型'),
+        ('invivo_readout', '体内 readout'),
+    ]
+
+    category = models.CharField(max_length=32, choices=CATEGORY_CHOICES, db_index=True)
+    code = models.SlugField(max_length=64, allow_unicode=True)
+    label = models.CharField(max_length=128)
+    is_builtin = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'upload_vocabulary'
+        unique_together = [['category', 'code']]
+        ordering = ['category', '-is_builtin', 'label']
+
+    def __str__(self):
+        return f'{self.category}:{self.label}'
+
+
+class ProjectAttachment(models.Model):
+    """
+    Landing pad for files that the user marks as custom / "其他附件" — stored
+    on disk and recorded here, no parsing. Not linked to any Experiment.
+    """
+
+    project = models.CharField(max_length=32, db_index=True)
+    label = models.CharField(max_length=128)
+    vocab_code = models.CharField(max_length=64, blank=True, default='')
+    file = models.FileField(upload_to='project_attachments/%Y%m%d/')
+    original_filename = models.CharField(max_length=255)
+    uploaded_by = models.ForeignKey(
+        'LmsUser', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='project_attachments',
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'project_attachment'
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return f'{self.project} / {self.label} / {self.original_filename}'
