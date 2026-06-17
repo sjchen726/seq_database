@@ -275,6 +275,28 @@
   font-size: 11px;
   color: #64748b;
 }
+.cl-gh-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.cl-gh-toggle {
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  user-select: none;
+  background: rgba(59, 130, 246, 0.10);
+  color: #1e40af;
+  transition: background 0.15s;
+}
+.cl-gh-toggle:hover { background: rgba(59, 130, 246, 0.22); }
+.cl-gh-vivo .cl-gh-toggle {
+  background: rgba(249, 115, 22, 0.10);
+  color: #9a3412;
+}
+.cl-gh-vivo .cl-gh-toggle:hover { background: rgba(249, 115, 22, 0.22); }
 .cl-bgh-chart-wrap {
   padding: 2px 12px 10px;
 }
@@ -945,26 +967,31 @@ $(function () {
         var td = document.createElement('td');
         td.setAttribute('colspan', '12');
 
-        // label row (flex: label + count)
+        // label row (flex: label + count + toggle)
         var headerDiv = document.createElement('div');
         headerDiv.className = 'cl-gh-header';
         var labelSpan = document.createElement('span');
         labelSpan.className = isVitro ? 'cl-gh-label' : 'cl-gh-label-vivo';
         labelSpan.textContent = p.batch + ' · ' + typeLabel;
+        var rightSide = document.createElement('span');
+        rightSide.className = 'cl-gh-right';
         var countSpan = document.createElement('span');
         countSpan.className = 'cl-gh-count';
         countSpan.textContent = cnt + ' 个化合物';
+        rightSide.appendChild(countSpan);
         headerDiv.appendChild(labelSpan);
-        headerDiv.appendChild(countSpan);
+        headerDiv.appendChild(rightSide);
         td.appendChild(headerDiv);
 
-        // summary chart + legend (flex row: chart left, legend right)
+        // summary chart + legend — built collapsed, expanded via toggle
         if (groupExpIds.length) {
           var chartKey = p.batch.replace(/[^a-zA-Z0-9]/g, '_') + '_' + p.type;
           var chartId  = 'cl-bgh-' + chartKey;
 
           var row = document.createElement('div');
           row.className = 'cl-bgh-row';
+          row.id = chartId + '-row';
+          row.style.display = 'none';
 
           var chartSide = document.createElement('div');
           chartSide.className = 'cl-bgh-chart-side';
@@ -986,19 +1013,38 @@ $(function () {
           row.appendChild(legendDiv);
           td.appendChild(row);
 
-          // render after layout settles (100ms head-start for table reflow)
-          (function (cid, eids) {
-            setTimeout(function () {
-              (function tryBgh(n) {
-                var el = document.getElementById(cid);
-                if (el && el.offsetWidth > 0) {
-                  renderBatchSummary(cid, eids);
-                } else if (n > 0) {
-                  setTimeout(function () { tryBgh(n - 1); }, 30);
+          // toggle button in header (lazy-render chart on first expand)
+          var toggleSpan = document.createElement('span');
+          toggleSpan.className = 'cl-gh-toggle';
+          toggleSpan.textContent = '📊 汇总图 ▼';
+          rightSide.appendChild(toggleSpan);
+
+          (function (cid, eids, rowEl, ts) {
+            var rendered = false;
+            ts.addEventListener('click', function (ev) {
+              ev.stopPropagation();
+              if (rowEl.style.display === 'none') {
+                rowEl.style.display = 'flex';
+                ts.textContent = '📊 汇总图 ▲';
+                if (!rendered) {
+                  setTimeout(function () {
+                    (function tryBgh(n) {
+                      var el = document.getElementById(cid);
+                      if (el && el.offsetWidth > 0) {
+                        renderBatchSummary(cid, eids);
+                        rendered = true;
+                      } else if (n > 0) {
+                        setTimeout(function () { tryBgh(n - 1); }, 30);
+                      }
+                    })(20);
+                  }, 50);
                 }
-              })(20);
-            }, 100);
-          })(chartId, groupExpIds);
+              } else {
+                rowEl.style.display = 'none';
+                ts.textContent = '📊 汇总图 ▼';
+              }
+            });
+          })(chartId, groupExpIds, row, toggleSpan);
         }
 
         gh.appendChild(td);
