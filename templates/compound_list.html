@@ -239,11 +239,25 @@
 .cl-empty { color: #94a3b8; font-size: 11px; padding: 4px 12px; }
 
 /* group header rows (batch+type grouping mode) */
-.cl-gh { background: #f1f5f9; }
 .cl-gh td {
-  padding: 6px 12px;
-  border-top: 2px solid #e2e8f0;
+  padding: 0;
   border-bottom: 1px solid #e2e8f0;
+}
+.cl-gh-vitro td {
+  background: #eff6ff;
+  border-top: 2px solid #93c5fd;
+  border-left: 4px solid #3b82f6;
+}
+.cl-gh-vivo td {
+  background: #fff7ed;
+  border-top: 2px solid #fdba74;
+  border-left: 4px solid #f97316;
+}
+.cl-gh-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px 4px;
 }
 .cl-gh-label {
   font-size: 12px;
@@ -251,10 +265,22 @@
   color: #1e40af;
   font-family: monospace;
 }
+.cl-gh-label-vivo {
+  font-size: 12px;
+  font-weight: 700;
+  color: #9a3412;
+  font-family: monospace;
+}
 .cl-gh-count {
   font-size: 11px;
   color: #64748b;
-  margin-left: 10px;
+}
+.cl-bgh-chart-wrap {
+  padding: 2px 12px 10px;
+}
+.cl-bgh-chart {
+  height: 160px;
+  width: 100%;
 }
 
 /* no data */
@@ -330,6 +356,9 @@
       <th class="r">IC50 (nM)</th>
       <th class="r">MaxKD%</th>
       <th>批次</th>
+      <th>Cell Line</th>
+      <th>动物模型</th>
+      <th>剂量</th>
       <th>靶点 / 项目</th>
       <th></th>
     </tr>
@@ -369,6 +398,21 @@
         {% endif %}
       </td>
       <td class="cl-batch-id">{{ row.group.experiment.batch_label }}</td>
+      <td class="cl-meta" style="font-size:11px;color:#64748b;">
+        {% if row.group.experiment.exp_type == 'in_vitro' %}
+          {% if row.group.experiment.cell_line %}{{ row.group.experiment.cell_line }}{% else %}<span class="cl-dim">—</span>{% endif %}
+        {% else %}<span class="cl-dim">—</span>{% endif %}
+      </td>
+      <td class="cl-meta" style="font-size:11px;color:#64748b;">
+        {% if row.group.experiment.exp_type == 'in_vivo' %}
+          {% if row.group.experiment.animal_species %}{{ row.group.experiment.animal_species }}{% if row.group.experiment.animal_strain %} {{ row.group.experiment.animal_strain }}{% endif %}{% else %}<span class="cl-dim">—</span>{% endif %}
+        {% else %}<span class="cl-dim">—</span>{% endif %}
+      </td>
+      <td class="cl-meta" style="font-size:11px;color:#64748b;">
+        {% if row.group.experiment.exp_type == 'in_vivo' %}
+          {% if row.group.experiment.dose_info %}{{ row.group.experiment.dose_info }}{% else %}<span class="cl-dim">—</span>{% endif %}
+        {% else %}<span class="cl-dim">—</span>{% endif %}
+      </td>
       <td class="cl-meta">
         {% if row.compound.target_name %}{{ row.compound.target_name }}{% endif %}
         {% if row.compound.project %}<span class="cl-proj">{{ row.compound.project }}</span>{% endif %}
@@ -378,7 +422,7 @@
 
     {# ── expand row ── #}
     <tr class="cl-er" id="er-{{ forloop.counter }}">
-      <td colspan="7">
+      <td colspan="10">
         <div class="cl-expand-body">
 
           {# sequences #}
@@ -406,7 +450,7 @@
                   {% for dr in row.group.rows %}
                   <tr>
                     <td style="font-weight:600;">{{ dr.dose }}</td>
-                    <td class="r">{{ dr.mean|floatformat:3 }}</td>
+                    <td class="r">{{ dr.mean|floatformat:1 }}%</td>
                   </tr>
                   {% empty %}
                   <tr><td colspan="2" class="cl-empty">无浓度数据</td></tr>
@@ -562,10 +606,17 @@ $(function () {
 
     if (isOpen && !renderedRows[idx]) {
       renderedRows[idx] = true;
-      var vtEl = er.querySelector('[id^="cl-vt-"]');
-      var ivEl = er.querySelector('[id^="cl-iv-"]');
-      if (vtEl) renderVitro(parseInt(vtEl.id.replace('cl-vt-', '')), 'mrna');
-      if (ivEl) renderInvivo(parseInt(ivEl.id.replace('cl-iv-', '')));
+      (function tryRender(attempts) {
+        var vtEl = er.querySelector('[id^="cl-vt-"]');
+        var ivEl = er.querySelector('[id^="cl-iv-"]');
+        var probe = vtEl || ivEl;
+        if (probe && probe.offsetWidth > 0) {
+          if (vtEl) renderVitro(parseInt(vtEl.id.replace('cl-vt-', '')), 'mrna');
+          if (ivEl) renderInvivo(parseInt(ivEl.id.replace('cl-iv-', '')));
+        } else if (attempts > 0) {
+          setTimeout(function () { tryRender(attempts - 1); }, 30);
+        }
+      })(20);
     }
   };
 
@@ -610,6 +661,50 @@ $(function () {
         xaxis: { tickLength: 4 },
         yaxis: yOpts,
         grid: { hoverable: false, borderWidth: 1, borderColor: '#fde68a' },
+        legend: { show: false }
+      });
+    } catch (e) {}
+  }
+
+  /* ── batch group summary chart ───────────────────────── */
+  var BGH_COLORS = ['#3b82f6','#16a34a','#f97316','#8b5cf6',
+                    '#ec4899','#0891b2','#dc2626','#d97706'];
+
+  function renderBatchSummary(chartId, expIds) {
+    var container = document.getElementById(chartId);
+    if (!container || container.offsetWidth === 0) return;
+    var series = [];
+    var isVitro = expIds.length > 0 && expIds[0].kind === 'vitro';
+    expIds.forEach(function (e, i) {
+      var color = BGH_COLORS[i % BGH_COLORS.length];
+      if (e.kind === 'vitro') {
+        var d = vtDataMap[e.id];
+        if (d && d.mrna_pts && d.mrna_pts.length) {
+          series.push({ data: d.mrna_pts, color: color,
+            lines: { show: true, lineWidth: 1.5 },
+            points: { show: true, radius: 2 } });
+        }
+      } else {
+        var d = ivcCharts.find(function (x) { return x.exp_id === e.id; });
+        if (d && d.points && d.points.length) {
+          series.push({ data: d.points, color: color,
+            lines: { show: true, lineWidth: 1.5 },
+            points: { show: true, radius: 2 } });
+        }
+      }
+    });
+    if (!series.length) return;
+    var allY = [];
+    series.forEach(function (s) {
+      s.data.forEach(function (pt) { allY.push(pt[1]); });
+    });
+    var ymax = Math.max.apply(null, allY);
+    try {
+      $.plot(container, series, {
+        xaxis: isVitro ? { ticks: LOG_TICKS, tickLength: 3 } : { tickLength: 3 },
+        yaxis: { min: 0, max: Math.max(ymax * 1.12, 110), labelWidth: 30 },
+        grid: { hoverable: false, borderWidth: 1,
+                borderColor: isVitro ? '#bfdbfe' : '#fed7aa' },
         legend: { show: false }
       });
     } catch (e) {}
@@ -665,22 +760,66 @@ $(function () {
       var key = p.batch + '|' + p.type;
       if (key !== lastKey) {
         lastKey = key;
-        var typeLabel = p.type === 'in_vitro' ? '体外' : '体内';
+        var isVitro = p.type === 'in_vitro';
+        var typeLabel = isVitro ? '体外' : '体内';
         var cnt = pairs.filter(function (x) {
           return x.batch === p.batch && x.type === p.type;
         }).length;
+
+        // collect exp IDs for this batch group
+        var groupExpIds = [];
+        pairs.filter(function (x) {
+          return x.batch === p.batch && x.type === p.type;
+        }).forEach(function (gp) {
+          var vtEl = gp.er.querySelector('[id^="cl-vt-"]');
+          var ivEl = gp.er.querySelector('[id^="cl-iv-"]');
+          if (vtEl) groupExpIds.push({ id: parseInt(vtEl.id.replace('cl-vt-', '')), kind: 'vitro' });
+          if (ivEl) groupExpIds.push({ id: parseInt(ivEl.id.replace('cl-iv-', '')), kind: 'invivo' });
+        });
+
+        // build group header row
         var gh = document.createElement('tr');
-        gh.className = 'cl-gh';
+        gh.className = 'cl-gh ' + (isVitro ? 'cl-gh-vitro' : 'cl-gh-vivo');
         var td = document.createElement('td');
-        td.setAttribute('colspan', '7');
+        td.setAttribute('colspan', '10');
+
+        // label row (flex: label + count)
+        var headerDiv = document.createElement('div');
+        headerDiv.className = 'cl-gh-header';
         var labelSpan = document.createElement('span');
-        labelSpan.className = 'cl-gh-label';
+        labelSpan.className = isVitro ? 'cl-gh-label' : 'cl-gh-label-vivo';
         labelSpan.textContent = p.batch + ' · ' + typeLabel;
         var countSpan = document.createElement('span');
         countSpan.className = 'cl-gh-count';
         countSpan.textContent = cnt + ' 个化合物';
-        td.appendChild(labelSpan);
-        td.appendChild(countSpan);
+        headerDiv.appendChild(labelSpan);
+        headerDiv.appendChild(countSpan);
+        td.appendChild(headerDiv);
+
+        // summary chart container
+        if (groupExpIds.length) {
+          var chartKey = p.batch.replace(/[^a-zA-Z0-9]/g, '_') + '_' + p.type;
+          var chartId  = 'cl-bgh-' + chartKey;
+          var chartWrap = document.createElement('div');
+          chartWrap.className = 'cl-bgh-chart-wrap';
+          var chartDiv = document.createElement('div');
+          chartDiv.id = chartId;
+          chartDiv.className = 'cl-bgh-chart';
+          chartWrap.appendChild(chartDiv);
+          td.appendChild(chartWrap);
+          // render after layout settles
+          (function (cid, eids) {
+            (function tryBgh(n) {
+              var el = document.getElementById(cid);
+              if (el && el.offsetWidth > 0) {
+                renderBatchSummary(cid, eids);
+              } else if (n > 0) {
+                setTimeout(function () { tryBgh(n - 1); }, 30);
+              }
+            })(20);
+          })(chartId, groupExpIds);
+        }
+
         gh.appendChild(td);
         tbody.appendChild(gh);
       }
@@ -705,7 +844,7 @@ $(function () {
   };
 
   var urlParams = new URLSearchParams(window.location.search);
-  var initGroup = urlParams.get('group') || 'compound';
+  var initGroup = urlParams.get('group') || 'batch';
   var sel = document.getElementById('cl-group-sel');
   if (sel) sel.value = initGroup;
   if (initGroup === 'batch') applyBatchGrouping();
