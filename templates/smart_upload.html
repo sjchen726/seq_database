@@ -56,28 +56,23 @@
   </form>
 
   {% else %}
-  {# ── Phase 2: Detection results + confirm ── #}
+  {# ── Phase 2: Classify + confirm ── #}
   <div class="ds-form-card-title">确认上传</div>
 
-  {% if preview.llm_unavailable %}
-  <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#92400e;">
-    ⚠ AI 识别暂不可用（未配置 DEEPSEEK_API_KEY），未识别文件需手动选择类型后点击"重新解析"
-  </div>
-  {% endif %}
-
-  {# File detection table + re-parse form #}
+  {# File classification table + re-parse form #}
   <form method="POST" action="{% url 'smart_upload' %}">
     {% csrf_token %}
     <input type="hidden" name="reparse" value="1">
     <input type="hidden" name="file_count" value="{{ preview.file_detections|length }}">
 
-    <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">文件识别结果</div>
+    <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">
+      文件分类(请逐个选择类型)
+    </div>
     <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;">
       <thead>
         <tr style="border-bottom:1px solid #e2e8f0;">
-          <th style="text-align:left;padding:6px 8px;color:#64748b;font-weight:600;">文件名</th>
-          <th style="text-align:left;padding:6px 8px;color:#64748b;font-weight:600;">类型</th>
-          <th style="text-align:left;padding:6px 8px;color:#64748b;font-weight:600;">置信度</th>
+          <th style="text-align:left;padding:6px 8px;color:#64748b;font-weight:600;width:40%;">文件名</th>
+          <th style="text-align:left;padding:6px 8px;color:#64748b;font-weight:600;">类型 *</th>
         </tr>
       </thead>
       <tbody>
@@ -87,31 +82,19 @@
           <td style="padding:6px 8px;">
             <input type="hidden" name="saved_path_{{ forloop.counter0 }}" value="{{ det.saved_path }}">
             <input type="hidden" name="filename_{{ forloop.counter0 }}" value="{{ det.filename }}">
-            <select name="file_type_{{ forloop.counter0 }}" class="ds-form-control"
-                    style="font-size:12px;padding:3px 6px;"
-                    {% if det.confidence == 'none' %}required{% endif %}>
-              {% if det.confidence == 'none' %}
+            <select name="file_type_{{ forloop.counter0 }}" class="ds-form-control" required
+                    onchange="onTypeChange(this, {{ forloop.counter0 }})"
+                    style="font-size:12px;padding:3px 6px;">
               <option value="">-- 请选择 --</option>
-              {% endif %}
-              <option value="vitro_summary"     {% if det.detected_type == 'vitro_summary' %}selected{% endif %}>体外汇总（IC50/MaxKD）</option>
-              <option value="vitro_seq"         {% if det.detected_type == 'vitro_seq' %}selected{% endif %}>体外序列文件</option>
-              <option value="vitro_cp"          {% if det.detected_type == 'vitro_cp' %}selected{% endif %}>Cp 原始数据</option>
-              <option value="vitro_transfection"{% if det.detected_type == 'vitro_transfection' %}selected{% endif %}>转染方案</option>
-              <option value="invivo_kd"         {% if det.detected_type == 'invivo_kd' %}selected{% endif %}>体内 KD% 时间曲线</option>
-              <option value="invivo_bw"         {% if det.detected_type == 'invivo_bw' %}selected{% endif %}>体内体重时间曲线</option>
-              <option value="unknown"           {% if det.detected_type == 'unknown' %}selected{% endif %}>未知（跳过）</option>
+              {% for v in vocab_file_types %}
+                <option value="{{ v.code }}" {% if v.code == det.file_type_code %}selected{% endif %}>{{ v.label }}</option>
+              {% endfor %}
+              <option value="__new__">+ 自定义类型...</option>
             </select>
-          </td>
-          <td style="padding:6px 8px;">
-            {% if det.confidence == 'rule' %}
-              <span style="color:#15803d;font-weight:600;font-size:11px;">✓ 规则匹配</span>
-            {% elif det.confidence == 'llm' %}
-              <span style="color:#d97706;font-size:11px;">~ AI 建议，请确认</span>
-            {% elif det.confidence == 'manual' %}
-              <span style="color:#2563eb;font-size:11px;">✎ 手动选择</span>
-            {% else %}
-              <span style="color:#dc2626;font-size:11px;">✗ 请手动选择</span>
-            {% endif %}
+            <input type="text" name="custom_label_{{ forloop.counter0 }}"
+                   id="custom_input_{{ forloop.counter0 }}"
+                   class="ds-form-control" placeholder="输入自定义类型名"
+                   style="display:none;margin-top:6px;font-size:12px;padding:3px 6px;">
           </td>
         </tr>
         {% endfor %}
@@ -124,6 +107,15 @@
          style="color:#64748b;">✕ 重新选择文件</a>
     </div>
   </form>
+
+  <script>
+    function onTypeChange(sel, i) {
+      var ci = document.getElementById('custom_input_' + i);
+      if (!ci) return;
+      ci.style.display = (sel.value === '__new__') ? 'block' : 'none';
+      ci.required = (sel.value === '__new__');
+    }
+  </script>
 
   {# Confirm form #}
   <form method="POST" action="{% url 'smart_upload_confirm' %}">
@@ -275,18 +267,24 @@
     </div>
     {% endfor %}
 
-    {% if preview.invitro or preview.invivo_groups %}
+    {% if preview.attachment_files %}
+    <div style="border:1px solid #fde68a;background:#fef9c3;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#92400e;">
+      ⓘ {{ preview.attachment_files|length }} 个附件文件将作为项目附件保存,不参与数据解析:
+      {% for af in preview.attachment_files %}
+        <span style="background:white;border:1px solid #fde68a;border-radius:3px;padding:1px 6px;font-size:11px;margin-right:4px;">{{ af.filename }} ({{ af.label }})</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if preview.invitro or preview.invivo_groups or preview.attachment_files %}
     <div style="border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;margin-bottom:16px;background:#f8fafc;">
       <div style="font-weight:600;font-size:13px;color:#1e293b;margin-bottom:10px;">🏷 靶点信息</div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <label class="ds-form-label" style="margin-bottom:0;flex-shrink:0;">靶点名称</label>
-        <input type="text" name="target_name" value="{{ preview.target_name }}"
-               class="ds-form-control" style="width:180px;"
-               placeholder="如 FASN、PCSK9（留空则不更新）">
-        {% if preview.target_name %}
-        <span style="font-size:11px;color:#64748b;background:#e0f2fe;border-radius:4px;padding:2px 7px;">自动提取</span>
-        {% endif %}
-        <span style="font-size:11px;color:#94a3b8;">本批所有空白靶点将更新为此值</span>
+        <label class="ds-form-label" style="margin-bottom:0;flex-shrink:0;">靶点名称 *</label>
+        <input type="text" name="target_name" value="{{ preview.target_name|default:'' }}"
+               class="ds-form-control" style="width:180px;" required
+               placeholder="如 FASN、PCSK9(必填)">
+        <span style="font-size:11px;color:#94a3b8;">必填,所有空白靶点将更新为此值</span>
       </div>
     </div>
     <div style="display:flex;gap:10px;align-items:center;margin-top:8px;">
@@ -294,7 +292,7 @@
     </div>
     {% else %}
     <div style="color:#64748b;font-size:12px;margin-top:8px;">
-      未解析到可写入数据。请调整文件类型后点击"重新解析"。
+      未识别到任何文件类型。请在上方为每个文件选择类型后点击"重新解析"。
     </div>
     {% endif %}
   </form>
