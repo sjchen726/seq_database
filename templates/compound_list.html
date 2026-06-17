@@ -279,9 +279,89 @@
   padding: 2px 12px 10px;
 }
 .cl-bgh-chart {
-  height: 160px;
+  height: 140px;
   width: 100%;
 }
+
+/* outer table scroll wrapper (12 columns, min-width 1450px) */
+.cl-table-scroll {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+.cl-table { min-width: 1450px; }
+
+/* sequence column cell (AS + SS, per-character colored) */
+.cl-seq-cell {
+  min-width: 380px;
+  max-width: 480px;
+}
+.cl-seq-line {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0;
+  align-items: center;
+  border-radius: 3px;
+  padding: 2px 4px;
+  margin-bottom: 3px;
+  font-family: monospace;
+}
+.cl-seq-as-bg { background: #fef9c3; }
+.cl-seq-ss-bg { background: #f0fdf4; }
+.cl-seq-strand-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: #64748b;
+  margin-right: 4px;
+}
+
+/* gap row between batch groups (only visible in batch grouping mode) */
+.cl-batch-gap td {
+  padding: 0;
+  height: 14px;
+  background: #f0f4f8;
+  border: none;
+}
+
+/* batch summary chart: chart left + legend right */
+.cl-bgh-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 2px 12px 10px;
+}
+.cl-bgh-chart-side {
+  flex: 0 0 60%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+}
+.cl-bgh-ytitle {
+  font-size: 10px;
+  color: #1e3a5f;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.cl-bgh-legend {
+  flex: 1;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+  color: #1e3a5f;
+}
+.cl-bgh-legend-item { white-space: nowrap; }
+.cl-bgh-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+.cl-bgh-extra { color: #64748b; margin-left: 6px; }
 
 /* no data */
 .cl-no-data { text-align: center; padding: 48px; color: #94a3b8; }
