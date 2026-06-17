@@ -981,11 +981,21 @@ def compound_list(request):
     row_data = []
     cl_invivo_charts = []
     cl_vitro_charts = []
+    color_map = get_color_map()  # one DB hit; reused across all rows
     for compound in page_obj:
         exps = list(compound.experiments.all())
         if tag:
             exps = [e for e in exps if e.exp_type == tag]
-        strand_map = [(s.strand_type, s.modify_seq) for s in compound.strands.all()]
+        strand_map = [
+            {
+                'strand_type': s.strand_type,
+                'modify_seq': s.modify_seq,
+                'colored_items': get_modify_seq_colored(
+                    s.modify_seq, s.strand_type, s.strand_type, color_map=color_map
+                ),
+            }
+            for s in compound.strands.all()
+        ]
         groups = _build_batch_groups(exps)
         for g in groups:
             exp = g['experiment']
@@ -1011,10 +1021,13 @@ def compound_list(request):
                         'mrna_pts': mrna_pts,
                         'kd_pts': kd_pts,
                     })
+            ic50_val = getattr(getattr(exp, 'summary', None), 'ic50_nm', None)
+            ic50_str = f'{ic50_val:.2f}' if ic50_val is not None else ''
             row_data.append({
                 'compound': compound,
                 'strand_map': strand_map,
                 'group': g,
+                'ic50_str': ic50_str,
             })
 
     all_projects = sorted(

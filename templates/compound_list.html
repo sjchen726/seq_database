@@ -428,10 +428,10 @@
           {# sequences #}
           {% if row.strand_map %}
           <div class="cl-seq-area">
-            {% for strand_type, modify_seq in row.strand_map %}
+            {% for strand in row.strand_map %}
             <div class="cl-seq-row">
-              <span class="cl-sl">{{ strand_type }}</span>
-              <code class="cl-seq {% if strand_type == 'SS' %}cl-seq-ss{% else %}cl-seq-as{% endif %}">{{ modify_seq }}</code>
+              <span class="cl-sl">{{ strand.strand_type }}</span>
+              <code class="cl-seq {% if strand.strand_type == 'SS' %}cl-seq-ss{% else %}cl-seq-as{% endif %}">{{ strand.modify_seq }}</code>
             </div>
             {% endfor %}
           </div>
@@ -781,8 +781,8 @@ $(function () {
         var groupExpIds = [];
         groupPairs.forEach(function (gp) {
           if (!gp.er) return;
-          var vtEl = gp.er.querySelector('[id^="cl-vt-"]');
-          var ivEl = gp.er.querySelector('[id^="cl-iv-"]');
+          var vtEl = gp.er.querySelector('.cl-chart-plot[id^="cl-vt-"]');
+          var ivEl = gp.er.querySelector('.cl-chart-plot[id^="cl-iv-"]');
           if (vtEl) groupExpIds.push({ id: parseInt(vtEl.id.replace('cl-vt-', '')), kind: 'vitro' });
           if (ivEl) groupExpIds.push({ id: parseInt(ivEl.id.replace('cl-iv-', '')), kind: 'invivo' });
         });
