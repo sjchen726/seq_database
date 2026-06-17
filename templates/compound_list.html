@@ -856,6 +856,8 @@ $(function () {
         er:    document.getElementById('er-' + idx),
         batch: dr.getAttribute('data-batch'),
         type:  dr.getAttribute('data-type'),
+        cid:   dr.getAttribute('data-cid')  || '',
+        ic50:  dr.getAttribute('data-ic50') || '',
       });
     });
     if (!origOrder) {
@@ -869,9 +871,20 @@ $(function () {
       return 0;
     });
     var lastKey = null;
+    var isFirstGroup = true;
     pairs.forEach(function (p) {
       var key = p.batch + '|' + p.type;
       if (key !== lastKey) {
+        // insert gap row before every group except the first
+        if (!isFirstGroup) {
+          var gapTr = document.createElement('tr');
+          gapTr.className = 'cl-batch-gap';
+          var gapTd = document.createElement('td');
+          gapTd.setAttribute('colspan', '12');
+          gapTr.appendChild(gapTd);
+          tbody.appendChild(gapTr);
+        }
+        isFirstGroup = false;
         lastKey = key;
         var isVitro = p.type === 'in_vitro';
         var typeLabel = isVitro ? '体外' : '体内';
@@ -886,15 +899,25 @@ $(function () {
           if (!gp.er) return;
           var vtEl = gp.er.querySelector('.cl-chart-plot[id^="cl-vt-"]');
           var ivEl = gp.er.querySelector('.cl-chart-plot[id^="cl-iv-"]');
-          if (vtEl) groupExpIds.push({ id: parseInt(vtEl.id.replace('cl-vt-', '')), kind: 'vitro' });
-          if (ivEl) groupExpIds.push({ id: parseInt(ivEl.id.replace('cl-iv-', '')), kind: 'invivo' });
+          if (vtEl) groupExpIds.push({
+            id:   parseInt(vtEl.id.replace('cl-vt-', '')),
+            kind: 'vitro',
+            cid:  gp.cid,
+            ic50: gp.ic50,
+          });
+          if (ivEl) groupExpIds.push({
+            id:   parseInt(ivEl.id.replace('cl-iv-', '')),
+            kind: 'invivo',
+            cid:  gp.cid,
+            ic50: gp.ic50,
+          });
         });
 
         // build group header row
         var gh = document.createElement('tr');
         gh.className = 'cl-gh ' + (isVitro ? 'cl-gh-vitro' : 'cl-gh-vivo');
         var td = document.createElement('td');
-        td.setAttribute('colspan', '10');
+        td.setAttribute('colspan', '12');
 
         // label row (flex: label + count)
         var headerDiv = document.createElement('div');
@@ -947,6 +970,7 @@ $(function () {
     if (!origOrder) return;
     var tbody = document.getElementById('cl-tbody');
     tbody.querySelectorAll('.cl-gh').forEach(function (el) { el.remove(); });
+    tbody.querySelectorAll('.cl-batch-gap').forEach(function (el) { el.remove(); });
     origOrder.forEach(function (p) {
       tbody.appendChild(p.dr);
       tbody.appendChild(p.er);
