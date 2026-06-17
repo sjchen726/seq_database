@@ -547,7 +547,7 @@ from app01.upload_pipeline import (
     parse_seq_file, parse_summary_csv, parse_cp_file,
     build_preview, normalize_compound_ids, parse_transfection_file,
     parse_invivo_kd_file, parse_body_weight_file, detect_invivo_file_type,
-    detect_file_type_rules, detect_file_type_llm, _BytesFile,
+    _BytesFile,
 )
 
 
@@ -1635,11 +1635,10 @@ def _build_smart_preview(file_detections: list, project_code: str) -> dict:
 @login_required
 def smart_upload_view(request):
     if request.method == 'POST':
-        # Re-parse with user-selected types
+        # ── Phase 2: re-parse with user-selected types ──
         if request.POST.get('reparse'):
             smart_preview = request.session.get('smart_preview', {})
             project_code = smart_preview.get('project_code', '')
-            # Build allowlist of paths already in session — prevents path traversal via crafted POST
             allowed_paths = {
                 det['saved_path']
                 for det in smart_preview.get('file_detections', [])
@@ -1648,23 +1647,48 @@ def smart_upload_view(request):
                 file_count = int(request.POST.get('file_count', 0))
             except ValueError:
                 file_count = 0
+
             file_detections = []
             for i in range(file_count):
                 filename = request.POST.get(f'filename_{i}', '')
                 saved_path = request.POST.get(f'saved_path_{i}', '')
-                file_type = request.POST.get(f'file_type_{i}', 'unknown')
-                if filename and saved_path and saved_path in allowed_paths:
-                    file_detections.append({
-                        'filename': filename,
-                        'saved_path': saved_path,
-                        'detected_type': file_type,
-                        'confidence': 'manual',
-                    })
+                file_type_code = request.POST.get(f'file_type_{i}', '')
+
+                if not (filename and saved_path and saved_path in allowed_paths):
+                    continue
+                if not file_type_code:
+                    continue  # user left "-- 请选择 --"
+
+                # Custom file type — upsert vocabulary
+                if file_type_code == '__new__':
+                    label = request.POST.get(f'custom_label_{i}', '').strip()
+                    if not label:
+                        continue
+                    vocab = _ensure_vocab('file_type', label)
+                    file_type_code = vocab.code
+
+                # Invivo readout (only meaningful when file_type_code == 'invivo_summary')
+                readout_code = request.POST.get(f'readout_{i}', '').strip()
+                if readout_code == '__new__':
+                    rlabel = request.POST.get(f'readout_custom_{i}', '').strip()
+                    if rlabel:
+                        rvocab = _ensure_vocab('invivo_readout', rlabel)
+                        readout_code = rvocab.code
+                    else:
+                        readout_code = ''
+
+                file_detections.append({
+                    'filename': filename,
+                    'saved_path': saved_path,
+                    'file_type_code': file_type_code,
+                    'readout_code': readout_code,
+                })
+
             preview = _build_smart_preview(file_detections, project_code)
             request.session['smart_preview'] = preview
             return redirect('/upload/smart/?preview=1')
 
-        # Initial file upload
+        # ── Phase 1: initial upload — save files, no detection ──
         project_code = request.POST.get('project_code', '').strip()
         files = request.FILES.getlist('files')
         if not files:
@@ -1673,13 +1697,9 @@ def smart_upload_view(request):
                 'project_code': project_code,
             })
 
-        from django.conf import settings as djsettings
         from django.core.files.base import ContentFile
-        llm_key_configured = bool(getattr(djsettings, 'DEEPSEEK_API_KEY', ''))
 
         file_detections = []
-        llm_unavailable = False
-
         for f in files:
             filename = f.name
             file_bytes = f.read()
@@ -1689,36 +1709,39 @@ def smart_upload_view(request):
                 default_storage.delete(saved_path_key)
             actual_path = default_storage.save(saved_path_key, ContentFile(file_bytes))
 
-            detected_type = detect_file_type_rules(_BytesFile(file_bytes))
-            confidence = 'rule'
-
-            if detected_type == 'unknown':
-                if llm_key_configured:
-                    detected_type = detect_file_type_llm(filename, _BytesFile(file_bytes))
-                    confidence = 'llm' if detected_type != 'unknown' else 'none'
-                else:
-                    llm_unavailable = True
-                    confidence = 'none'
-
             file_detections.append({
                 'filename': filename,
                 'saved_path': actual_path,
-                'detected_type': detected_type,
-                'confidence': confidence,
+                'file_type_code': '',
+                'readout_code': '',
             })
 
         preview = _build_smart_preview(file_detections, project_code)
-        preview['llm_unavailable'] = llm_unavailable
         request.session['smart_preview'] = preview
         return redirect('/upload/smart/?preview=1')
 
-    # GET
+    # GET — pass vocabularies for the dropdowns
+    from app01.models import UploadVocabulary
+    vocab_file_types = list(
+        UploadVocabulary.objects.filter(category='file_type').order_by('-is_builtin', 'label')
+    )
+    vocab_readouts = list(
+        UploadVocabulary.objects.filter(category='invivo_readout').order_by('-is_builtin', 'label')
+    )
+
     if request.GET.get('preview') and 'smart_preview' in request.session:
-        return render(request, 'smart_upload.html', {'preview': request.session['smart_preview']})
+        return render(request, 'smart_upload.html', {
+            'preview': request.session['smart_preview'],
+            'vocab_file_types': vocab_file_types,
+            'vocab_readouts': vocab_readouts,
+        })
 
     if 'smart_preview' in request.session:
         del request.session['smart_preview']
-    return render(request, 'smart_upload.html', {})
+    return render(request, 'smart_upload.html', {
+        'vocab_file_types': vocab_file_types,
+        'vocab_readouts': vocab_readouts,
+    })
 
 
 @login_required
