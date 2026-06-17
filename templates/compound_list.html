@@ -778,16 +778,24 @@ $(function () {
   function renderBatchSummary(chartId, expIds) {
     var container = document.getElementById(chartId);
     if (!container || container.offsetWidth === 0) return;
-    var series = [];
+    var legendEl = document.getElementById(chartId + '-legend');
+    var titleEl  = document.getElementById(chartId + '-ytitle');
     var isVitro = expIds.length > 0 && expIds[0].kind === 'vitro';
+
+    var series = [];
+    var legendHtml = [];
+    var readoutLabel = isVitro ? 'mRNA 残余 (%)' : '';
+
     expIds.forEach(function (e, i) {
       var color = BGH_COLORS[i % BGH_COLORS.length];
+      var hasData = false;
       if (e.kind === 'vitro') {
         var d = vtDataMap[e.id];
         if (d && d.mrna_pts && d.mrna_pts.length) {
           series.push({ data: d.mrna_pts, color: color,
             lines: { show: true, lineWidth: 1.5 },
             points: { show: true, radius: 2 } });
+          hasData = true;
         }
       } else {
         var d = ivcCharts.find(function (x) { return x.exp_id === e.id; });
@@ -795,9 +803,26 @@ $(function () {
           series.push({ data: d.points, color: color,
             lines: { show: true, lineWidth: 1.5 },
             points: { show: true, radius: 2 } });
+          hasData = true;
+          if (!readoutLabel) readoutLabel = d.readout_type || '';
         }
       }
+      if (hasData) {
+        var extra = (e.kind === 'vitro' && e.ic50)
+          ? '<span class="cl-bgh-extra">IC50 ' + e.ic50 + '</span>'
+          : '';
+        legendHtml.push(
+          '<div class="cl-bgh-legend-item">' +
+          '<span class="cl-bgh-dot" style="background:' + color + '"></span>' +
+          (e.cid || '') + extra +
+          '</div>'
+        );
+      }
     });
+
+    if (titleEl) titleEl.textContent = readoutLabel;
+    if (legendEl) legendEl.innerHTML = legendHtml.join('');
+
     if (!series.length) return;
     var allY = [];
     series.forEach(function (s) {
@@ -932,17 +957,34 @@ $(function () {
         headerDiv.appendChild(countSpan);
         td.appendChild(headerDiv);
 
-        // summary chart container
+        // summary chart + legend (flex row: chart left, legend right)
         if (groupExpIds.length) {
           var chartKey = p.batch.replace(/[^a-zA-Z0-9]/g, '_') + '_' + p.type;
           var chartId  = 'cl-bgh-' + chartKey;
-          var chartWrap = document.createElement('div');
-          chartWrap.className = 'cl-bgh-chart-wrap';
+
+          var row = document.createElement('div');
+          row.className = 'cl-bgh-row';
+
+          var chartSide = document.createElement('div');
+          chartSide.className = 'cl-bgh-chart-side';
+          var ytitle = document.createElement('div');
+          ytitle.className = 'cl-bgh-ytitle';
+          ytitle.id = chartId + '-ytitle';
+          ytitle.textContent = '';  // set by renderBatchSummary
           var chartDiv = document.createElement('div');
           chartDiv.id = chartId;
           chartDiv.className = 'cl-bgh-chart';
-          chartWrap.appendChild(chartDiv);
-          td.appendChild(chartWrap);
+          chartSide.appendChild(ytitle);
+          chartSide.appendChild(chartDiv);
+
+          var legendDiv = document.createElement('div');
+          legendDiv.className = 'cl-bgh-legend';
+          legendDiv.id = chartId + '-legend';
+
+          row.appendChild(chartSide);
+          row.appendChild(legendDiv);
+          td.appendChild(row);
+
           // render after layout settles (100ms head-start for table reflow)
           (function (cid, eids) {
             setTimeout(function () {
