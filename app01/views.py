@@ -1428,6 +1428,27 @@ _GENE_RE = re.compile(r'^[A-Z][A-Z0-9]{1,9}$')
 _GENE_SKIP = {'BPR', 'IC50', 'EC50', 'CSV', 'DATA', 'FILE', 'TEST', 'MEAN', 'PCSK', 'KD', 'SD', 'CP', 'RNA', 'DNA', 'siRNA', 'MRNA', 'UNKNOWN'}
 
 
+def _slugify_custom_code(label: str) -> str:
+    """Stable slug for user-typed custom labels (handles CJK via allow_unicode=True)."""
+    from django.utils.text import slugify
+    s = slugify(label, allow_unicode=True)
+    return s or f'custom_{abs(hash(label)) % 100000}'
+
+
+def _ensure_vocab(category: str, label: str):
+    """Upsert a UploadVocabulary entry; returns the row. Raises ValueError on empty label."""
+    from app01.models import UploadVocabulary
+    label = label.strip()
+    if not label:
+        raise ValueError('label cannot be empty')
+    code = _slugify_custom_code(label)
+    obj, _created = UploadVocabulary.objects.get_or_create(
+        category=category, code=code,
+        defaults={'label': label, 'is_builtin': False},
+    )
+    return obj
+
+
 def _extract_target_name_rules(filename: str, file_bytes: bytes) -> str | None:
     """Rule-based target_name extraction from filename then file content.
 
