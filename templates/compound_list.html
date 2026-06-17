@@ -460,57 +460,68 @@
         data-batch="{{ row.group.experiment.batch_label }}"
         data-type="{{ row.group.experiment.exp_type }}"
         data-idx="{{ forloop.counter }}"
+        data-cid="{{ row.compound.compound_id }}"
+        data-ic50="{{ row.ic50_str }}"
         onclick="toggleRow({{ forloop.counter }})">
       <td>
         <a href="{% url 'compound_detail' row.compound.compound_id %}"
            class="cl-cid-link"
            onclick="event.stopPropagation()">{{ row.compound.compound_id }}</a>
       </td>
-      <td>
-        <span class="cl-tag {% if row.group.experiment.exp_type == 'in_vitro' %}cl-tag-vitro{% else %}cl-tag-vivo{% endif %}">
-          {{ row.group.tag_label }}
-        </span>
+      <td class="cl-seq-cell">
+        {% for strand in row.strand_map %}
+        <div class="cl-seq-line {% if strand.strand_type == 'SS' %}cl-seq-ss-bg{% else %}cl-seq-as-bg{% endif %}">
+          <span class="cl-seq-strand-label">{{ strand.strand_type }}</span>
+          {% for item in strand.colored_items %}
+            <span class="seq-container {% if item.char == 's' or item.char == 'o' or item.char == 'ss' %}seq-narrow{% else %}seq-wide{% endif %}"
+                  style="background-color:{% if item.type == 'normal' %}rgb(189,199,248){% elif item.type == 'f' %}rgb(22,245,22){% elif item.type == 'm' %}rgb(68,68,68);color:white{% elif item.type == 'd' or item.type == 'ss' or item.type == 'moe' or item.type == 'OCF3' or item.type == 'GNA' or item.type == 'I' %}rgb(212,93,245){% elif item.type == 's' %}rgb(253,246,61){% elif item.type == 'o' %}rgb(198,196,198){% elif item.type == 'TNA' %}rgb(245,86,86);color:white{% elif item.type == 'unknown' %}rgb(163,163,163){% elif item.type == 'others' %}rgba(112,203,248,1){% endif %};">{{ item.char }}</span>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </td>
+      <td class="cl-meta">
+        {% if row.compound.project %}<span class="cl-proj">{{ row.compound.project }}</span>{% else %}<span class="cl-dim">—</span>{% endif %}
+      </td>
+      <td class="cl-meta">
+        {% if row.compound.target_name %}{{ row.compound.target_name }}{% else %}<span class="cl-dim">—</span>{% endif %}
       </td>
       <td class="cl-num">
-        {% if row.group.header_ic50 is not None %}
+        {% if row.group.experiment.exp_type == 'in_vitro' and row.group.header_ic50 is not None %}
           <span class="cl-ic50-good">{{ row.group.header_ic50|floatformat:2 }}</span>
         {% else %}
           <span class="cl-dim">—</span>
         {% endif %}
       </td>
       <td class="cl-num">
-        {% if row.group.header_maxkd is not None %}
+        {% if row.group.experiment.exp_type == 'in_vitro' and row.group.header_maxkd is not None %}
           {{ row.group.header_maxkd|floatformat:0 }}%
         {% else %}
           <span class="cl-dim">—</span>
         {% endif %}
       </td>
+      <td class="cl-meta" style="font-size:11px;color:#64748b;">
+        {% if row.group.experiment.exp_type == 'in_vitro' and row.group.experiment.cell_line %}
+          {{ row.group.experiment.cell_line }}
+        {% else %}<span class="cl-dim">—</span>{% endif %}
+      </td>
+      <td class="cl-meta" style="font-size:11px;color:#64748b;">
+        {% if row.group.experiment.exp_type == 'in_vivo' and row.group.experiment.animal_species %}
+          {{ row.group.experiment.animal_species }}{% if row.group.experiment.animal_strain %} {{ row.group.experiment.animal_strain }}{% endif %}
+        {% else %}<span class="cl-dim">—</span>{% endif %}
+      </td>
+      <td class="cl-meta" style="font-size:11px;color:#64748b;">
+        {% if row.group.experiment.exp_type == 'in_vivo' and row.group.experiment.dose_info %}
+          {{ row.group.experiment.dose_info }}
+        {% else %}<span class="cl-dim">—</span>{% endif %}
+      </td>
+      <td class="cl-meta">{{ row.group.experiment.assay_name|default:"—" }}</td>
       <td class="cl-batch-id">{{ row.group.experiment.batch_label }}</td>
-      <td class="cl-meta" style="font-size:11px;color:#64748b;">
-        {% if row.group.experiment.exp_type == 'in_vitro' %}
-          {% if row.group.experiment.cell_line %}{{ row.group.experiment.cell_line }}{% else %}<span class="cl-dim">—</span>{% endif %}
-        {% else %}<span class="cl-dim">—</span>{% endif %}
-      </td>
-      <td class="cl-meta" style="font-size:11px;color:#64748b;">
-        {% if row.group.experiment.exp_type == 'in_vivo' %}
-          {% if row.group.experiment.animal_species %}{{ row.group.experiment.animal_species }}{% if row.group.experiment.animal_strain %} {{ row.group.experiment.animal_strain }}{% endif %}{% else %}<span class="cl-dim">—</span>{% endif %}
-        {% else %}<span class="cl-dim">—</span>{% endif %}
-      </td>
-      <td class="cl-meta" style="font-size:11px;color:#64748b;">
-        {% if row.group.experiment.exp_type == 'in_vivo' %}
-          {% if row.group.experiment.dose_info %}{{ row.group.experiment.dose_info }}{% else %}<span class="cl-dim">—</span>{% endif %}
-        {% else %}<span class="cl-dim">—</span>{% endif %}
-      </td>
-      <td class="cl-meta">
-        {% if row.compound.target_name %}{{ row.compound.target_name }}{% endif %}
-        {% if row.compound.project %}<span class="cl-proj">{{ row.compound.project }}</span>{% endif %}
-      </td>
       <td class="cl-chevron">▼</td>
     </tr>
 
     {# ── expand row ── #}
     <tr class="cl-er" id="er-{{ forloop.counter }}">
-      <td colspan="10">
+      <td colspan="12">
         <div class="cl-expand-body">
 
           {# sequences #}
