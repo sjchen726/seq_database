@@ -981,7 +981,6 @@ def compound_list(request):
     row_data = []
     cl_invivo_charts = []
     cl_vitro_charts = []
-    color_map = get_color_map()  # one DB hit; reused across all rows
     for compound in page_obj:
         exps = list(compound.experiments.all())
         if tag:
@@ -990,9 +989,6 @@ def compound_list(request):
             {
                 'strand_type': s.strand_type,
                 'modify_seq': s.modify_seq,
-                'colored_items': get_modify_seq_colored(
-                    s.modify_seq, s.strand_type, s.strand_type, color_map=color_map
-                ),
             }
             for s in compound.strands.all()
         ]

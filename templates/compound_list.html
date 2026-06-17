@@ -298,12 +298,11 @@
   max-width: 480px;
 }
 .cl-seq-line {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 0;
-  align-items: center;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
   border-radius: 3px;
-  padding: 2px 4px;
+  padding: 3px 6px;
   margin-bottom: 3px;
   font-family: monospace;
 }
@@ -313,7 +312,15 @@
   font-size: 9px;
   font-weight: 700;
   color: #64748b;
-  margin-right: 4px;
+  flex-shrink: 0;
+}
+.cl-seq-text {
+  font-size: 10px;
+  color: #1f2937;
+  word-break: break-all;
+  line-height: 1.4;
+  flex: 1;
+  min-width: 0;
 }
 
 /* gap row between batch groups (only visible in batch grouping mode) */
@@ -472,10 +479,7 @@
         {% for strand in row.strand_map %}
         <div class="cl-seq-line {% if strand.strand_type == 'SS' %}cl-seq-ss-bg{% else %}cl-seq-as-bg{% endif %}">
           <span class="cl-seq-strand-label">{{ strand.strand_type }}</span>
-          {% for item in strand.colored_items %}
-            <span class="seq-container {% if item.char == 's' or item.char == 'o' or item.char == 'ss' %}seq-narrow{% else %}seq-wide{% endif %}"
-                  style="background-color:{% if item.type == 'normal' %}rgb(189,199,248){% elif item.type == 'f' %}rgb(22,245,22){% elif item.type == 'm' %}rgb(68,68,68);color:white{% elif item.type == 'd' or item.type == 'ss' or item.type == 'moe' or item.type == 'OCF3' or item.type == 'GNA' or item.type == 'I' %}rgb(212,93,245){% elif item.type == 's' %}rgb(253,246,61){% elif item.type == 'o' %}rgb(198,196,198){% elif item.type == 'TNA' %}rgb(245,86,86);color:white{% elif item.type == 'unknown' %}rgb(163,163,163){% elif item.type == 'others' %}rgba(112,203,248,1){% endif %};">{{ item.char }}</span>
-          {% endfor %}
+          <span class="cl-seq-text">{{ strand.modify_seq }}</span>
         </div>
         {% endfor %}
       </td>
@@ -524,16 +528,13 @@
       <td colspan="12">
         <div class="cl-expand-body">
 
-          {# sequences (per-character colored, same style as main column) #}
+          {# sequences (same plain-text style as main column) #}
           {% if row.strand_map %}
           <div class="cl-seq-area">
             {% for strand in row.strand_map %}
             <div class="cl-seq-line {% if strand.strand_type == 'SS' %}cl-seq-ss-bg{% else %}cl-seq-as-bg{% endif %}" style="margin-bottom:4px;">
               <span class="cl-seq-strand-label">{{ strand.strand_type }}</span>
-              {% for item in strand.colored_items %}
-                <span class="seq-container {% if item.char == 's' or item.char == 'o' or item.char == 'ss' %}seq-narrow{% else %}seq-wide{% endif %}"
-                      style="background-color:{% if item.type == 'normal' %}rgb(189,199,248){% elif item.type == 'f' %}rgb(22,245,22){% elif item.type == 'm' %}rgb(68,68,68);color:white{% elif item.type == 'd' or item.type == 'ss' or item.type == 'moe' or item.type == 'OCF3' or item.type == 'GNA' or item.type == 'I' %}rgb(212,93,245){% elif item.type == 's' %}rgb(253,246,61){% elif item.type == 'o' %}rgb(198,196,198){% elif item.type == 'TNA' %}rgb(245,86,86);color:white{% elif item.type == 'unknown' %}rgb(163,163,163){% elif item.type == 'others' %}rgba(112,203,248,1){% endif %};">{{ item.char }}</span>
-              {% endfor %}
+              <span class="cl-seq-text">{{ strand.modify_seq }}</span>
             </div>
             {% endfor %}
           </div>
