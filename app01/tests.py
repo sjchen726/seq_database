@@ -1763,11 +1763,9 @@ class SmartUploadConfirmTargetNameTest(TestCase):
                 'notes': '',
             },
             'invivo_groups': [],
-            'unknown_files': [],
+            'attachment_files': [],
             'errors': [],
-            'llm_unavailable': False,
             'has_no_seq': True,
-            'target_name': 'FASN',
         }
         session = self.client.session
         session['smart_preview'] = preview
@@ -1793,13 +1791,16 @@ class SmartUploadConfirmTargetNameTest(TestCase):
         })
         self.assertEqual(Compound.objects.get(compound_id='BPR_TNTEST03').target_name, 'PCSK9')
 
-    def test_empty_target_name_skips_update(self):
+    def test_empty_target_name_rejected(self):
         Compound.objects.create(compound_id='BPR_TNTEST04', target_name='')
         self._make_session(['BPR_TNTEST04'])
-        self.client.post('/upload/smart/confirm/', {
+        resp = self.client.post('/upload/smart/confirm/', {
             'batch_label': 'T1',
             'target_name': '',
         })
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, '靶点必填')
+        # No DB write happened
         self.assertEqual(Compound.objects.get(compound_id='BPR_TNTEST04').target_name, '')
 
 
