@@ -762,15 +762,15 @@ $(function () {
         lastKey = key;
         var isVitro = p.type === 'in_vitro';
         var typeLabel = isVitro ? '体外' : '体内';
-        var cnt = pairs.filter(function (x) {
+        var groupPairs = pairs.filter(function (x) {
           return x.batch === p.batch && x.type === p.type;
-        }).length;
+        });
+        var cnt = groupPairs.length;
 
         // collect exp IDs for this batch group
         var groupExpIds = [];
-        pairs.filter(function (x) {
-          return x.batch === p.batch && x.type === p.type;
-        }).forEach(function (gp) {
+        groupPairs.forEach(function (gp) {
+          if (!gp.er) return;
           var vtEl = gp.er.querySelector('[id^="cl-vt-"]');
           var ivEl = gp.er.querySelector('[id^="cl-iv-"]');
           if (vtEl) groupExpIds.push({ id: parseInt(vtEl.id.replace('cl-vt-', '')), kind: 'vitro' });
