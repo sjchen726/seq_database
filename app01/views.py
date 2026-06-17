@@ -1768,6 +1768,8 @@ def smart_upload_confirm_view(request):
 
     invitro = smart_preview.get('invitro')
     invivo_groups = smart_preview.get('invivo_groups', [])
+    attachment_files = smart_preview.get('attachment_files', [])
+    project_code = smart_preview.get('project_code', '')
 
     batch_label = request.POST.get('batch_label', '').strip()
     assay_name = request.POST.get('assay_name', '').strip()
@@ -1775,6 +1777,10 @@ def smart_upload_confirm_view(request):
     target_name_input = request.POST.get('target_name', '').strip()
 
     errors = []
+
+    if not target_name_input:
+        errors.append('靶点必填,不能为空')
+
     if invitro and not batch_label:
         errors.append('批次名称为必填项')
 
@@ -1799,6 +1805,8 @@ def smart_upload_confirm_view(request):
             errors.append(f'文件 {group["filename"]}: 请填写给药途径')
         if not gender:
             errors.append(f'文件 {group["filename"]}: 请填写动物性别')
+        if not group.get('readout_code'):
+            errors.append(f'文件 {group["filename"]}: 请选择 readout 类型')
 
         invivo_meta.append({
             'time_unit': time_unit,
@@ -1817,8 +1825,10 @@ def smart_upload_confirm_view(request):
 
     n_experiments = 0
     n_invivo = 0
+    n_attachments = 0
     invitro_errors = []
     invivo_errors = []
+    attachment_errors = []
 
     # Write in-vitro (one atomic transaction)
     if invitro:
@@ -1897,8 +1907,9 @@ def smart_upload_confirm_view(request):
     for i, group in enumerate(invivo_groups):
         meta = invivo_meta[i]
         batch_label_iv = datetime.now().strftime('B%Y%m%d%H%M%S') + f'{i:02d}'
-        readout_type = group['readout_type']
-        assay_name_iv = 'KD% 时间曲线' if readout_type == 'knockdown_pct' else '体重时间曲线'
+        readout_code = group['readout_code']
+        readout_label = group.get('readout_label', readout_code)
+        assay_name_iv = f'{readout_label} 时间曲线'
         first_exp = None
 
         try:
@@ -1927,11 +1938,11 @@ def smart_upload_confirm_view(request):
                     for tp in g['timepoints']:
                         dp_objs.append(DataPoint(
                             experiment=exp, x_value=tp['time'], x_type='timepoint',
-                            replicate='Mean', value=tp['mean'], readout_type=readout_type,
+                            replicate='Mean', value=tp['mean'], readout_type=readout_code,
                         ))
                         dp_objs.append(DataPoint(
                             experiment=exp, x_value=tp['time'], x_type='timepoint',
-                            replicate='SD', value=tp['sd'], readout_type=readout_type,
+                            replicate='SD', value=tp['sd'], readout_type=readout_code,
                         ))
                     DataPoint.objects.bulk_create(dp_objs)
 
@@ -1947,17 +1958,51 @@ def smart_upload_confirm_view(request):
             logger.error(f'smart_upload_confirm invivo error: {e}')
             invivo_errors.append(f'文件 {group["filename"]}: {e}')
 
-    # Clean up in-vitro temp files
-    for det in smart_preview.get('file_detections', []):
-        if det['detected_type'] not in ('invivo_kd', 'invivo_bw'):
+    # Write project attachments (custom-typed files)
+    if attachment_files:
+        from app01.models import ProjectAttachment
+        from django.core.files.base import ContentFile as CF
+        for af in attachment_files:
+            saved_path = af['saved_path']
             try:
-                if default_storage.exists(det['saved_path']):
-                    default_storage.delete(det['saved_path'])
+                if not default_storage.exists(saved_path):
+                    attachment_errors.append(f'文件 {af["filename"]}: 临时文件已丢失')
+                    continue
+                with default_storage.open(saved_path, 'rb') as fh:
+                    content = fh.read()
+                pa = ProjectAttachment(
+                    project=project_code,
+                    label=af['label'],
+                    vocab_code=af['vocab_code'],
+                    original_filename=af['filename'],
+                    uploaded_by=request.user if request.user.is_authenticated else None,
+                )
+                pa.file.save(af['filename'], CF(content), save=True)
+                default_storage.delete(saved_path)
+                n_attachments += 1
+            except Exception as e:
+                logger.error(f'smart_upload_confirm attachment error: {e}')
+                attachment_errors.append(f'文件 {af["filename"]}: {e}')
+
+    # Clean up any remaining temp files (in-vivo + attachment paths already handled above)
+    handled_paths = set()
+    for group in invivo_groups:
+        if group.get('saved_path'):
+            handled_paths.add(group['saved_path'])
+    for af in attachment_files:
+        if af.get('saved_path'):
+            handled_paths.add(af['saved_path'])
+    for det in smart_preview.get('file_detections', []):
+        path = det.get('saved_path', '')
+        if path and path not in handled_paths:
+            try:
+                if default_storage.exists(path):
+                    default_storage.delete(path)
             except Exception:
                 pass
 
-    # Update target_name for all compounds touched in this upload (only fills blank values)
-    if target_name_input and not (invitro_errors and invivo_errors):
+    # Update target_name for all compounds touched in this upload (required; validated above)
+    if not (invitro_errors and invivo_errors):
         touched_cids = set()
         if invitro:
             for cid in invitro.get('strand_map', {}):
@@ -1979,9 +2024,11 @@ def smart_upload_confirm_view(request):
         parts.append(f'{n_experiments} 条体外实验')
     if n_invivo:
         parts.append(f'{n_invivo} 条体内实验')
+    if n_attachments:
+        parts.append(f'{n_attachments} 个附件')
 
-    if invitro_errors or invivo_errors:
-        all_err = invitro_errors + invivo_errors
+    all_err = invitro_errors + invivo_errors + attachment_errors
+    if all_err:
         messages.warning(request, f'部分写入失败：{"；".join(all_err)}')
     else:
         messages.success(request, f'数据已上传：{", ".join(parts) or "0 条"}')
