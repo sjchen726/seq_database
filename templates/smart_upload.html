@@ -202,6 +202,14 @@
       </div>
       {% endif %}
 
+      {% if preview.invitro.id_format_mismatch %}
+      <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:5px;padding:10px 12px;font-size:12px;color:#9a3412;margin-bottom:10px;">
+        ⚠ <strong>ID 格式不一致，请确认：</strong><br>
+        序列文件中的编号（如 <code>{{ preview.invitro.id_format_mismatch.keys|first }}</code>）与数据库已有编号（如 <code>{{ preview.invitro.id_format_mismatch.values|first }}</code>）仅在末尾位数不同，视为同一化合物。
+        共 {{ preview.invitro.id_format_mismatch|length }} 个 ID 将自动对齐后关联至已有化合物。
+      </div>
+      {% endif %}
+
       <details>
         <summary style="cursor:pointer;font-size:12px;color:#64748b;padding:4px 0;">
           {{ preview.invitro.experiments|length }} 个化合物 — 点击展开预览

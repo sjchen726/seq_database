@@ -1832,17 +1832,19 @@ def smart_upload_confirm_view(request):
                 for c in preview_copy.get('new_compounds', []):
                     Compound.objects.get_or_create(compound_id=c['compound_id'])
 
+                id_remap = preview_copy.get('id_format_mismatch', {})
                 for cid, seq_data in preview_copy.get('strand_map', {}).items():
-                    compound, _ = Compound.objects.get_or_create(compound_id=cid)
+                    resolved = id_remap.get(cid, cid)
+                    compound, _ = Compound.objects.get_or_create(compound_id=resolved)
                     if seq_data.get('ss_seq'):
                         Strand.objects.get_or_create(
                             compound=compound, strand_type='SS',
-                            defaults={'sequence_id': f'{cid}_SS', 'modify_seq': seq_data['ss_seq']},
+                            defaults={'sequence_id': f'{resolved}_SS', 'modify_seq': seq_data['ss_seq']},
                         )
                     if seq_data.get('as_seq'):
                         Strand.objects.get_or_create(
                             compound=compound, strand_type='AS',
-                            defaults={'sequence_id': f'{cid}_AS', 'modify_seq': seq_data['as_seq']},
+                            defaults={'sequence_id': f'{resolved}_AS', 'modify_seq': seq_data['as_seq']},
                         )
 
                 for exp_data in preview_copy.get('experiments', []):

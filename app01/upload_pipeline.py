@@ -372,6 +372,28 @@ def detect_existing_compounds(compound_ids: list) -> dict:
     return {'existing': existing, 'new': new}
 
 
+def detect_cross_format_match(new_ids: list) -> dict:
+    """
+    For IDs not found in DB exactly, check whether their zero-padding
+    counterpart (2-digit ↔ 3-digit) already exists.
+    Returns {file_id: db_id} for each cross-format match found.
+    e.g. {'BPR_3M03FN001': 'BPR_3M03FN01'}
+    """
+    from app01.models import Compound
+    if not new_ids:
+        return {}
+    file_fmt = detect_id_format(new_ids)
+    if file_fmt not in ('2-digit', '3-digit'):
+        return {}
+    alt_fmt = '3-digit' if file_fmt == '2-digit' else '2-digit'
+    normalized = normalize_compound_ids(new_ids, alt_fmt)
+    existing_alt = set(
+        Compound.objects.filter(compound_id__in=normalized)
+        .values_list('compound_id', flat=True)
+    )
+    return {orig: norm for orig, norm in zip(new_ids, normalized) if norm in existing_alt}
+
+
 def build_preview(seq_parsed, summary_parsed, cp_parsed_list,
                   batch_label: str, assay_name: str, exp_date: str = None,
                   transfection_parsed=None) -> dict:
@@ -443,9 +465,14 @@ def build_preview(seq_parsed, summary_parsed, cp_parsed_list,
     # Detect existing vs new
     existing_info = detect_existing_compounds(list(all_compound_ids))
 
+    # Check if "new" IDs are actually existing compounds in a different zero-padding format
+    cross_format_remap = detect_cross_format_match(existing_info['new'])
+    # IDs that are cross-format matches should not be treated as truly new
+    truly_new = [cid for cid in existing_info['new'] if cid not in cross_format_remap]
+
     # Build new_compounds list (include strand data if available)
     new_compounds = []
-    for cid in existing_info['new']:
+    for cid in truly_new:
         entry = {'compound_id': cid}
         if cid in seq_by_cid:
             entry['ss_seq'] = seq_by_cid[cid]['ss_seq']
@@ -496,6 +523,14 @@ def build_preview(seq_parsed, summary_parsed, cp_parsed_list,
     if id_format_conflict:
         warnings.append(f'ID 格式冲突：序列文件使用 {seq_fmt}，汇总表使用 {sum_fmt}')
 
+    if cross_format_remap:
+        example_file = next(iter(cross_format_remap))
+        example_db = cross_format_remap[example_file]
+        warnings.append(
+            f'序列文件 ID 与数据库格式不同（如 {example_file} → 数据库 {example_db}），'
+            f'共 {len(cross_format_remap)} 个，确认后将自动对齐'
+        )
+
     if not summary_parsed and not seq_parsed:
         errors.append('请至少上传序列文件或体外汇总表')
 
@@ -508,6 +543,7 @@ def build_preview(seq_parsed, summary_parsed, cp_parsed_list,
         'new_compounds': new_compounds,
         'existing_compounds': existing_info['existing'],
         'id_format_conflict': id_format_conflict,
+        'id_format_mismatch': cross_format_remap,
         'chosen_format': None,
         'mapping': mapping,
         'strand_map': strand_map,
