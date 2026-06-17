@@ -699,10 +699,18 @@ $(function () {
       s.data.forEach(function (pt) { allY.push(pt[1]); });
     });
     var ymax = Math.max.apply(null, allY);
+    var ymin = Math.min.apply(null, allY);
+    var yAxisOpts;
+    if (isVitro) {
+      yAxisOpts = { min: 0, max: Math.max(ymax * 1.12, 110), labelWidth: 30 };
+    } else {
+      var ypad = Math.max((ymax - ymin) * 0.12, 2);
+      yAxisOpts = { min: ymin - ypad, max: ymax + ypad, labelWidth: 30 };
+    }
     try {
       $.plot(container, series, {
         xaxis: isVitro ? { ticks: LOG_TICKS, tickLength: 3 } : { tickLength: 3 },
-        yaxis: { min: 0, max: Math.max(ymax * 1.12, 110), labelWidth: 30 },
+        yaxis: yAxisOpts,
         grid: { hoverable: false, borderWidth: 1,
                 borderColor: isVitro ? '#bfdbfe' : '#fed7aa' },
         legend: { show: false }
