@@ -606,17 +606,19 @@ $(function () {
 
     if (isOpen && !renderedRows[idx]) {
       renderedRows[idx] = true;
-      (function tryRender(attempts) {
-        var vtEl = er.querySelector('[id^="cl-vt-"]');
-        var ivEl = er.querySelector('[id^="cl-iv-"]');
-        var probe = vtEl || ivEl;
-        if (probe && probe.offsetWidth > 0) {
-          if (vtEl) renderVitro(parseInt(vtEl.id.replace('cl-vt-', '')), 'mrna');
-          if (ivEl) renderInvivo(parseInt(ivEl.id.replace('cl-iv-', '')));
-        } else if (attempts > 0) {
-          setTimeout(function () { tryRender(attempts - 1); }, 30);
-        }
-      })(20);
+      setTimeout(function () {
+        (function tryRender(attempts) {
+          var vtEl = er.querySelector('[id^="cl-vt-"]');
+          var ivEl = er.querySelector('[id^="cl-iv-"]');
+          var probe = vtEl || ivEl;
+          if (probe && probe.offsetWidth > 0) {
+            if (vtEl) renderVitro(parseInt(vtEl.id.replace('cl-vt-', '')), 'mrna');
+            if (ivEl) renderInvivo(parseInt(ivEl.id.replace('cl-iv-', '')));
+          } else if (attempts > 0) {
+            setTimeout(function () { tryRender(attempts - 1); }, 30);
+          }
+        })(20);
+      }, 50);
     }
   };
 
@@ -815,16 +817,18 @@ $(function () {
           chartDiv.className = 'cl-bgh-chart';
           chartWrap.appendChild(chartDiv);
           td.appendChild(chartWrap);
-          // render after layout settles
+          // render after layout settles (100ms head-start for table reflow)
           (function (cid, eids) {
-            (function tryBgh(n) {
-              var el = document.getElementById(cid);
-              if (el && el.offsetWidth > 0) {
-                renderBatchSummary(cid, eids);
-              } else if (n > 0) {
-                setTimeout(function () { tryBgh(n - 1); }, 30);
-              }
-            })(20);
+            setTimeout(function () {
+              (function tryBgh(n) {
+                var el = document.getElementById(cid);
+                if (el && el.offsetWidth > 0) {
+                  renderBatchSummary(cid, eids);
+                } else if (n > 0) {
+                  setTimeout(function () { tryBgh(n - 1); }, 30);
+                }
+              })(20);
+            }, 100);
           })(chartId, groupExpIds);
         }
 

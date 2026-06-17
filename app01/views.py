@@ -797,7 +797,7 @@ def _build_vitro_rows(datapoints):
         if dp.replicate == 'Mean' and not dp.is_control and dp.x_type == 'concentration'
     ]
     mean_points.sort(key=lambda dp: -dp.x_value)
-    return [{'dose': dp.x_value, 'mean': dp.value} for dp in mean_points]
+    return [{'dose': dp.x_value, 'mean': dp.value * 100} for dp in mean_points]
 
 
 def _build_invivo_rows(datapoints, time_unit):
@@ -1000,7 +1000,7 @@ def compound_list(request):
                     })
             else:
                 mrna_pts = [
-                    [round(math.log10(r['dose']), 4), round(r['mean'] * 100, 2)]
+                    [round(math.log10(r['dose']), 4), round(r['mean'], 2)]
                     for r in g['rows']
                     if r.get('dose') and r['dose'] > 0 and r.get('mean') is not None
                 ]
