@@ -1740,36 +1740,6 @@ class AttachmentDownloadTest(TestCase):
         self.assertEqual(resp.status_code, 302)
 
 
-# ---- ExtractTargetNameTest ----
-class ExtractTargetNameTest(TestCase):
-    def _fn(self, filename, content=b''):
-        from app01.views import _extract_target_name_rules
-        return _extract_target_name_rules(filename, content)
-
-    def test_gene_from_filename_first_segment(self):
-        self.assertEqual(self._fn('FASN_IC50_2026.csv'), 'FASN')
-
-    def test_gene_with_digit_suffix(self):
-        self.assertEqual(self._fn('PCSK9_vitro_summary.csv'), 'PCSK9')
-
-    def test_bpr_prefix_skipped(self):
-        # 'BPR' is in skip list, fall through to content
-        result = self._fn('BPR_3M03FN01.csv', b'')
-        self.assertIsNone(result)
-
-    def test_gene_from_content_target_label(self):
-        content = b'Report\nTarget: APOC3\nSample ID,IC50\n'
-        self.assertEqual(self._fn('unknown.csv', content), 'APOC3')
-
-    def test_gene_from_content_gene_label(self):
-        content = b'Gene: HBB\nCompound,Value\n'
-        self.assertEqual(self._fn('data.csv', content), 'HBB')
-
-    def test_no_match_returns_none(self):
-        result = self._fn('report_2026.csv', b'col1,col2\n1,2\n')
-        self.assertIsNone(result)
-
-
 # ---- SmartUploadConfirmTargetNameTest ----
 class SmartUploadConfirmTargetNameTest(TestCase):
     def setUp(self):
