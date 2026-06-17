@@ -377,21 +377,24 @@ def detect_cross_format_match(new_ids: list) -> dict:
     For IDs not found in DB exactly, check whether their zero-padding
     counterpart (2-digit ↔ 3-digit) already exists.
     Returns {file_id: db_id} for each cross-format match found.
+    Handles mixed-format lists by checking each group independently.
     e.g. {'BPR_3M03FN001': 'BPR_3M03FN01'}
     """
     from app01.models import Compound
     if not new_ids:
         return {}
-    file_fmt = detect_id_format(new_ids)
-    if file_fmt not in ('2-digit', '3-digit'):
-        return {}
-    alt_fmt = '3-digit' if file_fmt == '2-digit' else '2-digit'
-    normalized = normalize_compound_ids(new_ids, alt_fmt)
-    existing_alt = set(
-        Compound.objects.filter(compound_id__in=normalized)
-        .values_list('compound_id', flat=True)
-    )
-    return {orig: norm for orig, norm in zip(new_ids, normalized) if norm in existing_alt}
+    result = {}
+    three_digit = [cid for cid in new_ids if re.match(r'^BPR_[A-Z0-9]+[A-Z]{2}\d{3}$', cid)]
+    two_digit   = [cid for cid in new_ids if re.match(r'^BPR_[A-Z0-9]+[A-Z]{2}\d{2}$', cid)]
+    if three_digit:
+        norm2 = normalize_compound_ids(three_digit, '2-digit')
+        existing2 = set(Compound.objects.filter(compound_id__in=norm2).values_list('compound_id', flat=True))
+        result.update({o: n for o, n in zip(three_digit, norm2) if n in existing2})
+    if two_digit:
+        norm3 = normalize_compound_ids(two_digit, '3-digit')
+        existing3 = set(Compound.objects.filter(compound_id__in=norm3).values_list('compound_id', flat=True))
+        result.update({o: n for o, n in zip(two_digit, norm3) if n in existing3})
+    return result
 
 
 def build_preview(seq_parsed, summary_parsed, cp_parsed_list,
@@ -434,6 +437,15 @@ def build_preview(seq_parsed, summary_parsed, cp_parsed_list,
         and seq_fmt != 'mixed' and sum_fmt != 'mixed'
         and seq_fmt != sum_fmt
     )
+
+    # When uploading seq + summary together with conflicting formats, normalize
+    # seq IDs to match the summary's format to avoid creating duplicate compounds.
+    if id_format_conflict and seq_by_cid and sum_fmt:
+        seq_by_cid = {
+            normalize_compound_ids([cid], sum_fmt)[0]: data
+            for cid, data in seq_by_cid.items()
+        }
+        all_compound_ids = set(seq_by_cid.keys()) | {v for v in mapping.values() if v}
 
     # Enrich datapoints with Cp data
     datapoints = list(summary_parsed.datapoints) if summary_parsed else []

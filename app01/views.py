@@ -1809,6 +1809,7 @@ def smart_upload_confirm_view(request):
         })
 
     n_experiments = 0
+    n_strands = 0
     n_invivo = 0
     n_attachments = 0
     invitro_errors = []
@@ -1837,15 +1838,19 @@ def smart_upload_confirm_view(request):
                     resolved = id_remap.get(cid, cid)
                     compound, _ = Compound.objects.get_or_create(compound_id=resolved)
                     if seq_data.get('ss_seq'):
-                        Strand.objects.get_or_create(
+                        _, created = Strand.objects.get_or_create(
                             compound=compound, strand_type='SS',
                             defaults={'sequence_id': f'{resolved}_SS', 'modify_seq': seq_data['ss_seq']},
                         )
+                        if created:
+                            n_strands += 1
                     if seq_data.get('as_seq'):
-                        Strand.objects.get_or_create(
+                        _, created = Strand.objects.get_or_create(
                             compound=compound, strand_type='AS',
                             defaults={'sequence_id': f'{resolved}_AS', 'modify_seq': seq_data['as_seq']},
                         )
+                        if created:
+                            n_strands += 1
 
                 for exp_data in preview_copy.get('experiments', []):
                     cid = exp_data['compound_id']
@@ -2024,6 +2029,8 @@ def smart_upload_confirm_view(request):
     parts = []
     if n_experiments:
         parts.append(f'{n_experiments} 条体外实验')
+    if n_strands:
+        parts.append(f'{n_strands} 条序列')
     if n_invivo:
         parts.append(f'{n_invivo} 条体内实验')
     if n_attachments:
