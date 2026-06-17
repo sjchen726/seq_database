@@ -1737,19 +1737,33 @@ def smart_upload_confirm_view(request):
     if not target_name_input:
         errors.append('靶点必填,不能为空')
 
-    if (invitro or invivo_groups) and not batch_label:
+    # Sequences (vitro_seq) only update Strand records — no batch needed.
+    # Batch is required only when creating Experiment/DataPoint records.
+    has_exp_data = bool(invitro and invitro.get('experiments')) or bool(invivo_groups)
+
+    if has_exp_data and not batch_label:
         errors.append('批次名称为必填项')
 
-    if batch_label:
-        existing_cids = list(
-            Experiment.objects.filter(batch_label=batch_label)
-            .values_list('compound_id', flat=True).distinct()
+    if batch_label and has_exp_data:
+        # Collect compound IDs being uploaded in this batch
+        upload_cids = set()
+        if invitro:
+            upload_cids.update(e['compound_id'] for e in invitro.get('experiments', []))
+        for grp in invivo_groups:
+            upload_cids.update(g['compound_id'] for g in grp.get('groups', []))
+
+        # Duplicate = same compound already has DataPoints in this batch
+        dup_cids = list(
+            DataPoint.objects.filter(
+                experiment__batch_label=batch_label,
+                experiment__compound_id__in=upload_cids,
+            ).values_list('experiment__compound_id', flat=True).distinct()
         )
-        if existing_cids:
-            ids_str = '、'.join(sorted(existing_cids)[:10])
-            if len(existing_cids) > 10:
-                ids_str += f' 等共 {len(existing_cids)} 个'
-            errors.append(f'批次 {batch_label} 已存在，包含化合物：{ids_str}。请更改批次号或先删除旧数据')
+        if dup_cids:
+            ids_str = '、'.join(sorted(dup_cids)[:10])
+            if len(dup_cids) > 10:
+                ids_str += f' 等共 {len(dup_cids)} 个'
+            errors.append(f'批次 {batch_label} 中以下化合物已有实验数据：{ids_str}。请更改批次号或先删除旧批次')
 
     invivo_meta = []
     for i, group in enumerate(invivo_groups):
