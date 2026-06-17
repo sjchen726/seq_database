@@ -428,18 +428,26 @@
 
 <!-- ── table ──────────────────────────────────────────── -->
 {% if row_data %}
+<div class="cl-table-scroll">
 <table class="cl-table">
+  <colgroup>
+    <col style="width:130px;"><col style="width:420px;"><col style="width:90px;"><col style="width:90px;">
+    <col style="width:80px;"><col style="width:80px;"><col style="width:100px;"><col style="width:130px;">
+    <col style="width:90px;"><col style="width:140px;"><col style="width:80px;"><col style="width:30px;">
+  </colgroup>
   <thead>
     <tr>
-      <th>化合物</th>
-      <th>类型</th>
+      <th>ID</th>
+      <th>序列 (AS / SS)</th>
+      <th>项目</th>
+      <th>靶点</th>
       <th class="r">IC50 (nM)</th>
       <th class="r">MaxKD%</th>
-      <th>批次</th>
-      <th>Cell Line</th>
+      <th>Cell line</th>
       <th>动物模型</th>
       <th>剂量</th>
-      <th>靶点 / 项目</th>
+      <th>实验类型</th>
+      <th>批次</th>
       <th></th>
     </tr>
   </thead>
@@ -628,6 +636,7 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
 
 {% else %}
 <div class="cl-no-data">没有找到符合条件的化合物</div>
