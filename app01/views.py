@@ -1509,36 +1509,59 @@ def _extract_target_name_llm(filename: str, file_bytes: bytes) -> str | None:
 
 
 def _build_smart_preview(file_detections: list, project_code: str) -> dict:
-    """Parse saved files into the smart_preview session dict."""
+    """
+    Build the smart upload preview from user-classified files.
+
+    Each `file_detections` entry MUST have:
+      filename, saved_path, file_type_code, readout_code
+
+    Known parsing codes: vitro_summary / vitro_seq / vitro_cp / vitro_transfection
+    / invivo_summary. Anything else (including custom_attachment + user-added)
+    lands in `attachment_files` with no parsing.
+    """
+    from app01.models import UploadVocabulary
+
     invitro_type_files = {
         'vitro_seq': [], 'vitro_summary': [],
         'vitro_cp': [], 'vitro_transfection': [],
     }
     invivo_groups = []
-    unknown_files = []
+    attachment_files = []
     errors = []
 
+    vocab_label_by_code = {
+        v.code: v.label
+        for v in UploadVocabulary.objects.all()
+    }
+
     for det in file_detections:
-        dtype = det['detected_type']
-        if dtype == 'unknown':
-            unknown_files.append(det['filename'])
-            continue
+        code = det.get('file_type_code') or ''
+        if not code:
+            continue  # not yet classified
 
         file_bytes = _read_from_storage(det['saved_path'])
         if file_bytes is None:
             errors.append(f'{det["filename"]}: 无法读取临时文件')
             continue
 
-        if dtype in invitro_type_files:
-            invitro_type_files[dtype].append((det['filename'], file_bytes))
-        elif dtype in ('invivo_kd', 'invivo_bw'):
+        if code in invitro_type_files:
+            invitro_type_files[code].append((det['filename'], file_bytes))
+            continue
+
+        if code == 'invivo_summary':
             try:
                 f = _BytesFile(file_bytes)
-                parsed = parse_invivo_kd_file(f) if dtype == 'invivo_kd' else parse_body_weight_file(f)
+                try:
+                    parsed = parse_invivo_kd_file(f)
+                except Exception:
+                    f = _BytesFile(file_bytes)
+                    parsed = parse_body_weight_file(f)
+                readout_code = det.get('readout_code') or parsed.readout_type
                 invivo_groups.append({
                     'filename': det['filename'],
                     'saved_path': det['saved_path'],
-                    'readout_type': parsed.readout_type,
+                    'readout_code': readout_code,
+                    'readout_label': vocab_label_by_code.get(readout_code, readout_code),
                     'inferred_time_unit': parsed.inferred_time_unit,
                     'needs_dose': parsed.needs_dose,
                     'groups': [
@@ -1554,7 +1577,16 @@ def _build_smart_preview(file_detections: list, project_code: str) -> dict:
                     ],
                 })
             except Exception as e:
-                errors.append(f'{det["filename"]}: 解析失败 {e}')
+                errors.append(f'{det["filename"]}: 体内数据解析失败 {e}')
+            continue
+
+        # Anything else → store as attachment, no parsing
+        attachment_files.append({
+            'filename': det['filename'],
+            'saved_path': det['saved_path'],
+            'vocab_code': code,
+            'label': vocab_label_by_code.get(code, code),
+        })
 
     seq_parsed = None
     summary_parsed = None
@@ -1602,33 +1634,14 @@ def _build_smart_preview(file_detections: list, project_code: str) -> dict:
 
     has_no_seq = bool(invitro) and not (invitro.get('strand_map') or seq_parsed)
 
-    # Extract target_name: collect candidates from every file, pick first hit; LLM fallback
-    all_file_pairs = [
-        (fname, fbytes)
-        for pairs in invitro_type_files.values()
-        for fname, fbytes in pairs
-    ]
-    extracted_target = None
-    for fname, fbytes in all_file_pairs:
-        extracted_target = _extract_target_name_rules(fname, fbytes)
-        if extracted_target:
-            break
-    if not extracted_target:
-        for fname, fbytes in all_file_pairs:
-            extracted_target = _extract_target_name_llm(fname, fbytes)
-            if extracted_target:
-                break
-
     return {
         'project_code': project_code,
         'file_detections': file_detections,
         'invitro': invitro,
         'invivo_groups': invivo_groups,
-        'unknown_files': unknown_files,
+        'attachment_files': attachment_files,
         'errors': errors,
-        'llm_unavailable': False,
         'has_no_seq': has_no_seq,
-        'target_name': extracted_target or '',
     }
 
 
