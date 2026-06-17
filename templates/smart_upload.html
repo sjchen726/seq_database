@@ -95,6 +95,26 @@
                    id="custom_input_{{ forloop.counter0 }}"
                    class="ds-form-control" placeholder="输入自定义类型名"
                    style="display:none;margin-top:6px;font-size:12px;padding:3px 6px;">
+
+            {# Readout block — visible only when file type is invivo_summary #}
+            <div id="readout_block_{{ forloop.counter0 }}"
+                 style="margin-top:6px;{% if det.file_type_code != 'invivo_summary' %}display:none;{% endif %}">
+              <label style="font-size:10px;color:#64748b;">体内 readout *</label>
+              <select name="readout_{{ forloop.counter0 }}" class="ds-form-control"
+                      {% if det.file_type_code == 'invivo_summary' %}required{% endif %}
+                      onchange="onReadoutChange(this, {{ forloop.counter0 }})"
+                      style="font-size:12px;padding:3px 6px;">
+                <option value="">-- 选择 --</option>
+                {% for r in vocab_readouts %}
+                  <option value="{{ r.code }}" {% if r.code == det.readout_code %}selected{% endif %}>{{ r.label }}</option>
+                {% endfor %}
+                <option value="__new__">+ 自定义...</option>
+              </select>
+              <input type="text" name="readout_custom_{{ forloop.counter0 }}"
+                     id="readout_custom_input_{{ forloop.counter0 }}"
+                     class="ds-form-control" placeholder="输入自定义 readout 名"
+                     style="display:none;margin-top:4px;font-size:12px;padding:3px 6px;">
+            </div>
           </td>
         </tr>
         {% endfor %}
@@ -111,6 +131,20 @@
   <script>
     function onTypeChange(sel, i) {
       var ci = document.getElementById('custom_input_' + i);
+      if (ci) {
+        ci.style.display = (sel.value === '__new__') ? 'block' : 'none';
+        ci.required = (sel.value === '__new__');
+      }
+      var rb = document.getElementById('readout_block_' + i);
+      if (rb) {
+        var isInvivo = (sel.value === 'invivo_summary');
+        rb.style.display = isInvivo ? 'block' : 'none';
+        var rs = rb.querySelector('select[name="readout_' + i + '"]');
+        if (rs) rs.required = isInvivo;
+      }
+    }
+    function onReadoutChange(sel, i) {
+      var ci = document.getElementById('readout_custom_input_' + i);
       if (!ci) return;
       ci.style.display = (sel.value === '__new__') ? 'block' : 'none';
       ci.required = (sel.value === '__new__');
@@ -180,7 +214,7 @@
         🐭 体内数据：{{ g.filename }}
       </div>
       <div style="font-size:11px;color:#64748b;margin-bottom:12px;">
-        类型：{% if g.readout_type == 'knockdown_pct' %}KD% 时间曲线{% else %}体重时间曲线{% endif %}
+        readout: <strong>{{ g.readout_label }}</strong>
         &nbsp;·&nbsp; {{ g.groups|length }} 组化合物
       </div>
 
