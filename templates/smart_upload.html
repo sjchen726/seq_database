@@ -176,13 +176,27 @@
         </div>
       </div>
     </div>
-    {% elif preview.invitro %}
+    {% elif preview.invitro.strand_map %}
     <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#15803d;">
       ✓ 仅上传序列数据，将直接关联至已有化合物，无需批次号
     </div>
+    {% elif preview.is_source_only %}
+    <div style="border:1px solid #dbeafe;border-radius:8px;padding:12px 16px;margin-bottom:16px;background:#eff6ff;">
+      <div style="font-size:13px;color:#1d4ed8;font-weight:600;margin-bottom:8px;">📎 上传原始源文件 — 请选择要附加到的批次</div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:10px;">这些文件将作为附件保存，可在化合物列表汇总图下方查看下载。</div>
+      <div>
+        <label class="ds-form-label" style="margin-bottom:4px;">附加到批次 *</label>
+        <select name="source_batch" class="ds-form-control" style="width:220px;" required>
+          <option value="">— 请选择批次 —</option>
+          {% for bl in available_batches %}
+          <option value="{{ bl }}">{{ bl }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
     {% endif %}
 
-    {% if preview.invitro %}
+    {% if preview.invitro.experiments %}
     <div style="border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:20px;">
       <div style="font-weight:600;font-size:13px;color:#1e293b;margin-bottom:12px;">
         📋 体外数据
@@ -234,6 +248,8 @@
         </table>
       </details>
     </div>
+    {% elif preview.invitro.strand_map %}
+    {# seq-only: no separate card needed, green notice above covers it #}
     {% endif %}
 
     {% for g in preview.invivo_groups %}

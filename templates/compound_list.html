@@ -656,14 +656,7 @@
           </div>
           {% endif %}
 
-          {# attachments + detail link #}
-          {% if row.group.attachments %}
-          <div class="cl-att-bar">
-            {% for att in row.group.attachments %}
-            <a href="{% url 'attachment_download' att.pk %}" class="cl-att-link">📎 {{ att.label|default:"附件" }}</a>
-            {% endfor %}
-          </div>
-          {% endif %}
+          {# detail link #}
           <a href="{% url 'compound_detail' row.compound.compound_id %}" class="cl-detail-link">📊 查看详情 →</a>
 
         </div>{# /cl-expand-body #}
@@ -704,6 +697,7 @@
 
 {{ cl_invivo_charts|json_script:"cl-invivo-charts-data" }}
 {{ cl_vitro_charts|json_script:"cl-vitro-charts-data" }}
+{{ batch_attachments|json_script:"cl-batch-attachments-data" }}
 
 {% endblock %}
 
@@ -715,6 +709,7 @@ $(function () {
 
   var ivcCharts = JSON.parse(document.getElementById('cl-invivo-charts-data').textContent);
   var vtCharts  = JSON.parse(document.getElementById('cl-vitro-charts-data').textContent);
+  var batchAtts = JSON.parse(document.getElementById('cl-batch-attachments-data').textContent);
   var vtDataMap = {};
   vtCharts.forEach(function (d) { vtDataMap[d.exp_id] = d; });
 
@@ -1013,18 +1008,36 @@ $(function () {
           row.appendChild(legendDiv);
           td.appendChild(row);
 
+          // source-file attachments below the summary chart (hidden until chart expanded)
+          var batchAttsForGroup = batchAtts[p.batch] || [];
+          var attBarEl = null;
+          if (batchAttsForGroup.length) {
+            attBarEl = document.createElement('div');
+            attBarEl.className = 'cl-att-bar';
+            attBarEl.style.display = 'none';
+            batchAttsForGroup.forEach(function (a) {
+              var link = document.createElement('a');
+              link.href = a.url;
+              link.className = 'cl-att-link';
+              link.textContent = '📎 ' + a.label;
+              attBarEl.appendChild(link);
+            });
+            td.appendChild(attBarEl);
+          }
+
           // toggle button in header (lazy-render chart on first expand)
           var toggleSpan = document.createElement('span');
           toggleSpan.className = 'cl-gh-toggle';
           toggleSpan.textContent = '📊 汇总图 ▼';
           rightSide.appendChild(toggleSpan);
 
-          (function (cid, eids, rowEl, ts) {
+          (function (cid, eids, rowEl, ts, attEl) {
             var rendered = false;
             ts.addEventListener('click', function (ev) {
               ev.stopPropagation();
               if (rowEl.style.display === 'none') {
                 rowEl.style.display = 'flex';
+                if (attEl) attEl.style.display = '';
                 ts.textContent = '📊 汇总图 ▲';
                 if (!rendered) {
                   setTimeout(function () {
@@ -1041,10 +1054,11 @@ $(function () {
                 }
               } else {
                 rowEl.style.display = 'none';
+                if (attEl) attEl.style.display = 'none';
                 ts.textContent = '📊 汇总图 ▼';
               }
             });
-          })(chartId, groupExpIds, row, toggleSpan);
+          })(chartId, groupExpIds, row, toggleSpan, attBarEl);
         }
 
         gh.appendChild(td);

@@ -1026,6 +1026,24 @@ def compound_list(request):
                 'ic50_str': ic50_str,
             })
 
+    # Build batch-level attachment map for JS rendering below the summary chart.
+    # Keyed by batch_label; each list contains {pk, label, url} dicts (deduplicated).
+    from django.urls import reverse as _reverse
+    batch_attachments = {}
+    seen_pks = set()
+    for rd in row_data:
+        bl = rd['group']['experiment'].batch_label
+        if bl not in batch_attachments:
+            batch_attachments[bl] = []
+        for att in rd['group']['attachments']:
+            if att.pk not in seen_pks:
+                seen_pks.add(att.pk)
+                batch_attachments[bl].append({
+                    'pk': att.pk,
+                    'label': att.label or att.file.name.split('/')[-1],
+                    'url': _reverse('attachment_download', args=[att.pk]),
+                })
+
     all_projects = sorted(
         Compound.objects.exclude(project='').values_list('project', flat=True).distinct()
     )
@@ -1045,6 +1063,7 @@ def compound_list(request):
         'group': group,
         'cl_invivo_charts': cl_invivo_charts,
         'cl_vitro_charts': cl_vitro_charts,
+        'batch_attachments': batch_attachments,
     })
 
 
@@ -1589,6 +1608,15 @@ def _build_smart_preview(file_detections: list, project_code: str) -> dict:
 
     has_no_seq = bool(invitro) and not (invitro.get('strand_map') or seq_parsed)
 
+    # True when uploaded files produce no experiments and no strands — only raw source files
+    # (e.g. Cp file or transfection file without a summary). User will pick which batch to attach to.
+    is_source_only = (
+        bool(invitro) and
+        not invitro.get('experiments') and
+        not invitro.get('strand_map') and
+        not invivo_groups
+    )
+
     return {
         'project_code': project_code,
         'file_detections': file_detections,
@@ -1597,6 +1625,7 @@ def _build_smart_preview(file_detections: list, project_code: str) -> dict:
         'attachment_files': attachment_files,
         'errors': errors,
         'has_no_seq': has_no_seq,
+        'is_source_only': is_source_only,
     }
 
 
@@ -1698,11 +1727,16 @@ def smart_upload_view(request):
     )
 
     if request.GET.get('preview') and 'smart_preview' in request.session:
+        available_batches = list(
+            Experiment.objects.values_list('batch_label', flat=True)
+            .distinct().order_by('-batch_label')
+        )
         return render(request, 'smart_upload.html', {
             'preview': request.session['smart_preview'],
             'vocab_file_types': vocab_file_types,
             'vocab_readouts': vocab_readouts,
             'suggested_batch_label': _generate_batch_label(),
+            'available_batches': available_batches,
         })
 
     if 'smart_preview' in request.session:
@@ -1731,6 +1765,9 @@ def smart_upload_confirm_view(request):
     assay_name = request.POST.get('assay_name', '').strip()
     exp_date = request.POST.get('exp_date', '').strip() or None
     target_name_input = request.POST.get('target_name', '').strip()
+    source_batch = request.POST.get('source_batch', '').strip()  # for source-file-only uploads
+
+    is_source_only = smart_preview.get('is_source_only', False)
 
     errors = []
 
@@ -1744,26 +1781,42 @@ def smart_upload_confirm_view(request):
     if has_exp_data and not batch_label:
         errors.append('批次名称为必填项')
 
-    if batch_label and has_exp_data:
-        # Collect compound IDs being uploaded in this batch
-        upload_cids = set()
-        if invitro:
-            upload_cids.update(e['compound_id'] for e in invitro.get('experiments', []))
-        for grp in invivo_groups:
-            upload_cids.update(g['compound_id'] for g in grp.get('groups', []))
+    if is_source_only and not source_batch:
+        errors.append('请选择要附加到的批次')
 
-        # Duplicate = same compound already has DataPoints in this batch
-        dup_cids = list(
-            DataPoint.objects.filter(
-                experiment__batch_label=batch_label,
-                experiment__compound_id__in=upload_cids,
-            ).values_list('experiment__compound_id', flat=True).distinct()
-        )
-        if dup_cids:
-            ids_str = '、'.join(sorted(dup_cids)[:10])
-            if len(dup_cids) > 10:
-                ids_str += f' 等共 {len(dup_cids)} 个'
-            errors.append(f'批次 {batch_label} 中以下化合物已有实验数据：{ids_str}。请更改批次号或先删除旧批次')
+    if has_exp_data:
+        # Content-based duplicate check: ID + data values identical to any existing batch
+        def _dp_fingerprint(dp_list):
+            return frozenset(
+                (round(float(dp.get('x_value', 0) or 0), 4),
+                 dp.get('replicate', ''),
+                 round(float(dp.get('value', 0) or 0), 4) if dp.get('value') is not None else None,
+                 dp.get('readout_type', ''))
+                for dp in dp_list if not dp.get('is_control')
+            )
+
+        content_dup_msgs = []
+        for exp_data in (invitro.get('experiments', []) if invitro else []):
+            cid = exp_data['compound_id']
+            upload_fp = _dp_fingerprint(exp_data.get('datapoints', []))
+            if not upload_fp:
+                continue
+            for existing_exp in Experiment.objects.filter(compound__compound_id=cid):
+                db_dps = DataPoint.objects.filter(experiment=existing_exp, is_control=False)
+                if not db_dps.exists():
+                    continue
+                existing_fp = frozenset(
+                    (round(float(dp.x_value or 0), 4), dp.replicate,
+                     round(float(dp.value or 0), 4) if dp.value is not None else None,
+                     dp.readout_type)
+                    for dp in db_dps
+                )
+                if existing_fp == upload_fp:
+                    content_dup_msgs.append(f'{cid}（与批次 {existing_exp.batch_label} 数据完全相同）')
+                    break
+        if content_dup_msgs:
+            preview = ','.join(content_dup_msgs[:5])
+            errors.append(f'以下化合物数据与已有批次完全相同，无需重复上传：{preview}')
 
     invivo_meta = []
     for i, group in enumerate(invivo_groups):
@@ -1806,6 +1859,7 @@ def smart_upload_confirm_view(request):
             'vocab_file_types': list(UploadVocabulary.objects.filter(category='file_type').order_by('-is_builtin', 'label')),
             'vocab_readouts': list(UploadVocabulary.objects.filter(category='invivo_readout').order_by('-is_builtin', 'label')),
             'suggested_batch_label': _generate_batch_label(),
+            'available_batches': list(Experiment.objects.values_list('batch_label', flat=True).distinct().order_by('-batch_label')),
         })
 
     n_experiments = 0
@@ -1817,6 +1871,7 @@ def smart_upload_confirm_view(request):
     attachment_errors = []
 
     # Write in-vitro (one atomic transaction)
+    vitro_experiments = []  # collected for source-file attachment below
     if invitro:
         preview_copy = copy.deepcopy(invitro)
         preview_copy['batch_label'] = batch_label
@@ -1866,6 +1921,7 @@ def smart_upload_confirm_view(request):
                             'date': exp_date_obj,
                         },
                     )
+                    vitro_experiments.append(exp)
                     if exp_created:
                         n_experiments += 1
                         dp_objs = [
@@ -1895,6 +1951,49 @@ def smart_upload_confirm_view(request):
             logger.error(f'smart_upload_confirm invitro error: {e}')
             invitro_errors.append(str(e))
 
+    # Attach vitro source files to the FIRST vitro experiment only (batch-level, one record per file)
+    VITRO_SOURCE_CODES = {'vitro_summary', 'vitro_seq', 'vitro_cp', 'vitro_transfection'}
+    if vitro_experiments and not invitro_errors:
+        from django.core.files.base import ContentFile as CF
+        for det in smart_preview.get('file_detections', []):
+            if det.get('file_type_code') not in VITRO_SOURCE_CODES:
+                continue
+            saved_path = det.get('saved_path', '')
+            if not saved_path or not default_storage.exists(saved_path):
+                continue
+            try:
+                with default_storage.open(saved_path, 'rb') as fh:
+                    content = fh.read()
+                att = ExperimentAttachment(
+                    experiment=vitro_experiments[0], label=det['filename'])
+                att.file.save(det['filename'], CF(content), save=True)
+                n_attachments += 1
+                default_storage.delete(saved_path)
+            except Exception as e:
+                logger.error(f'smart_upload source attachment error: {e}')
+
+    # Source-only upload: attach all source files to every experiment in the selected batch
+    if is_source_only and source_batch:
+        from django.core.files.base import ContentFile as CF
+        target_exps = list(Experiment.objects.filter(batch_label=source_batch))
+        if not target_exps:
+            invitro_errors.append(f'批次 {source_batch} 不存在或无实验记录')
+        else:
+            for det in smart_preview.get('file_detections', []):
+                saved_path = det.get('saved_path', '')
+                if not saved_path or not default_storage.exists(saved_path):
+                    continue
+                try:
+                    with default_storage.open(saved_path, 'rb') as fh:
+                        content = fh.read()
+                    att = ExperimentAttachment(
+                        experiment=target_exps[0], label=det['filename'])
+                    att.file.save(det['filename'], CF(content), save=True)
+                    n_attachments += 1
+                    default_storage.delete(saved_path)
+                except Exception as e:
+                    logger.error(f'smart_upload source-only attachment error: {e}')
+
     # Write each in-vivo group in its own atomic transaction (independent)
     for i, group in enumerate(invivo_groups):
         meta = invivo_meta[i]
@@ -1902,7 +2001,7 @@ def smart_upload_confirm_view(request):
         readout_code = group['readout_code']
         readout_label = group.get('readout_label', readout_code)
         assay_name_iv = f'{readout_label} 时间曲线'
-        first_exp = None
+        invivo_exps = []
 
         try:
             with transaction.atomic():
@@ -1922,8 +2021,7 @@ def smart_upload_confirm_view(request):
                         time_unit=meta['time_unit'],
                         dose_info=dose_info,
                     )
-                    if first_exp is None:
-                        first_exp = exp
+                    invivo_exps.append(exp)
                     n_invivo += 1
 
                     dp_objs = []
@@ -1938,13 +2036,16 @@ def smart_upload_confirm_view(request):
                         ))
                     DataPoint.objects.bulk_create(dp_objs)
 
+                # Attach source file to the FIRST experiment only (batch-level)
                 saved_path = group.get('saved_path', '')
-                if first_exp and saved_path and default_storage.exists(saved_path):
+                if invivo_exps and saved_path and default_storage.exists(saved_path):
                     from django.core.files.base import ContentFile as CF
                     with default_storage.open(saved_path, 'rb') as fh:
                         content = fh.read()
-                    att = ExperimentAttachment(experiment=first_exp, label=group['filename'])
+                    att = ExperimentAttachment(
+                        experiment=invivo_exps[0], label=group['filename'])
                     att.file.save(group['filename'], CF(content), save=True)
+                    n_attachments += 1
                     default_storage.delete(saved_path)
         except Exception as e:
             logger.error(f'smart_upload_confirm invivo error: {e}')

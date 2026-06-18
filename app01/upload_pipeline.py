@@ -477,8 +477,13 @@ def build_preview(seq_parsed, summary_parsed, cp_parsed_list,
     # Detect existing vs new
     existing_info = detect_existing_compounds(list(all_compound_ids))
 
-    # Check if "new" IDs are actually existing compounds in a different zero-padding format
-    cross_format_remap = detect_cross_format_match(existing_info['new'])
+    # Check cross-format matches for ALL seq IDs (both new and existing in DB), so
+    # that strands are always directed to the correct-format compound even when a
+    # wrong-format compound was previously created in DB.
+    seq_ids_for_remap = existing_info['new'] + [
+        cid for cid in existing_info['existing'] if cid in seq_by_cid
+    ]
+    cross_format_remap = detect_cross_format_match(seq_ids_for_remap)
     # IDs that are cross-format matches should not be treated as truly new
     truly_new = [cid for cid in existing_info['new'] if cid not in cross_format_remap]
 
