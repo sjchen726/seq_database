@@ -263,6 +263,14 @@
       </div>
 
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:12px;">
+        {% if g.readout_code == 'body_weight' %}
+        {# Body weight files always use day; no user input needed #}
+        <input type="hidden" name="time_unit_{{ forloop.counter0 }}" value="day">
+        <div>
+          <label class="ds-form-label">时间单位</label>
+          <div class="ds-form-control" style="background:#f8fafc;color:#64748b;">天（固定）</div>
+        </div>
+        {% else %}
         <div>
           <label class="ds-form-label">时间单位 *</label>
           <select name="time_unit_{{ forloop.counter0 }}" class="ds-form-control" required>
@@ -271,6 +279,7 @@
             <option value="hour">小时（hour）</option>
           </select>
         </div>
+        {% endif %}
 
         {% if g.needs_dose %}
         <div>
@@ -328,6 +337,7 @@
             <tr style="border-bottom:1px solid #e2e8f0;">
               <th style="text-align:left;padding:4px 8px;color:#64748b;">化合物 ID</th>
               <th style="text-align:left;padding:4px 8px;color:#64748b;">剂量</th>
+              <th style="text-align:left;padding:4px 8px;color:#64748b;">给药方案</th>
               <th style="text-align:left;padding:4px 8px;color:#64748b;">时间点数</th>
             </tr>
           </thead>
@@ -335,7 +345,8 @@
             {% for grp in g.groups %}
             <tr style="border-bottom:1px solid #f8fafc;">
               <td style="padding:4px 8px;">{{ grp.compound_id }}</td>
-              <td style="padding:4px 8px;">{{ grp.dose_info|default:'—' }}</td>
+              <td style="padding:4px 8px;">{{ grp.dose|default:'—' }}</td>
+              <td style="padding:4px 8px;">{{ grp.schedule|default:'—' }}</td>
               <td style="padding:4px 8px;">{{ grp.timepoints|length }}</td>
             </tr>
             {% endfor %}

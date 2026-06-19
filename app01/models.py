@@ -124,6 +124,7 @@ class Experiment(models.Model):
     gender = models.CharField(max_length=16, blank=True, default='')
     time_unit = models.CharField(max_length=16, blank=True, default='')
     dose_info = models.CharField(max_length=64, blank=True, default='')
+    schedule = models.CharField(max_length=64, blank=True, default='')
     date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

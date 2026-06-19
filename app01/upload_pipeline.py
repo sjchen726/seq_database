@@ -6,7 +6,7 @@ import re
 import statistics
 import urllib.request  # used by detect_file_type_llm
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace as dc_replace
 
 _logger = logging.getLogger(__name__)
 
@@ -63,7 +63,8 @@ class ParsedInVivoTimepoint:
 @dataclass
 class ParsedInVivoGroup:
     compound_id: str
-    dose_info: str
+    dose: str       # e.g. "3mpk"; empty for KD files or control groups
+    schedule: str   # e.g. "Q2W*3"; from body-weight header 3rd token
     timepoints: list  # List[ParsedInVivoTimepoint]
 
 
@@ -637,8 +638,29 @@ def _strip_star(val: str) -> str:
     return val.strip().rstrip('*')
 
 
+def _parse_header_cell(cell: str) -> tuple:
+    """Return (compound_id, dose, schedule) from a single header cell.
+
+    Control groups (purely alphabetic names like Saline, Vehicle) have no dose,
+    so the second token is treated as schedule rather than dose.
+    """
+    parts = cell.split(None, 2)
+    if not parts:
+        return '', '', ''
+    cid = parts[0]
+    if not re.search(r'\d', cid):   # alphabetic-only → control group, no dose
+        dose = ''
+        schedule = parts[1] if len(parts) > 1 else ''
+        if len(parts) > 2:
+            schedule = (schedule + ' ' + parts[2]).strip()
+    else:
+        dose = parts[1] if len(parts) > 1 else ''
+        schedule = parts[2] if len(parts) > 2 else ''
+    return cid, dose, schedule
+
+
 def _group_header_columns(header_row: list) -> list:
-    """Group consecutive identical non-empty header cells into dicts with compound_id, dose_info, indices."""
+    """Group consecutive identical non-empty header cells; split into compound_id, dose, schedule."""
     groups = []
     current_key = None
     current_indices = []
@@ -648,10 +670,11 @@ def _group_header_columns(header_row: list) -> list:
             continue
         if cell != current_key:
             if current_key is not None:
-                parts = current_key.split(None, 1)
+                cid, dose, schedule = _parse_header_cell(current_key)
                 groups.append({
-                    'compound_id': parts[0],
-                    'dose_info': parts[1] if len(parts) > 1 else '',
+                    'compound_id': cid,
+                    'dose': dose,
+                    'schedule': schedule,
                     'indices': current_indices,
                 })
             current_key = cell
@@ -659,16 +682,18 @@ def _group_header_columns(header_row: list) -> list:
         else:
             current_indices.append(i)
     if current_key is not None:
-        parts = current_key.split(None, 1)
+        cid, dose, schedule = _parse_header_cell(current_key)
         groups.append({
-            'compound_id': parts[0],
-            'dose_info': parts[1] if len(parts) > 1 else '',
+            'compound_id': cid,
+            'dose': dose,
+            'schedule': schedule,
             'indices': current_indices,
         })
     return groups
 
 
-def _parse_invivo_rows(rows: list, groups_meta: list, readout_type: str, needs_dose: bool) -> ParsedInVivoFile:
+def _parse_invivo_rows(rows: list, groups_meta: list, readout_type: str, needs_dose: bool,
+                       force_time_unit: str = None) -> ParsedInVivoFile:
     """Shared parsing logic for KD% and body weight files."""
     has_negative_time = False
     group_data = {i: [] for i in range(len(groups_meta))}
@@ -708,14 +733,20 @@ def _parse_invivo_rows(rows: list, groups_meta: list, readout_type: str, needs_d
         if tps:
             result_groups.append(ParsedInVivoGroup(
                 compound_id=gm['compound_id'],
-                dose_info=gm['dose_info'],
+                dose=gm['dose'],
+                schedule=gm['schedule'],
                 timepoints=tps,
             ))
+
+    if force_time_unit:
+        inferred_time_unit = force_time_unit
+    else:
+        inferred_time_unit = 'day' if has_negative_time else 'unknown'
 
     return ParsedInVivoFile(
         readout_type=readout_type,
         groups=result_groups,
-        inferred_time_unit='day' if has_negative_time else 'unknown',
+        inferred_time_unit=inferred_time_unit,
         needs_dose=needs_dose,
     )
 
@@ -729,7 +760,8 @@ def parse_invivo_kd_file(file) -> ParsedInVivoFile:
             return ParsedInVivoFile(readout_type='knockdown_pct', groups=[], inferred_time_unit='unknown', needs_dose=True)
         groups_meta = _group_header_columns(rows[0])
         for gm in groups_meta:
-            gm['dose_info'] = ''
+            gm['dose'] = ''
+            gm['schedule'] = ''
         return _parse_invivo_rows(rows, groups_meta, 'knockdown_pct', needs_dose=True)
     except Exception:
         _logger.exception('parse_invivo_kd_file failed')
@@ -737,17 +769,32 @@ def parse_invivo_kd_file(file) -> ParsedInVivoFile:
 
 
 def parse_body_weight_file(file) -> ParsedInVivoFile:
-    """Parse Data3-format body weight file (compound + dose in header)."""
+    """Parse Data3-format body weight file (compound + dose + schedule in header).
+
+    Applies BPR_ prefix to numeric compound IDs (e.g. 350025087 → BPR_350025087).
+    Named controls (Saline, Vehicle, …) are stored as-is.
+    Time unit is always 'day' for body weight studies.
+    """
     try:
         text = _read_csv_text(file)
         rows = list(csv.reader(io.StringIO(text)))
         if len(rows) < 2:
-            return ParsedInVivoFile(readout_type='body_weight', groups=[], inferred_time_unit='unknown', needs_dose=False)
+            return ParsedInVivoFile(readout_type='body_weight', groups=[], inferred_time_unit='day', needs_dose=False)
         groups_meta = _group_header_columns(rows[0])
-        return _parse_invivo_rows(rows, groups_meta, 'body_weight', needs_dose=False)
+        result = _parse_invivo_rows(rows, groups_meta, 'body_weight', needs_dose=False, force_time_unit='day')
+        # Apply BPR_ prefix to numeric compound IDs
+        fixed_groups = []
+        for g in result.groups:
+            cid = g.compound_id
+            if re.match(r'^\d', cid):
+                cid = 'BPR_' + cid
+            fixed_groups.append(ParsedInVivoGroup(
+                compound_id=cid, dose=g.dose, schedule=g.schedule, timepoints=g.timepoints
+            ))
+        return dc_replace(result, groups=fixed_groups)
     except Exception:
         _logger.exception('parse_body_weight_file failed')
-        return ParsedInVivoFile(readout_type='body_weight', groups=[], inferred_time_unit='unknown', needs_dose=False)
+        return ParsedInVivoFile(readout_type='body_weight', groups=[], inferred_time_unit='day', needs_dose=False)
 
 
 def detect_invivo_file_type(file) -> str:

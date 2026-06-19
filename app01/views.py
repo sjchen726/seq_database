@@ -1309,7 +1309,8 @@ def invivo_upload_view(request):
             'groups': [
                 {
                     'compound_id': g.compound_id,
-                    'dose_info': g.dose_info,
+                    'dose': g.dose,
+                    'schedule': g.schedule,
                     'timepoints': [
                         {'time': tp.time, 'mean': round(tp.mean, 4),
                          'sd': round(tp.sd, 4), 'n': tp.n}
@@ -1338,7 +1339,10 @@ def invivo_upload_confirm_view(request):
     if not preview:
         return redirect('invivo_upload')
 
-    time_unit = request.POST.get('time_unit', '').strip()
+    readout_type = preview['readout_type']
+    is_body_weight = (readout_type == 'body_weight')
+    # Body weight files always use 'day'; KD files require user input
+    time_unit = 'day' if is_body_weight else request.POST.get('time_unit', '').strip()
     dose_override = request.POST.get('dose_override', '').strip()
     animal_species = request.POST.get('animal_species', '').strip()
     animal_strain = request.POST.get('animal_strain', '').strip()
@@ -1366,7 +1370,6 @@ def invivo_upload_confirm_view(request):
         })
 
     batch_label = datetime.now().strftime('B%Y%m%d%H%M%S')
-    readout_type = preview['readout_type']
     assay_name_label = 'KD% 时间曲线' if readout_type == 'knockdown_pct' else '体重时间曲线'
     first_exp = None
 
@@ -1374,7 +1377,8 @@ def invivo_upload_confirm_view(request):
         with transaction.atomic():
             for g in preview['groups']:
                 compound, _ = Compound.objects.get_or_create(compound_id=g['compound_id'])
-                dose_info = g['dose_info'] or dose_override
+                dose_info = g.get('dose') or dose_override
+                schedule = g.get('schedule', '')
 
                 exp = Experiment.objects.create(
                     compound=compound,
@@ -1387,6 +1391,7 @@ def invivo_upload_confirm_view(request):
                     gender=gender,
                     time_unit=time_unit,
                     dose_info=dose_info,
+                    schedule=schedule,
                 )
                 if first_exp is None:
                     first_exp = exp
@@ -1525,12 +1530,13 @@ def _build_smart_preview(file_detections: list, project_code: str) -> dict:
         if code == 'invivo_summary':
             try:
                 f = _BytesFile(file_bytes)
-                try:
-                    parsed = parse_invivo_kd_file(f)
-                except Exception:
-                    f = _BytesFile(file_bytes)
+                readout_code = det.get('readout_code') or ''
+                # Use user-selected readout to pick the correct parser
+                if readout_code == 'body_weight':
                     parsed = parse_body_weight_file(f)
-                readout_code = det.get('readout_code') or parsed.readout_type
+                else:
+                    parsed = parse_invivo_kd_file(f)
+                readout_code = readout_code or parsed.readout_type
                 invivo_groups.append({
                     'filename': det['filename'],
                     'saved_path': det['saved_path'],
@@ -1541,7 +1547,8 @@ def _build_smart_preview(file_detections: list, project_code: str) -> dict:
                     'groups': [
                         {
                             'compound_id': g.compound_id,
-                            'dose_info': g.dose_info,
+                            'dose': g.dose,
+                            'schedule': g.schedule,
                             'timepoints': [
                                 {'time': tp.time, 'mean': tp.mean, 'sd': tp.sd, 'n': tp.n}
                                 for tp in g.timepoints
@@ -1820,7 +1827,11 @@ def smart_upload_confirm_view(request):
 
     invivo_meta = []
     for i, group in enumerate(invivo_groups):
-        time_unit = request.POST.get(f'time_unit_{i}', '').strip()
+        # Body weight files always use 'day'; KD files require user input
+        if group.get('readout_code') == 'body_weight':
+            time_unit = 'day'
+        else:
+            time_unit = request.POST.get(f'time_unit_{i}', '').strip()
         dose_override = request.POST.get(f'dose_override_{i}', '').strip()
         animal_species = request.POST.get(f'animal_species_{i}', '').strip()
         animal_strain = request.POST.get(f'animal_strain_{i}', '').strip()
@@ -2007,7 +2018,8 @@ def smart_upload_confirm_view(request):
             with transaction.atomic():
                 for g in group['groups']:
                     compound, _ = Compound.objects.get_or_create(compound_id=g['compound_id'])
-                    dose_info = g['dose_info'] or meta['dose_override']
+                    dose_info = g.get('dose') or meta['dose_override']
+                    schedule = g.get('schedule', '')
 
                     exp = Experiment.objects.create(
                         compound=compound,
@@ -2020,6 +2032,7 @@ def smart_upload_confirm_view(request):
                         gender=meta['gender'],
                         time_unit=meta['time_unit'],
                         dose_info=dose_info,
+                        schedule=schedule,
                     )
                     invivo_exps.append(exp)
                     n_invivo += 1
