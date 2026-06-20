@@ -2395,3 +2395,20 @@ def attachment_download(request, pk):
         raise Http404
     filename = os.path.basename(att.file.name)
     return FileResponse(att.file.open('rb'), as_attachment=True, filename=filename)
+
+@login_required
+def attachment_preview(request, pk):
+    """Return first 50 rows of a CSV attachment as JSON for inline preview."""
+    att = get_object_or_404(ExperimentAttachment, pk=pk)
+    try:
+        import csv
+        from io import StringIO
+        with att.file.open('r') as f:
+            text = f.read().decode('utf-8', errors='replace')
+        reader = csv.reader(StringIO(text))
+        rows = list(reader)
+        headers = rows[0] if rows else []
+        data_rows = rows[1:51]  # max 50 rows
+        return JsonResponse({'headers': headers, 'rows': data_rows})
+    except Exception:
+        return JsonResponse({'headers': [], 'rows': []})
