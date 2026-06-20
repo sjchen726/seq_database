@@ -2399,16 +2399,19 @@ def attachment_download(request, pk):
 @login_required
 def attachment_preview(request, pk):
     """Return first 50 rows of a CSV attachment as JSON for inline preview."""
+    import itertools
     att = get_object_or_404(ExperimentAttachment, pk=pk)
+    if not att.file:
+        return JsonResponse({'headers': [], 'rows': []}, status=404)
     try:
         import csv
         from io import StringIO
-        with att.file.open('r') as f:
+        with att.file.open('rb') as f:
             text = f.read().decode('utf-8', errors='replace')
         reader = csv.reader(StringIO(text))
-        rows = list(reader)
+        rows = list(itertools.islice(reader, 51))
         headers = rows[0] if rows else []
-        data_rows = rows[1:51]  # max 50 rows
+        data_rows = rows[1:]  # already capped at 50 by islice
         return JsonResponse({'headers': headers, 'rows': data_rows})
     except Exception:
         return JsonResponse({'headers': [], 'rows': []})

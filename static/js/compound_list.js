@@ -163,7 +163,7 @@ function clTogglePreview(btnEl, wrapId, attachPk) {
   fetch(`/attachments/${attachPk}/preview/`)
     .then(r => r.json())
     .then(data => {
-      if (data.rows && data.headers) {
+      if (data.headers && data.headers.length) {
         let html = '<table class="cl-preview-tbl"><thead><tr>';
         data.headers.forEach(h => { html += `<th>${_clEsc(h)}</th>`; });
         html += '</tr></thead><tbody>';
