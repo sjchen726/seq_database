@@ -1038,10 +1038,21 @@ def _build_vivo_schedule_data(vivo_exps_for_compound):
         summary = getattr(exp, 'summary', None)
         if summary and summary.max_kd_pct is not None:
             peak_kd = max(peak_kd or 0, summary.max_kd_pct)
-        for dp in exp.datapoints.all():
-            if dp.readout_type == 'body_weight' and dp.replicate == 'Mean':
-                if max_bw_drop is None or dp.value < max_bw_drop:
-                    max_bw_drop = dp.value
+        # Compute max body weight % drop from Day 0 baseline
+        bw_map = {
+            dp.x_value: dp.value
+            for dp in exp.datapoints.all()
+            if dp.readout_type == 'body_weight' and dp.replicate == 'Mean'
+        }
+        if not bw_map:
+            continue
+        baseline = bw_map.get(0.0) or bw_map.get(min(bw_map))  # Day 0 or first day
+        if not baseline:
+            continue
+        for day, val in bw_map.items():
+            pct_change = (val - baseline) / baseline * 100  # negative = weight loss
+            if max_bw_drop is None or pct_change < max_bw_drop:
+                max_bw_drop = pct_change
 
     return schedules, readouts, {'max_bw_drop': max_bw_drop, 'peak_kd': peak_kd}
 
@@ -1148,7 +1159,11 @@ def _build_batch_group_new(batch_label, experiments, compound_map, dm_modules, c
     ]
 
     cell_lines = sorted({e.cell_line for e in vitro_exps if e.cell_line})
-    targets = sorted({e.compound.target_name for e in experiments if e.compound.target_name})
+    targets = sorted({
+        compound_map[e.compound_id].target_name
+        for e in experiments
+        if e.compound_id in compound_map and compound_map[e.compound_id].target_name
+    })
 
     meta = {
         'date': rep.date,
