@@ -900,6 +900,276 @@ def _build_batch_groups(experiments):
     return groups
 
 
+# ---------------------------------------------------------------------------
+# Batch-grouping helpers for the redesigned compound list
+# ---------------------------------------------------------------------------
+
+_CONTROL_KEYWORDS = {'saline', 'pbs', 'vehicle', 'control', 'nc', 'neg'}
+
+
+def _is_control_arm(dose_info: str) -> bool:
+    return dose_info.lower().strip() in _CONTROL_KEYWORDS
+
+
+def _build_strand_tokens(compound, dm_modules, color_map, lk_modules):
+    """Return {'AS': [token, ...], 'SS': [token, ...]} for a compound's strands.
+
+    Tokens from get_modify_seq_colored have keys:
+        char, type, count, is_combo, delivery_label, delivery_color
+    We normalise to: char, type, bg_color, text_color for template use.
+    """
+    result = {'AS': [], 'SS': []}
+    for strand in compound.strands.all():
+        raw_tokens = get_modify_seq_colored(
+            strand.modify_seq,
+            selected_seq_type='AS',
+            seq_type=strand.strand_type,
+            dm_modules=dm_modules,
+            color_map=color_map,
+            lk_modules=lk_modules,
+        )
+        normalized = []
+        for tok in raw_tokens:
+            # delivery_color carries the combo-token background; fall back to
+            # per-type defaults so templates always have a colour to use.
+            tok_type = tok.get('type', '')
+            if tok.get('delivery_color'):
+                bg = tok['delivery_color']
+            elif tok_type in ('normal',):
+                bg = '#f1f5f9'
+            elif tok_type in ('m',):
+                bg = '#dbeafe'
+            elif tok_type in ('f',):
+                bg = '#fef9c3'
+            elif tok_type in ('moe',):
+                bg = '#dcfce7'
+            elif tok_type in ('s', 'ss', 'o'):
+                bg = '#e2e8f0'
+            else:
+                bg = '#f1f5f9'
+            normalized.append({
+                'char': tok.get('char', ''),
+                'type': tok_type,
+                'bg_color': bg,
+                'text_color': '#374151',
+                'count': tok.get('count', ''),
+                'is_combo': tok.get('is_combo', False),
+                'delivery_label': tok.get('delivery_label'),
+                'delivery_color': tok.get('delivery_color'),
+            })
+        result[strand.strand_type] = normalized
+    return result
+
+
+def _build_vivo_schedule_data(vivo_exps_for_compound):
+    """
+    Group a single compound's in-vivo experiments by schedule.
+
+    Returns:
+        schedules: dict keyed by schedule string, each value:
+            {
+                'days': [float, ...],   # sorted unique day values
+                'groups': [{'label': '3mpk', 'data': [float|None, ...]}, ...],
+                'control': {'label': 'Saline', 'data': [float|None, ...]} | None,
+                'day_range': 'Day 0-33',
+            }
+        readouts: list of distinct readout_type strings
+        summary: {'max_bw_drop': float|None, 'peak_kd': float|None}
+    """
+    # Gather all readout types present
+    readouts = sorted({
+        dp.readout_type
+        for exp in vivo_exps_for_compound
+        for dp in exp.datapoints.all()
+        if dp.x_type == 'timepoint'
+    })
+
+    all_control_exps = [e for e in vivo_exps_for_compound if _is_control_arm(e.dose_info)]
+    all_treatment_exps = [e for e in vivo_exps_for_compound if not _is_control_arm(e.dose_info)]
+
+    schedule_keys = sorted({e.schedule or '' for e in all_treatment_exps}) or ['']
+
+    schedules = {}
+    for sched in schedule_keys:
+        treatment_arms = [e for e in all_treatment_exps if (e.schedule or '') == sched]
+        control_arms = [e for e in all_control_exps if (e.schedule or '') == sched]
+        if not control_arms:
+            control_arms = all_control_exps[:1]
+
+        all_days = sorted({
+            dp.x_value
+            for exp in treatment_arms + control_arms
+            for dp in exp.datapoints.all()
+            if dp.x_type == 'timepoint' and dp.replicate == 'Mean'
+        })
+
+        def _arm_series(exp, days):
+            mean_map = {
+                dp.x_value: dp.value
+                for dp in exp.datapoints.all()
+                if dp.x_type == 'timepoint' and dp.replicate == 'Mean'
+            }
+            return [mean_map.get(d) for d in days]
+
+        groups = [
+            {'label': exp.dose_info, 'data': _arm_series(exp, all_days)}
+            for exp in treatment_arms
+        ]
+        control = None
+        if control_arms:
+            ctrl_exp = control_arms[0]
+            control = {'label': ctrl_exp.dose_info, 'data': _arm_series(ctrl_exp, all_days)}
+
+        day_range = ''
+        if all_days:
+            day_range = f'Day {int(all_days[0])}–{int(all_days[-1])}'
+
+        schedules[sched] = {
+            'days': all_days,
+            'groups': groups,
+            'control': control,
+            'day_range': day_range,
+        }
+
+    # Compute summary stats across all treatment experiments
+    max_bw_drop = None
+    peak_kd = None
+    for exp in all_treatment_exps:
+        summary = getattr(exp, 'summary', None)
+        if summary and summary.max_kd_pct is not None:
+            peak_kd = max(peak_kd or 0, summary.max_kd_pct)
+        for dp in exp.datapoints.all():
+            if dp.readout_type == 'body_weight' and dp.replicate == 'Mean':
+                if max_bw_drop is None or dp.value < max_bw_drop:
+                    max_bw_drop = dp.value
+
+    return schedules, readouts, {'max_bw_drop': max_bw_drop, 'peak_kd': peak_kd}
+
+
+def _build_vitro_compound_entry(compound, vitro_exps, dm_modules, color_map, lk_modules):
+    """One entry per compound for the vitro sub-table. Uses the first experiment."""
+    exp = vitro_exps[0]
+    summary = getattr(exp, 'summary', None)
+    all_dps = list(exp.datapoints.all())
+    rows = _build_vitro_rows(all_dps)
+    strand_tokens = _build_strand_tokens(compound, dm_modules, color_map, lk_modules)
+
+    mrna_pts = [
+        [round(math.log10(r['dose']), 4), round(r['mean'], 2)]
+        for r in rows
+        if r.get('dose') and r['dose'] > 0 and r.get('mean') is not None
+    ]
+    kd_pts = [[x, round(max(0.0, 100 - y), 2)] for x, y in mrna_pts]
+
+    return {
+        'compound': compound,
+        'experiment': exp,
+        'ic50_str': f"{summary.ic50_nm:.2f}" if summary and summary.ic50_nm is not None else '',
+        'max_kd_pct': summary.max_kd_pct if summary else None,
+        'vitro_rows': rows,
+        'mrna_pts': mrna_pts,
+        'kd_pts': kd_pts,
+        'colored_as': strand_tokens.get('AS', []),
+        'colored_ss': strand_tokens.get('SS', []),
+        'attachments': list(exp.attachments.all()),
+    }
+
+
+def _build_vivo_compound_entry(compound, vivo_exps, dm_modules, color_map, lk_modules):
+    """One entry per compound for the vivo sub-table."""
+    schedules, readouts, summary = _build_vivo_schedule_data(vivo_exps)
+    strand_tokens = _build_strand_tokens(compound, dm_modules, color_map, lk_modules)
+
+    schedule_labels = []
+    for sched, data in schedules.items():
+        doses = '/'.join(g['label'] for g in data['groups'])
+        schedule_labels.append(f"{doses} {sched}" if sched else doses)
+    dose_group_label = ' · '.join(schedule_labels)
+
+    all_attachments = []
+    seen_att = set()
+    for exp in vivo_exps:
+        for att in exp.attachments.all():
+            if att.pk not in seen_att:
+                seen_att.add(att.pk)
+                all_attachments.append(att)
+
+    return {
+        'compound': compound,
+        'schedules': schedules,
+        'readouts': readouts,
+        'summary': summary,
+        'dose_group_label': dose_group_label,
+        'colored_as': strand_tokens.get('AS', []),
+        'colored_ss': strand_tokens.get('SS', []),
+        'attachments': all_attachments,
+    }
+
+
+def _build_batch_group_new(batch_label, experiments, compound_map, dm_modules, color_map, lk_modules):
+    """
+    Build one batch_group dict from a list of Experiment objects sharing a batch_label.
+    compound_map: dict[compound_id -> Compound] (pre-fetched with strands).
+    """
+    vitro_exps = [e for e in experiments if e.exp_type == 'in_vitro']
+    vivo_exps  = [e for e in experiments if e.exp_type == 'in_vivo']
+
+    if vitro_exps and vivo_exps:
+        batch_type = 'mixed'
+    elif vitro_exps:
+        batch_type = 'in_vitro'
+    else:
+        batch_type = 'in_vivo'
+
+    rep = experiments[0]
+
+    vitro_by_cid = defaultdict(list)
+    for e in vitro_exps:
+        vitro_by_cid[e.compound_id].append(e)
+
+    vitro_compounds = [
+        _build_vitro_compound_entry(
+            compound_map[cid], exps, dm_modules, color_map, lk_modules
+        )
+        for cid, exps in sorted(vitro_by_cid.items())
+        if cid in compound_map
+    ]
+
+    vivo_by_cid = defaultdict(list)
+    for e in vivo_exps:
+        vivo_by_cid[e.compound_id].append(e)
+
+    vivo_compounds = [
+        _build_vivo_compound_entry(
+            compound_map[cid], exps, dm_modules, color_map, lk_modules
+        )
+        for cid, exps in sorted(vivo_by_cid.items())
+        if cid in compound_map
+    ]
+
+    cell_lines = sorted({e.cell_line for e in vitro_exps if e.cell_line})
+    targets = sorted({e.compound.target_name for e in experiments if e.compound.target_name})
+
+    meta = {
+        'date': rep.date,
+        'cell_line': ', '.join(cell_lines),
+        'target': ', '.join(targets),
+        'animal': f"{rep.gender} {rep.animal_strain}".strip() if vivo_exps else '',
+        'route': rep.route if vivo_exps else '',
+        'n_vitro': len(vitro_by_cid),
+        'n_vivo': len(vivo_by_cid),
+        'n_compounds': len(set(vitro_by_cid) | set(vivo_by_cid)),
+    }
+
+    return {
+        'batch_label': batch_label,
+        'type': batch_type,
+        'meta': meta,
+        'vitro_compounds': vitro_compounds,
+        'vivo_compounds': vivo_compounds,
+    }
+
+
 def build_invivo_summary(experiments):
     """Return {compound_id: [{batch_label, timepoints}]}. Uses Mean replicates if any exist for an experiment; otherwise averages A/B."""
     result = defaultdict(list)
