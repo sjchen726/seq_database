@@ -801,12 +801,7 @@ def _build_vitro_rows(datapoints):
 
 
 def _build_invivo_rows(datapoints, time_unit):
-    """One row per filtered timepoint with mean/SD/CV.
-
-    Prefers computing from individual replicates (1/2/3/A/B).
-    Falls back to stored Mean/SD replicates when no individual replicates exist
-    (which is the case for files uploaded via smart_upload / invivo_upload).
-    """
+    """One row per timepoint with mean/SD/CV. Shows all timepoints, not just 7-multiples."""
     grouped = defaultdict(list)
     for dp in datapoints:
         if not dp.is_control and dp.replicate not in ('Mean', 'SD') and dp.x_type == 'timepoint':
@@ -819,9 +814,6 @@ def _build_invivo_rows(datapoints, time_unit):
             return f'Week {int(timepoint)}'
         return f'{int(timepoint)} {time_unit}'
 
-    def _passes_filter(timepoint):
-        return not (time_unit == 'day' and timepoint % 7 != 0 and timepoint != 0)
-
     # Fallback: use stored Mean/SD when no individual replicates exist
     if not grouped:
         mean_map, sd_map = {}, {}
@@ -833,8 +825,6 @@ def _build_invivo_rows(datapoints, time_unit):
                     sd_map[dp.x_value] = dp.value
         rows = []
         for timepoint in sorted(mean_map):
-            if not _passes_filter(timepoint):
-                continue
             mean = mean_map[timepoint]
             sd = sd_map.get(timepoint)
             cv = (sd / abs(mean) * 100) if (sd is not None and mean) else None
@@ -850,15 +840,11 @@ def _build_invivo_rows(datapoints, time_unit):
 
     rows = []
     for timepoint in sorted(grouped):
-        if not _passes_filter(timepoint):
-            continue
-
         vals = grouped[timepoint]
         n = len(vals)
         mean = _statistics.mean(vals) if n else None
         sd = _statistics.stdev(vals) if n >= 2 else None
         cv = (sd / abs(mean) * 100) if (sd is not None and mean) else None
-
         rows.append({
             'label': _make_label(timepoint),
             'x_value': timepoint,
