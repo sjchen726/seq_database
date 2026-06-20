@@ -26,9 +26,20 @@ function clSwitchTab(btn, tabGroupId, readout) {
   btn.classList.add('active');
 
   // Show / hide tab content panes
+  let activePane = null;
   group.querySelectorAll('.cl-tab-pane').forEach(pane => {
-    pane.style.display = pane.dataset.readout === readout ? '' : 'none';
+    if (pane.dataset.readout === readout) {
+      pane.style.display = '';
+      activePane = pane;
+    } else {
+      pane.style.display = 'none';
+    }
   });
+
+  // Initialize charts in the newly visible pane (canvas was zero-width when hidden)
+  if (activePane) {
+    clInitChartsInPanel(activePane);
+  }
 }
 
 // ── Chart.js initialization ───────────────────────────────────

@@ -251,22 +251,22 @@
 
         {# Readout tabs — only when >1 readout #}
         <div id="{{ tgid }}">
-        {% if vc.readouts|length > 1 %}
+        {% if vc.readout_data|length > 1 %}
           <div class="cl-tab-row">
-            {% for rd in vc.readouts %}
+            {% for rd_item in vc.readout_data %}
             <button class="cl-tab-btn {% if forloop.first %}active{% endif %}"
-                    onclick="clSwitchTab(this,'{{ tgid }}','{{ rd }}')">
-              {% if rd == 'body_weight' %}⚖ 体重变化%{% elif rd == 'knockdown_pct' %}🧬 KD%{% else %}{{ rd }}{% endif %}
+                    onclick="clSwitchTab(this,'{{ tgid }}','{{ rd_item.readout }}')">
+              {% if rd_item.readout == 'body_weight' %}⚖ 体重变化%{% elif rd_item.readout == 'knockdown_pct' %}🧬 KD%{% else %}{{ rd_item.readout }}{% endif %}
             </button>
             {% endfor %}
           </div>
         {% endif %}
 
-        {% for rd in vc.readouts %}
-        <div class="cl-tab-pane" data-readout="{{ rd }}"
+        {% for rd_item in vc.readout_data %}
+        <div class="cl-tab-pane" data-readout="{{ rd_item.readout }}"
              {% if not forloop.first %}style="display:none;"{% endif %}>
-          <div class="cl-sched-grid cols-{{ vc.schedules|length }}">
-          {% for sched, sd in vc.schedules.items %}
+          <div class="cl-sched-grid cols-{{ rd_item.schedules|length }}">
+          {% for sched, sd in rd_item.schedules.items %}
           <div class="cl-sched-panel">
             <div class="cl-sched-hdr">
               {% if 'Q2W' in sched or 'q2w' in sched %}<span class="cl-sched-tag q2w">{{ sched }}</span>
@@ -275,11 +275,11 @@
               {% if sd.day_range %}<span style="font-size:9px;color:#94a3b8;">{{ sd.day_range }}</span>{% endif %}
             </div>
             <div class="cl-chart-wrap">
-              <canvas id="chart-{{ ipid }}-{{ rd }}-{{ forloop.counter }}"
+              <canvas id="chart-{{ ipid }}-{{ rd_item.readout }}-{{ forloop.counter }}"
                 data-chart="vivo"
-                data-days="{{ sd.days|safe }}"
-                data-groups="{{ sd.groups|safe }}"
-                data-control="{{ sd.control|safe }}"></canvas>
+                data-days="{{ sd.days_json }}"
+                data-groups="{{ sd.groups_json }}"
+                data-control="{{ sd.control_json }}"></canvas>
             </div>
             {% if sd.summary_rows %}
             <table class="cl-summary-tbl">

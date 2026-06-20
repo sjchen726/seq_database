@@ -967,129 +967,123 @@ def _build_strand_tokens(compound, dm_modules, color_map, lk_modules):
 
 def _build_vivo_schedule_data(vivo_exps_for_compound):
     """
-    Group a single compound's in-vivo experiments by schedule.
-
     Returns:
-        schedules: dict keyed by schedule string, each value:
-            {
-                'days': [float, ...],   # sorted unique day values
-                'groups': [{'label': '3mpk', 'data': [float|None, ...]}, ...],
-                'control': {'label': 'Saline', 'data': [float|None, ...]} | None,
-                'day_range': 'Day 0-33',
-            }
-        readouts: list of distinct readout_type strings
+        readout_data: list of {
+            'readout': str,
+            'schedules': {sched_key: {days, days_json, groups, groups_json,
+                                      control, control_json, key_days, day_range,
+                                      summary_rows}}
+        }
         summary: {'max_bw_drop': float|None, 'peak_kd': float|None}
     """
-    # Gather all readout types present
-    readouts = sorted({
+    control_exps   = [e for e in vivo_exps_for_compound if     _is_control_arm(e.dose_info)]
+    treatment_exps = [e for e in vivo_exps_for_compound if not _is_control_arm(e.dose_info)]
+
+    all_readout_types = sorted({
         dp.readout_type
         for exp in vivo_exps_for_compound
         for dp in exp.datapoints.all()
-        if dp.x_type == 'timepoint'
+        if dp.x_type == 'timepoint' and dp.readout_type
     })
 
-    all_control_exps = [e for e in vivo_exps_for_compound if _is_control_arm(e.dose_info)]
-    all_treatment_exps = [e for e in vivo_exps_for_compound if not _is_control_arm(e.dose_info)]
+    schedule_keys = sorted({e.schedule or '' for e in treatment_exps}) or ['']
 
-    schedule_keys = sorted({e.schedule or '' for e in all_treatment_exps}) or ['']
+    def _select_key_days(days):
+        if not days or len(days) <= 5:
+            return list(days)
+        key = {days[0], days[-1]}
+        for d in days:
+            if d in (7.0, 14.0):
+                key.add(d)
+        return sorted(key)
 
-    schedules = {}
-    for sched in schedule_keys:
-        treatment_arms = [e for e in all_treatment_exps if (e.schedule or '') == sched]
-        control_arms = [e for e in all_control_exps if (e.schedule or '') == sched]
-        if not control_arms:
-            control_arms = all_control_exps[:1]
-
-        all_days = sorted({
-            dp.x_value
-            for exp in treatment_arms + control_arms
+    def _arm_series(exp, days, readout_type):
+        mean_map = {
+            dp.x_value: dp.value
             for dp in exp.datapoints.all()
-            if dp.x_type == 'timepoint' and dp.replicate == 'Mean'
-        })
-
-        def _arm_series(exp, days):
-            mean_map = {
-                dp.x_value: dp.value
-                for dp in exp.datapoints.all()
-                if dp.x_type == 'timepoint' and dp.replicate == 'Mean'
-            }
-            return [mean_map.get(d) for d in days]
-
-        groups = [
-            {'label': exp.dose_info, 'data': _arm_series(exp, all_days)}
-            for exp in treatment_arms
-        ]
-        control = None
-        if control_arms:
-            ctrl_exp = control_arms[0]
-            control = {'label': ctrl_exp.dose_info, 'data': _arm_series(ctrl_exp, all_days)}
-
-        day_range = ''
-        if all_days:
-            day_range = f'Day {int(all_days[0])}–{int(all_days[-1])}'
-
-        def _select_key_days(days):
-            if not days or len(days) <= 5:
-                return list(days)
-            key = {days[0], days[-1]}
-            for d in days:
-                if d in (7.0, 14.0, 7, 14):
-                    key.add(d)
-            return sorted(key)
-
-        def _arm_values_at_key_days(arm_series, key_days_list, all_days_list):
-            day_to_idx = {d: i for i, d in enumerate(all_days_list)}
-            return [arm_series[day_to_idx[d]] if d in day_to_idx else None for d in key_days_list]
-
-        key_days = _select_key_days(all_days)
-
-        summary_rows = []
-        if control:
-            summary_rows.append({
-                'label': control['label'],
-                'is_control': True,
-                'values': _arm_values_at_key_days(control['data'], key_days, all_days),
-            })
-        for g in groups:
-            summary_rows.append({
-                'label': g['label'],
-                'is_control': False,
-                'values': _arm_values_at_key_days(g['data'], key_days, all_days),
-            })
-
-        schedules[sched] = {
-            'days': all_days,
-            'key_days': key_days,
-            'groups': groups,
-            'control': control,
-            'day_range': day_range,
-            'summary_rows': summary_rows,
+            if (dp.x_type == 'timepoint'
+                and dp.replicate == 'Mean'
+                and dp.readout_type == readout_type)
         }
+        return [mean_map.get(d) for d in days]
 
-    # Compute summary stats across all treatment experiments
+    def _arm_vals_at_key(series, key_days, all_days):
+        idx = {d: i for i, d in enumerate(all_days)}
+        return [series[idx[d]] if d in idx else None for d in key_days]
+
+    readout_data = []
+    for rt in all_readout_types:
+        sched_dict = {}
+        for sched in schedule_keys:
+            t_arms = [e for e in treatment_exps if (e.schedule or '') == sched]
+            c_arms = [e for e in control_exps   if (e.schedule or '') == sched]
+            if not c_arms:
+                c_arms = control_exps[:1]
+
+            all_days = sorted({
+                dp.x_value
+                for exp in t_arms + c_arms
+                for dp in exp.datapoints.all()
+                if (dp.x_type == 'timepoint'
+                    and dp.replicate == 'Mean'
+                    and dp.readout_type == rt)
+            })
+            if not all_days:
+                continue
+
+            key_days  = _select_key_days(all_days)
+            day_range = f'Day {int(all_days[0])}–{int(all_days[-1])}' if all_days else ''
+
+            groups = [
+                {'label': exp.dose_info, 'data': _arm_series(exp, all_days, rt)}
+                for exp in t_arms
+            ]
+            control = None
+            if c_arms:
+                ctrl_series = _arm_series(c_arms[0], all_days, rt)
+                if any(v is not None for v in ctrl_series):
+                    control = {'label': c_arms[0].dose_info, 'data': ctrl_series}
+
+            summary_rows = []
+            if control:
+                summary_rows.append({
+                    'label': control['label'], 'is_control': True,
+                    'values': _arm_vals_at_key(control['data'], key_days, all_days),
+                })
+            for g in groups:
+                summary_rows.append({
+                    'label': g['label'], 'is_control': False,
+                    'values': _arm_vals_at_key(g['data'], key_days, all_days),
+                })
+
+            sched_dict[sched] = {
+                'days':         all_days,
+                'days_json':    json.dumps([float(d) for d in all_days]),
+                'groups':       groups,
+                'groups_json':  json.dumps(groups),
+                'control':      control,
+                'control_json': json.dumps(control),
+                'key_days':     key_days,
+                'day_range':    day_range,
+                'summary_rows': summary_rows,
+            }
+
+        if sched_dict:
+            readout_data.append({'readout': rt, 'schedules': sched_dict})
+
+    # Summary stats
     max_bw_drop = None
     peak_kd = None
-    for exp in all_treatment_exps:
+    for exp in treatment_exps:
         summary = getattr(exp, 'summary', None)
         if summary and summary.max_kd_pct is not None:
             peak_kd = max(peak_kd or 0, summary.max_kd_pct)
-        # Compute max body weight % drop from Day 0 baseline
-        bw_map = {
-            dp.x_value: dp.value
-            for dp in exp.datapoints.all()
-            if dp.readout_type == 'body_weight' and dp.replicate == 'Mean'
-        }
-        if not bw_map:
-            continue
-        baseline = bw_map.get(0.0) or bw_map.get(min(bw_map))  # Day 0 or first day
-        if not baseline:
-            continue
-        for day, val in bw_map.items():
-            pct_change = (val - baseline) / baseline * 100  # negative = weight loss
-            if max_bw_drop is None or pct_change < max_bw_drop:
-                max_bw_drop = pct_change
+        for dp in exp.datapoints.all():
+            if dp.readout_type == 'body_weight' and dp.replicate == 'Mean':
+                if max_bw_drop is None or dp.value < max_bw_drop:
+                    max_bw_drop = dp.value
 
-    return schedules, readouts, {'max_bw_drop': max_bw_drop, 'peak_kd': peak_kd}
+    return readout_data, {'max_bw_drop': max_bw_drop, 'peak_kd': peak_kd}
 
 
 def _build_vitro_compound_entry(compound, vitro_exps, dm_modules, color_map, lk_modules):
@@ -1123,13 +1117,15 @@ def _build_vitro_compound_entry(compound, vitro_exps, dm_modules, color_map, lk_
 
 def _build_vivo_compound_entry(compound, vivo_exps, dm_modules, color_map, lk_modules):
     """One entry per compound for the vivo sub-table."""
-    schedules, readouts, summary = _build_vivo_schedule_data(vivo_exps)
+    readout_data, summary = _build_vivo_schedule_data(vivo_exps)
+    readouts = [rd['readout'] for rd in readout_data]
     strand_tokens = _build_strand_tokens(compound, dm_modules, color_map, lk_modules)
 
     schedule_labels = []
-    for sched, data in schedules.items():
-        doses = '/'.join(g['label'] for g in data['groups'])
-        schedule_labels.append(f"{doses} {sched}" if sched else doses)
+    if readout_data:
+        for sched, data in readout_data[0]['schedules'].items():
+            doses = '/'.join(g['label'] for g in data['groups'])
+            schedule_labels.append(f"{doses} {sched}".strip() if sched else doses)
     dose_group_label = ' · '.join(schedule_labels)
 
     all_attachments = []
@@ -1142,7 +1138,7 @@ def _build_vivo_compound_entry(compound, vivo_exps, dm_modules, color_map, lk_mo
 
     return {
         'compound': compound,
-        'schedules': schedules,
+        'readout_data': readout_data,
         'readouts': readouts,
         'summary': summary,
         'dose_group_label': dose_group_label,
@@ -1201,7 +1197,12 @@ def _build_batch_group_new(batch_label, experiments, compound_map, dm_modules, c
     })
 
     # Aggregate schedules and readouts for batch header display
-    all_batch_schedules = sorted({s for vc in vivo_compounds for s in vc['schedules']})
+    all_batch_schedules = sorted({
+        s
+        for vc in vivo_compounds
+        for rd_item in vc['readout_data']
+        for s in rd_item['schedules']
+    })
     all_batch_readouts  = sorted({r for vc in vivo_compounds for r in vc['readouts']})
 
     meta = {
