@@ -1219,101 +1219,63 @@ def build_invivo_summary(experiments):
 @login_required
 def compound_list(request):
     q = request.GET.get('q', '').strip()
-    project = request.GET.get('project', '').strip()
+    project_filter = request.GET.get('project', '').strip()
     target_name_filter = request.GET.get('target_name', '').strip()
     tag = request.GET.get('tag', '').strip()
-    group = request.GET.get('group', 'batch').strip()
 
-    qs = Compound.objects.prefetch_related(
-        Prefetch('strands', queryset=Strand.objects.order_by('-strand_type')),
-        Prefetch(
-            'experiments',
-            queryset=Experiment.objects.select_related('summary')
-                .prefetch_related('datapoints', 'attachments')
-                .order_by('-batch_label'),
-        ),
-    ).order_by('compound_id')
+    # ── Pre-load shared coloring resources ──
+    dm_modules = list(DeliveryModule.objects.all())
+    color_map = get_color_map(dm_modules)
+    lk_modules = list(LinkerModule.objects.all())
 
+    # ── Fetch and filter experiments ──
+    exp_qs = (
+        Experiment.objects
+        .select_related('compound', 'summary')
+        .prefetch_related('datapoints', 'attachments')
+        .order_by('batch_label', 'compound__compound_id')
+    )
     if q:
-        qs = qs.filter(compound_id__icontains=q)
-    if project:
-        qs = qs.filter(project=project)
+        exp_qs = exp_qs.filter(compound__compound_id__icontains=q)
+    if project_filter:
+        exp_qs = exp_qs.filter(compound__project=project_filter)
     if target_name_filter:
-        qs = qs.filter(target_name__icontains=target_name_filter)
+        exp_qs = exp_qs.filter(compound__target_name__icontains=target_name_filter)
     if tag:
-        qs = qs.filter(experiments__exp_type=tag).distinct()
+        exp_qs = exp_qs.filter(exp_type=tag)
 
-    paginator = Paginator(qs, 20)
+    # ── Group experiments by batch_label ──
+    batch_map = defaultdict(list)
+    for exp in exp_qs:
+        batch_map[exp.batch_label].append(exp)
+
+    # Sort batches newest first (batch_label is typically date-prefixed)
+    sorted_batches = sorted(batch_map.items(), key=lambda x: x[0], reverse=True)
+
+    # ── Paginate by batch (10 batches per page) ──
+    paginator = Paginator(sorted_batches, 10)
     try:
         page_obj = paginator.page(int(request.GET.get('page', 1)))
     except (ValueError, InvalidPage):
         page_obj = paginator.page(1)
 
-    row_data = []
-    cl_invivo_charts = []
-    cl_vitro_charts = []
-    for compound in page_obj:
-        exps = list(compound.experiments.all())
-        if tag:
-            exps = [e for e in exps if e.exp_type == tag]
-        strand_map = [
-            {
-                'strand_type': s.strand_type,
-                'modify_seq': s.modify_seq,
-            }
-            for s in compound.strands.all()
-        ]
-        groups = _build_batch_groups(exps)
-        for g in groups:
-            exp = g['experiment']
-            if exp.exp_type == 'in_vivo':
-                pts = [[r['x_value'], r['mean']] for r in g['rows'] if r.get('mean') is not None]
-                if pts:
-                    cl_invivo_charts.append({
-                        'exp_id': exp.id,
-                        'readout_type': g['invivo_readout'],
-                        'time_unit': exp.time_unit or 'day',
-                        'points': pts,
-                    })
-            else:
-                mrna_pts = [
-                    [round(math.log10(r['dose']), 4), round(r['mean'], 2)]
-                    for r in g['rows']
-                    if r.get('dose') and r['dose'] > 0 and r.get('mean') is not None
-                ]
-                if mrna_pts:
-                    kd_pts = [[x, round(max(0.0, 100 - y), 2)] for x, y in mrna_pts]
-                    cl_vitro_charts.append({
-                        'exp_id': exp.id,
-                        'mrna_pts': mrna_pts,
-                        'kd_pts': kd_pts,
-                    })
-            ic50_val = getattr(getattr(exp, 'summary', None), 'ic50_nm', None)
-            ic50_str = f'{ic50_val:.2f}' if ic50_val is not None else ''
-            row_data.append({
-                'compound': compound,
-                'strand_map': strand_map,
-                'group': g,
-                'ic50_str': ic50_str,
-            })
+    # ── Pre-fetch Compound objects with strands for this page's experiments ──
+    page_cids = {
+        exp.compound_id
+        for _, exps in page_obj.object_list
+        for exp in exps
+    }
+    compound_map = {
+        c.compound_id: c
+        for c in Compound.objects.filter(compound_id__in=page_cids)
+                          .prefetch_related('strands')
+    }
 
-    # Build batch-level attachment map for JS rendering below the summary chart.
-    # Keyed by batch_label; each list contains {pk, label, url} dicts (deduplicated).
-    from django.urls import reverse as _reverse
-    batch_attachments = {}
-    seen_pks = set()
-    for rd in row_data:
-        bl = rd['group']['experiment'].batch_label
-        if bl not in batch_attachments:
-            batch_attachments[bl] = []
-        for att in rd['group']['attachments']:
-            if att.pk not in seen_pks:
-                seen_pks.add(att.pk)
-                batch_attachments[bl].append({
-                    'pk': att.pk,
-                    'label': att.label or att.file.name.split('/')[-1],
-                    'url': _reverse('attachment_download', args=[att.pk]),
-                })
+    # ── Build batch_groups ──
+    batch_groups = [
+        _build_batch_group_new(bl, exps, compound_map, dm_modules, color_map, lk_modules)
+        for bl, exps in page_obj.object_list
+    ]
 
     all_projects = sorted(
         Compound.objects.exclude(project='').values_list('project', flat=True).distinct()
@@ -1323,18 +1285,14 @@ def compound_list(request):
     )
 
     return render(request, 'compound_list.html', {
-        'row_data': row_data,
+        'batch_groups': batch_groups,
         'page_obj': page_obj,
         'all_projects': all_projects,
         'all_targets': all_targets,
         'q': q,
-        'project': project,
+        'project': project_filter,
         'target_name': target_name_filter,
         'tag': tag,
-        'group': group,
-        'cl_invivo_charts': cl_invivo_charts,
-        'cl_vitro_charts': cl_vitro_charts,
-        'batch_attachments': batch_attachments,
     })
 
 
