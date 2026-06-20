@@ -1,1105 +1,318 @@
 {% extends "base.html" %}
+{% load cl_extras %}
 {% block page_title %} — 化合物列表{% endblock %}
 
 {% block topbar_content %}
   <span class="ds-topbar-title">化合物列表</span>
-  <span style="background:#e2e8f0;border-radius:10px;padding:2px 9px;font-size:12px;margin-left:8px;color:#475569;">
-    {{ page_obj.paginator.count }}
-  </span>
 {% endblock %}
 
 {% block extra_styles %}
-<style>
-/* ── filter bar ──────────────────────────────────────── */
-.cl-filter-bar {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  padding: 8px 14px;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-  font-size: 12px;
-  margin-bottom: 14px;
-}
-.cl-filter-bar select,
-.cl-filter-bar input[type="text"] {
-  font-size: 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 5px;
-  padding: 3px 8px;
-  background: white;
-  outline: none;
-}
-
-/* ── main table ──────────────────────────────────────── */
-.cl-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  overflow: hidden;
-}
-.cl-table thead tr {
-  background: #f1f5f9;
-}
-.cl-table th {
-  padding: 8px 12px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #64748b;
-  text-align: left;
-  border-bottom: 1px solid #e2e8f0;
-  white-space: nowrap;
-}
-.cl-table th.r { text-align: right; }
-
-/* data rows */
-.cl-dr {
-  cursor: pointer;
-  border-bottom: 1px solid #f1f5f9;
-  transition: background 0.1s;
-}
-.cl-dr:hover { background: #f8fafc; }
-.cl-dr.cl-dr-open { background: #fffbeb; }
-.cl-dr td {
-  padding: 8px 12px;
-  color: #374151;
-  vertical-align: middle;
-}
-.cl-dr td.r { text-align: right; }
-
-/* expand rows */
-.cl-er { display: none; }
-.cl-er.cl-open { display: table-row; }
-.cl-er > td {
-  padding: 0;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-/* expand body */
-.cl-expand-body {
-  padding: 10px 16px 12px;
-  background: #f8fafc;
-  border-top: 2px solid #fde68a;
-}
-
-/* sequences */
-.cl-seq-area {
-  margin-bottom: 10px;
-  padding: 5px 0;
-}
-.cl-seq-row {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  margin-bottom: 3px;
-}
-.cl-sl {
-  width: 20px;
-  font-size: 10px;
-  font-weight: 700;
-  color: #94a3b8;
-  flex-shrink: 0;
-}
-.cl-seq-as { background: #fef9c3; color: #78350f; border-radius: 3px; padding: 2px 6px; font-size: 10px; font-family: monospace; word-break: break-all; }
-.cl-seq-ss { background: #f0fdf4; color: #166534; border-radius: 3px; padding: 2px 6px; font-size: 10px; font-family: monospace; word-break: break-all; }
-
-/* route info strip */
-.cl-route-info {
-  font-size: 11px;
-  color: #64748b;
-  margin-bottom: 8px;
-  padding: 3px 0;
-}
-
-/* table + chart side-by-side */
-.cl-expand-inner {
-  display: flex;
-  gap: 20px;
-  align-items: flex-start;
-}
-.cl-tbl-wrap { flex: 0 0 auto; }
-.cl-chart-wrap { flex: 1; min-width: 0; }
-
-/* inner data table */
-.cl-data-table {
-  border-collapse: collapse;
-  font-size: 12px;
-  min-width: 220px;
-}
-.cl-data-table th {
-  padding: 4px 12px;
-  background: #f8fafc;
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 600;
-  text-align: left;
-  border: 1px solid #e2e8f0;
-}
-.cl-data-table th.r { text-align: right; }
-.cl-data-table td {
-  padding: 4px 12px;
-  border: 1px solid #f1f5f9;
-  color: #374151;
-}
-.cl-data-table td.r { text-align: right; }
-
-/* chart */
-.cl-chart-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: #1e3a5f;
-  margin-bottom: 4px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.cl-tgl-btns { display: flex; gap: 3px; margin-left: auto; }
-.cl-vt-tgl {
-  font-size: 10px;
-  padding: 1px 7px;
-  border-radius: 3px;
-  border: 1px solid;
-  cursor: pointer;
-  line-height: 1.6;
-}
-.cl-chart-area {
-  display: flex;
-  align-items: stretch;
-  gap: 2px;
-}
-.cl-ylabel {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  font-size: 10px;
-  color: #1e3a5f;
-  white-space: nowrap;
-  text-align: center;
-  flex-shrink: 0;
-  padding: 4px 0;
-}
-.cl-chart-inner { flex: 1; min-width: 0; }
-.cl-chart-plot { height: 180px; }
-.cl-xlabel { text-align: center; font-size: 10px; color: #1e3a5f; margin-top: 2px; }
-
-/* tags */
-.cl-tag {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 4px;
-  white-space: nowrap;
-}
-.cl-tag-vitro { background: #dbeafe; color: #1e40af; }
-.cl-tag-vivo  { background: #fef9c3; color: #854d0e; }
-
-/* compound ID link */
-.cl-cid-link {
-  font-weight: 700;
-  color: #1d4ed8;
-  font-family: monospace;
-  text-decoration: none;
-  font-size: 13px;
-}
-.cl-cid-link:hover { text-decoration: underline; }
-
-/* misc cells */
-.cl-num { text-align: right; white-space: nowrap; }
-.cl-ic50-good { color: #15803d; font-weight: 700; }
-.cl-dim { color: #94a3b8; }
-.cl-batch-id { font-family: monospace; font-size: 11px; color: #64748b; white-space: nowrap; }
-.cl-meta { font-size: 12px; color: #475569; }
-.cl-proj { background: #f1f5f9; border-radius: 3px; padding: 1px 6px; font-size: 11px; color: #64748b; margin-left: 4px; }
-.cl-chevron { text-align: center; color: #94a3b8; font-size: 13px; width: 28px; }
-
-/* attachments */
-.cl-att-bar {
-  margin-top: 8px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.cl-att-link { font-size: 11px; color: #475569; text-decoration: none; }
-.cl-att-link:hover { text-decoration: underline; }
-.cl-detail-link {
-  display: inline-block;
-  margin-top: 6px;
-  font-size: 11px;
-  color: #3b82f6;
-  text-decoration: none;
-  font-weight: 500;
-}
-.cl-detail-link:hover { text-decoration: underline; }
-.cl-empty { color: #94a3b8; font-size: 11px; padding: 4px 12px; }
-
-/* group header rows (batch+type grouping mode) */
-.cl-gh td {
-  padding: 0;
-  border-bottom: 1px solid #e2e8f0;
-}
-.cl-gh-vitro td {
-  background: #eff6ff;
-  border-top: 2px solid #93c5fd;
-  border-left: 4px solid #3b82f6;
-}
-.cl-gh-vivo td {
-  background: #fff7ed;
-  border-top: 2px solid #fdba74;
-  border-left: 4px solid #f97316;
-}
-.cl-gh-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 7px 12px 4px;
-}
-.cl-gh-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: #1e40af;
-  font-family: monospace;
-}
-.cl-gh-label-vivo {
-  font-size: 12px;
-  font-weight: 700;
-  color: #9a3412;
-  font-family: monospace;
-}
-.cl-gh-count {
-  font-size: 11px;
-  color: #64748b;
-}
-.cl-gh-right {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-}
-.cl-gh-toggle {
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 4px;
-  user-select: none;
-  background: rgba(59, 130, 246, 0.10);
-  color: #1e40af;
-  transition: background 0.15s;
-}
-.cl-gh-toggle:hover { background: rgba(59, 130, 246, 0.22); }
-.cl-gh-vivo .cl-gh-toggle {
-  background: rgba(249, 115, 22, 0.10);
-  color: #9a3412;
-}
-.cl-gh-vivo .cl-gh-toggle:hover { background: rgba(249, 115, 22, 0.22); }
-.cl-bgh-chart-wrap {
-  padding: 2px 12px 10px;
-}
-.cl-bgh-chart {
-  height: 140px;
-  width: 100%;
-}
-
-/* outer table scroll wrapper (12 columns, min-width 1450px) */
-.cl-table-scroll {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  overflow-x: auto;
-}
-.cl-table { min-width: 1450px; }
-
-/* sequence column cell (AS + SS, per-character colored) */
-.cl-seq-cell {
-  min-width: 380px;
-  max-width: 480px;
-}
-.cl-seq-line {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  border-radius: 3px;
-  padding: 3px 6px;
-  margin-bottom: 3px;
-  font-family: monospace;
-}
-.cl-seq-as-bg { background: #fef9c3; }
-.cl-seq-ss-bg { background: #f0fdf4; }
-.cl-seq-strand-label {
-  font-size: 9px;
-  font-weight: 700;
-  color: #64748b;
-  flex-shrink: 0;
-}
-.cl-seq-text {
-  font-size: 10px;
-  color: #1f2937;
-  word-break: break-all;
-  line-height: 1.4;
-  flex: 1;
-  min-width: 0;
-}
-
-/* gap row between batch groups (only visible in batch grouping mode) */
-.cl-batch-gap td {
-  padding: 0;
-  height: 14px;
-  background: #f0f4f8;
-  border: none;
-}
-
-/* batch summary chart: chart left + legend right */
-.cl-bgh-row {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  padding: 2px 12px 10px;
-}
-.cl-bgh-chart-side {
-  flex: 0 0 60%;
-  max-width: 520px;
-  display: flex;
-  flex-direction: column;
-}
-.cl-bgh-ytitle {
-  font-size: 10px;
-  color: #1e3a5f;
-  font-weight: 600;
-  margin-bottom: 3px;
-}
-.cl-bgh-legend {
-  flex: 1;
-  min-width: 160px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  font-size: 11px;
-  color: #1e3a5f;
-}
-.cl-bgh-legend-item { white-space: nowrap; }
-.cl-bgh-dot {
-  display: inline-block;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  margin-right: 5px;
-  vertical-align: middle;
-}
-.cl-bgh-extra { color: #64748b; margin-left: 6px; }
-
-/* no data */
-.cl-no-data { text-align: center; padding: 48px; color: #94a3b8; }
-
-/* pagination */
-.cl-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  color: #64748b;
-  margin-top: 10px;
-  padding: 6px 0;
-}
-.cl-page-btns { display: flex; gap: 4px; }
-.cl-page-btn {
-  padding: 3px 8px;
-  border: 1px solid #e2e8f0;
-  border-radius: 4px;
-  background: white;
-  text-decoration: none;
-  color: #475569;
-}
-.cl-page-btn.active { border-color: #3b82f6; background: #3b82f6; color: white; }
-</style>
+<link rel="stylesheet" href="/static/css/compound_list.css">
 {% endblock %}
 
 {% block content %}
 
-<!-- ── filter bar ─────────────────────────────────────── -->
+{# ── Filter toolbar ── #}
 <form method="get" action="">
   <div class="cl-filter-bar">
     <span style="color:#64748b;font-weight:600;">过滤：</span>
-    <span style="display:inline-flex;align-items:center;gap:4px;background:white;border:1px solid #cbd5e1;border-radius:5px;padding:3px 8px;">
-      🔍 <input type="text" name="q" value="{{ q }}" placeholder="化合物 ID" style="border:none;width:120px;">
+    <span class="cl-search-input-wrap">
+      🔍 <input type="text" name="q" value="{{ q }}" placeholder="化合物 ID">
     </span>
     <select name="project">
       <option value="">全部项目</option>
-      {% for p in all_projects %}
-      <option value="{{ p }}" {% if p == project %}selected{% endif %}>{{ p }}</option>
-      {% endfor %}
+      {% for p in all_projects %}<option value="{{ p }}" {% if p == project %}selected{% endif %}>{{ p }}</option>{% endfor %}
     </select>
     <select name="target_name">
       <option value="">全部靶点</option>
-      {% for t in all_targets %}
-      <option value="{{ t }}" {% if t == target_name %}selected{% endif %}>{{ t }}</option>
-      {% endfor %}
+      {% for t in all_targets %}<option value="{{ t }}" {% if t == target_name %}selected{% endif %}>{{ t }}</option>{% endfor %}
     </select>
     <select name="tag">
       <option value="" {% if not tag %}selected{% endif %}>全部类型</option>
       <option value="in_vitro" {% if tag == 'in_vitro' %}selected{% endif %}>体外</option>
-      <option value="in_vivo" {% if tag == 'in_vivo' %}selected{% endif %}>体内</option>
-    </select>
-    <span style="color:#cbd5e1;">|</span>
-    <label style="color:#64748b;font-weight:600;">分组：</label>
-    <select id="cl-group-sel" onchange="setGroup(this.value)">
-      <option value="compound">按化合物</option>
-      <option value="batch">按批次+类型</option>
+      <option value="in_vivo"  {% if tag == 'in_vivo'  %}selected{% endif %}>体内</option>
     </select>
     <button type="submit" class="ds-btn ds-btn-primary" style="font-size:12px;padding:4px 14px;">搜索</button>
     <a href="{% url 'compound_list' %}" style="font-size:12px;color:#64748b;text-decoration:none;padding:4px 8px;">清除</a>
   </div>
 </form>
 
-<!-- ── table ──────────────────────────────────────────── -->
-{% if row_data %}
-<div class="cl-table-scroll">
-<table class="cl-table">
-  <colgroup>
-    <col style="width:130px;"><col style="width:420px;"><col style="width:90px;"><col style="width:90px;">
-    <col style="width:80px;"><col style="width:80px;"><col style="width:100px;"><col style="width:130px;">
-    <col style="width:90px;"><col style="width:140px;"><col style="width:80px;"><col style="width:30px;">
-  </colgroup>
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>序列 (AS / SS)</th>
-      <th>项目</th>
-      <th>靶点</th>
-      <th class="r">IC50 (nM)</th>
-      <th class="r">MaxKD%</th>
-      <th>Cell line</th>
-      <th>动物模型</th>
-      <th>剂量</th>
-      <th>实验类型</th>
-      <th>批次</th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody id="cl-tbody">
-  {% for row in row_data %}
+{% if batch_groups %}
+{% for bg in batch_groups %}
 
-    {# ── data row ── #}
-    <tr class="cl-dr"
-        data-compound="{{ row.compound.compound_id }}"
-        data-batch="{{ row.group.experiment.batch_label }}"
-        data-type="{{ row.group.experiment.exp_type }}"
-        data-idx="{{ forloop.counter }}"
-        data-cid="{{ row.compound.compound_id }}"
-        data-ic50="{{ row.ic50_str }}"
-        onclick="toggleRow({{ forloop.counter }})">
+<div class="cl-batch-sec type-{{ bg.type|cut:'_' }}">
+
+  {# ── Batch header ── #}
+  <div class="cl-batch-hdr type-{{ bg.type|cut:'_' }}">
+    <span class="cl-batch-id">{{ bg.batch_label }}</span>
+    <div class="cl-batch-meta">
+      {% if bg.meta.date %}<span><strong>日期:</strong> {{ bg.meta.date }}</span>{% endif %}
+      {% if bg.meta.cell_line %}<span><strong>细胞系:</strong> {{ bg.meta.cell_line }}</span>{% endif %}
+      {% if bg.meta.animal %}<span><strong>动物:</strong> {{ bg.meta.animal }}</span>{% endif %}
+      {% if bg.meta.route %}<span><strong>给药:</strong> {{ bg.meta.route }}</span>{% endif %}
+      {% if bg.meta.target %}<span><strong>靶点:</strong> {{ bg.meta.target }}</span>{% endif %}
+      <span><strong>化合物:</strong> {{ bg.meta.n_compounds }}个</span>
+    </div>
+    <div class="cl-batch-tags">
+      {% if bg.type == 'in_vitro' or bg.type == 'mixed' %}<span class="cl-btag vitro">体外</span>{% endif %}
+      {% if bg.type == 'in_vivo'  or bg.type == 'mixed' %}<span class="cl-btag vivo">体内</span>{% endif %}
+    </div>
+  </div>
+
+  {# ════════ IN-VITRO SUB-SECTION ════════ #}
+  {% if bg.vitro_compounds %}
+  {% if bg.type == 'mixed' %}
+  <div class="cl-sub-hdr vitro">
+    🔬 体外
+    <span class="cl-sub-meta">{% if bg.meta.cell_line %}细胞系: {{ bg.meta.cell_line }} · {% endif %}{{ bg.meta.n_vitro }}个化合物</span>
+  </div>
+  {% endif %}
+
+  <table class="cl-table">
+    <thead><tr>
+      <th style="width:110px">ID</th>
+      <th style="width:380px">序列 (AS / SS)</th>
+      <th style="width:70px">项目</th>
+      <th style="width:80px">靶点</th>
+      <th style="width:90px" class="cl-r">IC50 (nM)</th>
+      <th style="width:80px" class="cl-r">MaxKD%</th>
+      <th style="width:90px">细胞系</th>
+      <th style="width:32px"></th>
+    </tr></thead>
+    <tbody>
+    {% for vc in bg.vitro_compounds %}
+    {% with vrid="vr-"|add:bg.batch_label|add:"-"|add:vc.compound.compound_id vpid="vp-"|add:bg.batch_label|add:"-"|add:vc.compound.compound_id %}
+    <tr class="cmp-row" id="{{ vrid }}" onclick="clToggleRow('{{ vrid }}','{{ vpid }}')">
+      <td><a href="{% url 'compound_detail' vc.compound.compound_id %}" class="cl-cid v" onclick="event.stopPropagation()">{{ vc.compound.compound_id }}</a></td>
       <td>
-        <a href="{% url 'compound_detail' row.compound.compound_id %}"
-           class="cl-cid-link"
-           onclick="event.stopPropagation()">{{ row.compound.compound_id }}</a>
-      </td>
-      <td class="cl-seq-cell">
-        {% for strand in row.strand_map %}
-        <div class="cl-seq-line {% if strand.strand_type == 'SS' %}cl-seq-ss-bg{% else %}cl-seq-as-bg{% endif %}">
-          <span class="cl-seq-strand-label">{{ strand.strand_type }}</span>
-          <span class="cl-seq-text">{{ strand.modify_seq }}</span>
+        {% if vc.colored_as %}
+        <div class="cl-seq-strand">
+          <span class="cl-seq-label">AS</span>
+          {% for tok in vc.colored_as %}{% if tok.type != 'SEP' %}<span class="cl-tok" style="background:{{ tok.bg_color }};color:{{ tok.text_color }};">{{ tok.char }}</span>{% endif %}{% endfor %}
         </div>
-        {% endfor %}
-      </td>
-      <td class="cl-meta">
-        {% if row.compound.project %}<span class="cl-proj">{{ row.compound.project }}</span>{% else %}<span class="cl-dim">—</span>{% endif %}
-      </td>
-      <td class="cl-meta">
-        {% if row.compound.target_name %}{{ row.compound.target_name }}{% else %}<span class="cl-dim">—</span>{% endif %}
-      </td>
-      <td class="cl-num">
-        {% if row.group.experiment.exp_type == 'in_vitro' and row.group.header_ic50 is not None %}
-          <span class="cl-ic50-good">{{ row.group.header_ic50|floatformat:2 }}</span>
-        {% else %}
-          <span class="cl-dim">—</span>
+        {% endif %}
+        {% if vc.colored_ss %}
+        <div class="cl-seq-strand" style="margin-top:2px;opacity:.75;">
+          <span class="cl-seq-label">SS</span>
+          {% for tok in vc.colored_ss %}{% if tok.type != 'SEP' %}<span class="cl-tok" style="background:{{ tok.bg_color }};color:{{ tok.text_color }};font-size:8px;">{{ tok.char }}</span>{% endif %}{% endfor %}
+        </div>
         {% endif %}
       </td>
-      <td class="cl-num">
-        {% if row.group.experiment.exp_type == 'in_vitro' and row.group.header_maxkd is not None %}
-          {{ row.group.header_maxkd|floatformat:0 }}%
-        {% else %}
-          <span class="cl-dim">—</span>
-        {% endif %}
-      </td>
-      <td class="cl-meta" style="font-size:11px;color:#64748b;">
-        {% if row.group.experiment.exp_type == 'in_vitro' and row.group.experiment.cell_line %}
-          {{ row.group.experiment.cell_line }}
-        {% else %}<span class="cl-dim">—</span>{% endif %}
-      </td>
-      <td class="cl-meta" style="font-size:11px;color:#64748b;">
-        {% if row.group.experiment.exp_type == 'in_vivo' and row.group.experiment.animal_species %}
-          {{ row.group.experiment.animal_species }}{% if row.group.experiment.animal_strain %} {{ row.group.experiment.animal_strain }}{% endif %}
-        {% else %}<span class="cl-dim">—</span>{% endif %}
-      </td>
-      <td class="cl-meta" style="font-size:11px;color:#64748b;">
-        {% if row.group.experiment.exp_type == 'in_vivo' and row.group.experiment.dose_info %}
-          {{ row.group.experiment.dose_info }}
-        {% else %}<span class="cl-dim">—</span>{% endif %}
-      </td>
-      <td class="cl-meta">{% if row.group.experiment.exp_type == 'in_vitro' %}体外{% elif row.group.experiment.exp_type == 'in_vivo' %}体内{% else %}—{% endif %}</td>
-      <td class="cl-batch-id">{{ row.group.experiment.batch_label }}</td>
-      <td class="cl-chevron">▼</td>
+      <td>{{ vc.compound.project|default:"—" }}</td>
+      <td>{{ vc.compound.target_name|default:"—" }}</td>
+      <td class="cl-num">{% if vc.ic50_str %}{{ vc.ic50_str }}{% else %}<span class="cl-dim">—</span>{% endif %}</td>
+      <td class="cl-num cl-r">{% if vc.max_kd_pct is not None %}{{ vc.max_kd_pct|floatformat:0 }}%{% else %}<span class="cl-dim">—</span>{% endif %}</td>
+      <td style="font-size:11px;color:#64748b;">{{ vc.experiment.cell_line|default:"—" }}</td>
+      <td><span class="cl-chevron">▶</span></td>
     </tr>
+    <tr class="expand-row"><td colspan="8"><div class="cl-ep" id="{{ vpid }}">
+      <div class="cl-mini-expand">
+        <div class="cl-meta-row">
+          {% if vc.experiment.cell_line %}<span><strong>细胞系:</strong> {{ vc.experiment.cell_line }}</span>{% endif %}
+          {% if vc.experiment.notes %}<span><strong>备注:</strong> {{ vc.experiment.notes }}</span>{% endif %}
+        </div>
+        {% if vc.colored_as %}
+        <div style="margin-bottom:10px;">
+          <div class="cl-seq-strand">
+            <span class="cl-seq-label">AS</span>
+            {% for tok in vc.colored_as %}{% if tok.type != 'SEP' %}<span class="cl-tok" style="background:{{ tok.bg_color }};color:{{ tok.text_color }};">{{ tok.char }}</span>{% endif %}{% endfor %}
+          </div>
+          {% if vc.colored_ss %}
+          <div class="cl-seq-strand" style="margin-top:3px;opacity:.75;">
+            <span class="cl-seq-label">SS</span>
+            {% for tok in vc.colored_ss %}{% if tok.type != 'SEP' %}<span class="cl-tok" style="background:{{ tok.bg_color }};color:{{ tok.text_color }};font-size:8px;">{{ tok.char }}</span>{% endif %}{% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+        <div class="cl-vitro-chart-wrap">
+          <canvas id="chart-{{ vpid }}" data-chart="vitro"
+            data-mrna="{{ vc.mrna_pts|safe }}"
+            data-kd="{{ vc.kd_pts|safe }}"></canvas>
+        </div>
+        {% if vc.attachments %}
+        <div class="cl-src-section">
+          <div class="cl-src-label">源文件</div>
+          {% for att in vc.attachments %}
+          {% with awid="prev-v-"|add:att.pk|stringformat:"d" %}
+          <div class="cl-src-item">
+            <span class="cl-src-name">📊 {{ att.label|default:att.file.name }}</span>
+            <button class="cl-src-btn" onclick="clTogglePreview(this,'{{ awid }}',{{ att.pk }})">👁 预览</button>
+            <a class="cl-src-btn" href="{% url 'attachment_download' att.pk %}">⬇ 下载</a>
+          </div>
+          <div class="cl-src-preview-wrap" id="{{ awid }}"></div>
+          {% endwith %}{% endfor %}
+        </div>
+        {% endif %}
+        <a href="{% url 'compound_detail' vc.compound.compound_id %}" class="cl-detail-link">📊 查看化合物详情 →</a>
+      </div>
+    </div></td></tr>
+    {% endwith %}{% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
 
-    {# ── expand row ── #}
-    <tr class="cl-er" id="er-{{ forloop.counter }}">
-      <td colspan="12">
-        <div class="cl-expand-body">
+  {# ════════ IN-VIVO SUB-SECTION ════════ #}
+  {% if bg.vivo_compounds %}
+  {% if bg.type == 'mixed' %}
+  <div class="cl-sub-hdr vivo">
+    🐭 体内
+    <span class="cl-sub-meta">{% if bg.meta.animal %}动物: {{ bg.meta.animal }} · {% endif %}{{ bg.meta.n_vivo }}个化合物</span>
+  </div>
+  {% endif %}
 
-          {# sequences (same plain-text style as main column) #}
-          {% if row.strand_map %}
-          <div class="cl-seq-area">
-            {% for strand in row.strand_map %}
-            <div class="cl-seq-line {% if strand.strand_type == 'SS' %}cl-seq-ss-bg{% else %}cl-seq-as-bg{% endif %}" style="margin-bottom:4px;">
-              <span class="cl-seq-strand-label">{{ strand.strand_type }}</span>
-              <span class="cl-seq-text">{{ strand.modify_seq }}</span>
-            </div>
+  <table class="cl-table">
+    <thead><tr>
+      <th style="width:110px">ID</th>
+      <th style="width:360px">序列 (AS)</th>
+      <th style="width:70px">项目</th>
+      <th style="width:80px">靶点</th>
+      <th style="width:170px">剂量组</th>
+      <th style="width:150px">最大体重降幅</th>
+      <th style="width:120px">峰值KD%</th>
+      <th style="width:32px"></th>
+    </tr></thead>
+    <tbody>
+    {% for vc in bg.vivo_compounds %}
+    {% with irid="ir-"|add:bg.batch_label|add:"-"|add:vc.compound.compound_id ipid="ip-"|add:bg.batch_label|add:"-"|add:vc.compound.compound_id tgid="it-"|add:bg.batch_label|add:"-"|add:vc.compound.compound_id %}
+    <tr class="cmp-row" id="{{ irid }}" onclick="clToggleRow('{{ irid }}','{{ ipid }}')">
+      <td><a href="{% url 'compound_detail' vc.compound.compound_id %}" class="cl-cid i" onclick="event.stopPropagation()">{{ vc.compound.compound_id }}</a></td>
+      <td>
+        {% if vc.colored_as %}
+        <div class="cl-seq-strand">
+          <span class="cl-seq-label">AS</span>
+          {% for tok in vc.colored_as %}{% if tok.type != 'SEP' %}<span class="cl-tok" style="background:{{ tok.bg_color }};color:{{ tok.text_color }};">{{ tok.char }}</span>{% endif %}{% endfor %}
+        </div>
+        {% endif %}
+      </td>
+      <td>{{ vc.compound.project|default:"—" }}</td>
+      <td>{{ vc.compound.target_name|default:"—" }}</td>
+      <td><span class="cl-dim" style="font-size:11px;">{{ vc.dose_group_label|default:"—" }}</span></td>
+      <td>{% if vc.summary.max_bw_drop is not None %}<span class="cl-pill i">{{ vc.summary.max_bw_drop|floatformat:1 }}%</span>{% else %}<span class="cl-dim">—</span>{% endif %}</td>
+      <td>{% if vc.summary.peak_kd is not None %}<span class="cl-pill i">{{ vc.summary.peak_kd|floatformat:0 }}%</span>{% else %}<span class="cl-dim">—</span>{% endif %}</td>
+      <td><span class="cl-chevron">▶</span></td>
+    </tr>
+    <tr class="expand-row"><td colspan="8"><div class="cl-ep" id="{{ ipid }}">
+      <div class="cl-mini-expand vivo-bg">
+        <div class="cl-meta-row">
+          {% if bg.meta.animal %}<span><strong>动物:</strong> {{ bg.meta.animal }}</span>{% endif %}
+          {% if bg.meta.route %}<span><strong>给药:</strong> {{ bg.meta.route }}</span>{% endif %}
+        </div>
+        {% if vc.colored_as %}
+        <div style="margin-bottom:10px;">
+          <div class="cl-seq-strand">
+            <span class="cl-seq-label">AS</span>
+            {% for tok in vc.colored_as %}{% if tok.type != 'SEP' %}<span class="cl-tok" style="background:{{ tok.bg_color }};color:{{ tok.text_color }};">{{ tok.char }}</span>{% endif %}{% endfor %}
+          </div>
+          {% if vc.colored_ss %}
+          <div class="cl-seq-strand" style="margin-top:3px;opacity:.75;">
+            <span class="cl-seq-label">SS</span>
+            {% for tok in vc.colored_ss %}{% if tok.type != 'SEP' %}<span class="cl-tok" style="background:{{ tok.bg_color }};color:{{ tok.text_color }};font-size:8px;">{{ tok.char }}</span>{% endif %}{% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        {# Readout tabs — only when >1 readout #}
+        <div id="{{ tgid }}">
+        {% if vc.readouts|length > 1 %}
+          <div class="cl-tab-row">
+            {% for rd in vc.readouts %}
+            <button class="cl-tab-btn {% if forloop.first %}active{% endif %}"
+                    onclick="clSwitchTab(this,'{{ tgid }}','{{ rd }}')">
+              {% if rd == 'body_weight' %}⚖ 体重变化%{% elif rd == 'knockdown_pct' %}🧬 KD%{% else %}{{ rd }}{% endif %}
+            </button>
             {% endfor %}
           </div>
-          {% endif %}
+        {% endif %}
 
-          {# ── in-vitro detail ── #}
-          {% if row.group.experiment.exp_type == 'in_vitro' %}
-          <div class="cl-expand-inner">
-            <div class="cl-tbl-wrap">
-              <table class="cl-data-table">
-                <thead><tr>
-                  <th>Dose (nM)</th>
-                  <th class="r">Mean mRNA 残余%</th>
-                </tr></thead>
-                <tbody>
-                  {% for dr in row.group.rows %}
-                  <tr>
-                    <td style="font-weight:600;">{{ dr.dose }}</td>
-                    <td class="r">{{ dr.mean|floatformat:1 }}%</td>
-                  </tr>
-                  {% empty %}
-                  <tr><td colspan="2" class="cl-empty">无浓度数据</td></tr>
-                  {% endfor %}
-                </tbody>
-              </table>
+        {% for rd in vc.readouts %}
+        <div class="cl-tab-pane" data-readout="{{ rd }}"
+             {% if not forloop.first %}style="display:none;"{% endif %}>
+          <div class="cl-sched-grid cols-{{ vc.schedules|length }}">
+          {% for sched, sd in vc.schedules.items %}
+          <div class="cl-sched-panel">
+            <div class="cl-sched-hdr">
+              {% if 'Q2W' in sched or 'q2w' in sched %}<span class="cl-sched-tag q2w">{{ sched }}</span>
+              {% elif 'QW' in sched or 'qw' in sched %}<span class="cl-sched-tag qw">{{ sched }}</span>
+              {% elif sched %}<span class="cl-sched-tag other">{{ sched }}</span>{% endif %}
+              {% if sd.day_range %}<span style="font-size:9px;color:#94a3b8;">{{ sd.day_range }}</span>{% endif %}
             </div>
             <div class="cl-chart-wrap">
-              <div class="cl-chart-title">
-                <span id="cl-vt-title-{{ row.group.experiment.id }}">mRNA 残余 (%)</span> vs 浓度 (nM)
-                <div class="cl-tgl-btns">
-                  <button class="cl-vt-tgl" data-exp="{{ row.group.experiment.id }}" data-mode="mrna"
-                          style="background:#3b82f6;color:white;border-color:#3b82f6;">mRNA%</button>
-                  <button class="cl-vt-tgl" data-exp="{{ row.group.experiment.id }}" data-mode="kd"
-                          style="background:white;color:#64748b;border-color:#cbd5e1;">KD%</button>
-                </div>
-              </div>
-              <div class="cl-chart-area">
-                <div class="cl-ylabel" id="cl-vt-ylabel-{{ row.group.experiment.id }}">mRNA 残余 (%)</div>
-                <div class="cl-chart-inner">
-                  <div id="cl-vt-{{ row.group.experiment.id }}" class="cl-chart-plot"></div>
-                  <div class="cl-xlabel">浓度 (nM，log₁₀)</div>
-                </div>
-              </div>
+              <canvas id="chart-{{ ipid }}-{{ rd }}-{{ forloop.counter }}"
+                data-chart="vivo"
+                data-days="{{ sd.days|safe }}"
+                data-groups="{{ sd.groups|safe }}"
+                data-control="{{ sd.control|safe }}"></canvas>
             </div>
+            {% if sd.groups %}
+            <table class="cl-summary-tbl">
+              <thead><tr>
+                <th>组别</th>
+                {% for d in sd.days %}{% if forloop.first or forloop.last %}<th class="cl-r">D{{ d|floatformat:0 }}</th>{% endif %}{% endfor %}
+              </tr></thead>
+              <tbody>
+                {% if sd.control %}<tr class="ctrl-row"><td>{{ sd.control.label }}</td>
+                  {% for d in sd.days %}{% if forloop.first or forloop.last %}<td>{{ sd.control.data|list_index:forloop.counter0|floatformat:1 }}</td>{% endif %}{% endfor %}
+                </tr>{% endif %}
+                {% for g in sd.groups %}<tr><td>{{ g.label }}</td>
+                  {% for d in sd.days %}{% if forloop.first or forloop.last %}<td>{{ g.data|list_index:forloop.counter0|floatformat:1 }}</td>{% endif %}{% endfor %}
+                </tr>{% endfor %}
+              </tbody>
+            </table>
+            {% endif %}
           </div>
-
-          {# ── in-vivo detail ── #}
-          {% else %}
-          <div class="cl-route-info">
-            给药途径: {{ row.group.experiment.route|default:"—" }}
-            &nbsp;|&nbsp; 性别: {{ row.group.experiment.gender|default:"—" }}
-            {% if row.group.experiment.dose_info %}&nbsp;|&nbsp; {{ row.group.experiment.dose_info }}{% endif %}
-            {% if row.group.experiment.animal_species %}&nbsp;|&nbsp; {{ row.group.experiment.animal_species }}{% if row.group.experiment.animal_strain %} {{ row.group.experiment.animal_strain }}{% endif %}{% endif %}
+          {% endfor %}
           </div>
-          <div class="cl-expand-inner">
-            <div class="cl-tbl-wrap">
-              <table class="cl-data-table">
-                <thead><tr>
-                  <th>时间点</th>
-                  <th class="r">{% if row.group.invivo_readout == 'knockdown_pct' %}Mean KD%{% else %}Mean 体重变化%{% endif %}</th>
-                  <th class="r">SD</th>
-                  <th class="r">CV%</th>
-                  <th class="r" style="color:#94a3b8;">n</th>
-                </tr></thead>
-                <tbody>
-                  {% for dr in row.group.rows %}
-                  <tr>
-                    <td style="font-weight:600;">{{ dr.label }}</td>
-                    <td class="r">{% if dr.mean is not None %}{{ dr.mean|floatformat:1 }}%{% else %}<span class="cl-dim">—</span>{% endif %}</td>
-                    <td class="r"><span class="cl-dim">{% if dr.sd is not None %}{{ dr.sd|floatformat:2 }}{% else %}—{% endif %}</span></td>
-                    <td class="r"><span class="cl-dim">{% if dr.cv is not None %}{{ dr.cv|floatformat:1 }}%{% else %}—{% endif %}</span></td>
-                    <td class="r"><span class="cl-dim">{% if dr.n is not None %}{{ dr.n }}{% else %}—{% endif %}</span></td>
-                  </tr>
-                  {% empty %}
-                  <tr><td colspan="5" class="cl-empty">无时间点数据</td></tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-            <div class="cl-chart-wrap">
-              <div class="cl-chart-title" style="color:#92400e;">
-                {% if row.group.invivo_readout == 'knockdown_pct' %}KD (%){% else %}体重变化 (%){% endif %}
-                vs 时间（{{ row.group.experiment.time_unit|default:"day" }}）
-              </div>
-              <div class="cl-chart-area">
-                <div class="cl-ylabel" style="color:#92400e;">
-                  {% if row.group.invivo_readout == 'knockdown_pct' %}KD (%){% else %}体重变化 (%){% endif %}
-                </div>
-                <div class="cl-chart-inner">
-                  <div id="cl-iv-{{ row.group.experiment.id }}" class="cl-chart-plot"></div>
-                  <div class="cl-xlabel" style="color:#92400e;">
-                    时间（{{ row.group.experiment.time_unit|default:"day" }}）
-                  </div>
-                </div>
-              </div>
-            </div>
+        </div>
+        {% endfor %}
+        </div>{# /tab group #}
+
+        {% if vc.attachments %}
+        <div class="cl-src-section">
+          <div class="cl-src-label">源文件</div>
+          {% for att in vc.attachments %}
+          {% with awid="prev-i-"|add:att.pk|stringformat:"d" %}
+          <div class="cl-src-item">
+            <span class="cl-src-name">📊 {{ att.label|default:att.file.name }}</span>
+            <button class="cl-src-btn" onclick="clTogglePreview(this,'{{ awid }}',{{ att.pk }})">👁 预览</button>
+            <a class="cl-src-btn" href="{% url 'attachment_download' att.pk %}">⬇ 下载</a>
           </div>
-          {% endif %}
+          <div class="cl-src-preview-wrap" id="{{ awid }}"></div>
+          {% endwith %}{% endfor %}
+        </div>
+        {% endif %}
 
-          {# detail link #}
-          <a href="{% url 'compound_detail' row.compound.compound_id %}" class="cl-detail-link">📊 查看详情 →</a>
+        <a href="{% url 'compound_detail' vc.compound.compound_id %}" class="cl-detail-link">📊 查看化合物详情 →</a>
+      </div>
+    </div></td></tr>
+    {% endwith %}{% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
 
-        </div>{# /cl-expand-body #}
-      </td>
-    </tr>
-
-  {% endfor %}
-  </tbody>
-</table>
-</div>
+</div>{# /cl-batch-sec #}
+{% endfor %}
 
 {% else %}
-<div class="cl-no-data">没有找到符合条件的化合物</div>
+<div class="cl-empty">暂无化合物数据</div>
 {% endif %}
 
-<!-- ── pagination ─────────────────────────────────────── -->
-{% if page_obj.paginator.num_pages > 1 %}
+{# ── Pagination ── #}
+{% if page_obj.has_other_pages %}
 <div class="cl-pagination">
-  <span>第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页，共 {{ page_obj.paginator.count }} 个化合物</span>
-  <div class="cl-page-btns">
-    {% if page_obj.has_previous %}
-    <a class="cl-page-btn" href="?q={{ q|urlencode }}&project={{ project|urlencode }}&target_name={{ target_name|urlencode }}&tag={{ tag|urlencode }}&group={{ group|urlencode }}&page={{ page_obj.previous_page_number }}">◀</a>
-    {% endif %}
-    {% for num in page_obj.paginator.page_range %}
-      {% if num == page_obj.number %}
-      <span class="cl-page-btn active">{{ num }}</span>
-      {% elif num >= page_obj.number|add:"-3" and num <= page_obj.number|add:"3" %}
-      <a class="cl-page-btn" href="?q={{ q|urlencode }}&project={{ project|urlencode }}&target_name={{ target_name|urlencode }}&tag={{ tag|urlencode }}&group={{ group|urlencode }}&page={{ num }}">{{ num }}</a>
-      {% endif %}
-    {% endfor %}
-    {% if page_obj.has_next %}
-    <a class="cl-page-btn" href="?q={{ q|urlencode }}&project={{ project|urlencode }}&target_name={{ target_name|urlencode }}&tag={{ tag|urlencode }}&group={{ group|urlencode }}&page={{ page_obj.next_page_number }}">▶</a>
-    {% endif %}
-  </div>
-  <span>每页 20 个化合物</span>
+  {% if page_obj.has_previous %}<a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}page={{ page_obj.previous_page_number }}">‹ 上页</a>{% endif %}
+  {% for num in page_obj.paginator.page_range %}
+    {% if num == page_obj.number %}<span class="current">{{ num }}</span>
+    {% else %}<a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}page={{ num }}">{{ num }}</a>{% endif %}
+  {% endfor %}
+  {% if page_obj.has_next %}<a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}page={{ page_obj.next_page_number }}">下页 ›</a>{% endif %}
 </div>
 {% endif %}
-
-{{ cl_invivo_charts|json_script:"cl-invivo-charts-data" }}
-{{ cl_vitro_charts|json_script:"cl-vitro-charts-data" }}
-{{ batch_attachments|json_script:"cl-batch-attachments-data" }}
 
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="/static/vendors/flot/jquery.flot.js"></script>
-<script>
-$(function () {
-  var LOG_TICKS = [[-3,'0.001'],[-2,'0.01'],[-1,'0.1'],[0,'1'],[1,'10'],[2,'100'],[3,'1000']];
-
-  var ivcCharts = JSON.parse(document.getElementById('cl-invivo-charts-data').textContent);
-  var vtCharts  = JSON.parse(document.getElementById('cl-vitro-charts-data').textContent);
-  var batchAtts = JSON.parse(document.getElementById('cl-batch-attachments-data').textContent);
-  var vtDataMap = {};
-  vtCharts.forEach(function (d) { vtDataMap[d.exp_id] = d; });
-
-  var renderedRows = {};
-
-  /* ── toggle expand ──────────────────────────────────── */
-  window.toggleRow = function (idx) {
-    var er   = document.getElementById('er-' + idx);
-    var dr   = document.querySelector('[data-idx="' + idx + '"]');
-    var chev = dr.querySelector('.cl-chevron');
-    var isOpen = er.classList.toggle('cl-open');
-    dr.classList.toggle('cl-dr-open', isOpen);
-    chev.textContent  = isOpen ? '▲' : '▼';
-    chev.style.color  = isOpen ? '#3b82f6' : '#94a3b8';
-
-    if (isOpen && !renderedRows[idx]) {
-      renderedRows[idx] = true;
-      setTimeout(function () {
-        (function tryRender(attempts) {
-          var vtEl = er.querySelector('.cl-chart-plot[id^="cl-vt-"]');
-          var ivEl = er.querySelector('.cl-chart-plot[id^="cl-iv-"]');
-          var probe = vtEl || ivEl;
-          if (probe && probe.offsetWidth > 0) {
-            if (vtEl) renderVitro(parseInt(vtEl.id.replace('cl-vt-', '')), 'mrna');
-            if (ivEl) renderInvivo(parseInt(ivEl.id.replace('cl-iv-', '')));
-          } else if (attempts > 0) {
-            setTimeout(function () { tryRender(attempts - 1); }, 30);
-          }
-        })(20);
-      }, 50);
-    }
-  };
-
-  /* ── vitro chart ─────────────────────────────────────── */
-  function renderVitro(expId, mode) {
-    var container = document.getElementById('cl-vt-' + expId);
-    if (!container || container.offsetWidth === 0) return;
-    var d = vtDataMap[expId];
-    if (!d) return;
-    var pts = mode === 'kd' ? d.kd_pts : d.mrna_pts;
-    if (!pts || !pts.length) return;
-    var ymax = Math.max.apply(null, pts.map(function (p) { return p[1]; }));
-    try {
-      $.plot(container, [{ data: pts, color: '#3b82f6',
-        lines: { show: true, lineWidth: 2 }, points: { show: true, radius: 3 }
-      }], {
-        xaxis: { ticks: LOG_TICKS, tickLength: 4 },
-        yaxis: { min: 0, max: Math.max(ymax * 1.12, 110), labelWidth: 30 },
-        grid: { hoverable: false, borderWidth: 1, borderColor: '#bfdbfe' },
-        legend: { show: false }
-      });
-    } catch (e) {}
-  }
-
-  /* ── invivo chart ────────────────────────────────────── */
-  function renderInvivo(expId) {
-    var container = document.getElementById('cl-iv-' + expId);
-    if (!container || container.offsetWidth === 0) return;
-    var d = ivcCharts.find(function (x) { return x.exp_id === expId; });
-    if (!d || !d.points.length) return;
-    var allY = d.points.map(function (p) { return p[1]; });
-    var ymin = Math.min.apply(null, allY);
-    var ymax = Math.max.apply(null, allY);
-    var ypad = Math.max((ymax - ymin) * 0.12, 2);
-    var yOpts = d.readout_type === 'knockdown_pct'
-      ? { min: 0, max: Math.max(ymax + ypad, 110) }
-      : { min: ymin - ypad, max: ymax + ypad };
-    try {
-      $.plot(container, [{ data: d.points, color: '#f97316',
-        lines: { show: true, lineWidth: 2 }, points: { show: true, radius: 3 }
-      }], {
-        xaxis: { tickLength: 4 },
-        yaxis: yOpts,
-        grid: { hoverable: false, borderWidth: 1, borderColor: '#fde68a' },
-        legend: { show: false }
-      });
-    } catch (e) {}
-  }
-
-  /* ── batch group summary chart ───────────────────────── */
-  var BGH_COLORS = ['#3b82f6','#16a34a','#f97316','#8b5cf6',
-                    '#ec4899','#0891b2','#dc2626','#d97706'];
-
-  function renderBatchSummary(chartId, expIds) {
-    var container = document.getElementById(chartId);
-    if (!container || container.offsetWidth === 0) return;
-    var legendEl = document.getElementById(chartId + '-legend');
-    var titleEl  = document.getElementById(chartId + '-ytitle');
-    var isVitro = expIds.length > 0 && expIds[0].kind === 'vitro';
-
-    var series = [];
-    var legendHtml = [];
-    var readoutLabel = isVitro ? 'mRNA 残余 (%)' : '';
-
-    expIds.forEach(function (e, i) {
-      var color = BGH_COLORS[i % BGH_COLORS.length];
-      var hasData = false;
-      if (e.kind === 'vitro') {
-        var d = vtDataMap[e.id];
-        if (d && d.mrna_pts && d.mrna_pts.length) {
-          series.push({ data: d.mrna_pts, color: color,
-            lines: { show: true, lineWidth: 1.5 },
-            points: { show: true, radius: 2 } });
-          hasData = true;
-        }
-      } else {
-        var d = ivcCharts.find(function (x) { return x.exp_id === e.id; });
-        if (d && d.points && d.points.length) {
-          series.push({ data: d.points, color: color,
-            lines: { show: true, lineWidth: 1.5 },
-            points: { show: true, radius: 2 } });
-          hasData = true;
-          if (!readoutLabel) readoutLabel = d.readout_type || '';
-        }
-      }
-      if (hasData) {
-        var extra = (e.kind === 'vitro' && e.ic50)
-          ? '<span class="cl-bgh-extra">IC50 ' + e.ic50 + '</span>'
-          : '';
-        legendHtml.push(
-          '<div class="cl-bgh-legend-item">' +
-          '<span class="cl-bgh-dot" style="background:' + color + '"></span>' +
-          (e.cid || '') + extra +
-          '</div>'
-        );
-      }
-    });
-
-    if (titleEl) titleEl.textContent = readoutLabel;
-    if (legendEl) legendEl.innerHTML = legendHtml.join('');
-
-    if (!series.length) return;
-    var allY = [];
-    series.forEach(function (s) {
-      s.data.forEach(function (pt) { allY.push(pt[1]); });
-    });
-    var ymax = Math.max.apply(null, allY);
-    var ymin = Math.min.apply(null, allY);
-    var yAxisOpts;
-    if (isVitro) {
-      yAxisOpts = { min: 0, max: Math.max(ymax * 1.12, 110), labelWidth: 30 };
-    } else {
-      var ypad = Math.max((ymax - ymin) * 0.12, 2);
-      yAxisOpts = { min: ymin - ypad, max: ymax + ypad, labelWidth: 30 };
-    }
-    try {
-      $.plot(container, series, {
-        xaxis: isVitro ? { ticks: LOG_TICKS, tickLength: 3 } : { tickLength: 3 },
-        yaxis: yAxisOpts,
-        grid: { hoverable: false, borderWidth: 1,
-                borderColor: isVitro ? '#bfdbfe' : '#fed7aa' },
-        legend: { show: false }
-      });
-    } catch (e) {}
-  }
-
-  /* ── mRNA%/KD% toggle ────────────────────────────────── */
-  $(document).on('click', '.cl-vt-tgl', function (e) {
-    e.stopPropagation();
-    var expId = parseInt($(this).data('exp'));
-    var mode  = $(this).data('mode');
-    $('[data-exp="' + expId + '"].cl-vt-tgl').each(function () {
-      var active = $(this).data('mode') === mode;
-      $(this).css({ background: active ? '#3b82f6' : 'white',
-                    color:      active ? 'white'   : '#64748b',
-                    'border-color': active ? '#3b82f6' : '#cbd5e1' });
-    });
-    var label = mode === 'kd' ? 'KD (%)' : 'mRNA 残余 (%)';
-    var yl = document.getElementById('cl-vt-ylabel-' + expId);
-    if (yl) yl.textContent = label;
-    var ti = document.getElementById('cl-vt-title-' + expId);
-    if (ti) ti.textContent = label;
-    renderVitro(expId, mode);
-  });
-
-  /* ── grouping ────────────────────────────────────────── */
-  var origOrder = null;
-
-  function applyBatchGrouping() {
-    var tbody = document.getElementById('cl-tbody');
-    tbody.querySelectorAll('.cl-gh').forEach(function (el) { el.remove(); });
-    var pairs = [];
-    tbody.querySelectorAll('tr.cl-dr').forEach(function (dr) {
-      var idx = dr.getAttribute('data-idx');
-      pairs.push({
-        dr:    dr,
-        er:    document.getElementById('er-' + idx),
-        batch: dr.getAttribute('data-batch'),
-        type:  dr.getAttribute('data-type'),
-        cid:   dr.getAttribute('data-cid')  || '',
-        ic50:  dr.getAttribute('data-ic50') || '',
-      });
-    });
-    if (!origOrder) {
-      origOrder = pairs.map(function (p) { return { dr: p.dr, er: p.er }; });
-    }
-    pairs.sort(function (a, b) {
-      if (a.batch < b.batch) return -1;
-      if (a.batch > b.batch) return 1;
-      if (a.type < b.type)   return -1;
-      if (a.type > b.type)   return 1;
-      return 0;
-    });
-    var lastKey = null;
-    var isFirstGroup = true;
-    pairs.forEach(function (p) {
-      var key = p.batch + '|' + p.type;
-      if (key !== lastKey) {
-        // insert gap row before every group except the first
-        if (!isFirstGroup) {
-          var gapTr = document.createElement('tr');
-          gapTr.className = 'cl-batch-gap';
-          var gapTd = document.createElement('td');
-          gapTd.setAttribute('colspan', '12');
-          gapTr.appendChild(gapTd);
-          tbody.appendChild(gapTr);
-        }
-        isFirstGroup = false;
-        lastKey = key;
-        var isVitro = p.type === 'in_vitro';
-        var typeLabel = isVitro ? '体外' : '体内';
-        var groupPairs = pairs.filter(function (x) {
-          return x.batch === p.batch && x.type === p.type;
-        });
-        var cnt = groupPairs.length;
-
-        // collect exp IDs for this batch group
-        var groupExpIds = [];
-        groupPairs.forEach(function (gp) {
-          if (!gp.er) return;
-          var vtEl = gp.er.querySelector('.cl-chart-plot[id^="cl-vt-"]');
-          var ivEl = gp.er.querySelector('.cl-chart-plot[id^="cl-iv-"]');
-          if (vtEl) groupExpIds.push({
-            id:   parseInt(vtEl.id.replace('cl-vt-', '')),
-            kind: 'vitro',
-            cid:  gp.cid,
-            ic50: gp.ic50,
-          });
-          if (ivEl) groupExpIds.push({
-            id:   parseInt(ivEl.id.replace('cl-iv-', '')),
-            kind: 'invivo',
-            cid:  gp.cid,
-            ic50: gp.ic50,
-          });
-        });
-
-        // build group header row
-        var gh = document.createElement('tr');
-        gh.className = 'cl-gh ' + (isVitro ? 'cl-gh-vitro' : 'cl-gh-vivo');
-        var td = document.createElement('td');
-        td.setAttribute('colspan', '12');
-
-        // label row (flex: label + count + toggle)
-        var headerDiv = document.createElement('div');
-        headerDiv.className = 'cl-gh-header';
-        var labelSpan = document.createElement('span');
-        labelSpan.className = isVitro ? 'cl-gh-label' : 'cl-gh-label-vivo';
-        labelSpan.textContent = p.batch + ' · ' + typeLabel;
-        var rightSide = document.createElement('span');
-        rightSide.className = 'cl-gh-right';
-        var countSpan = document.createElement('span');
-        countSpan.className = 'cl-gh-count';
-        countSpan.textContent = cnt + ' 个化合物';
-        rightSide.appendChild(countSpan);
-        headerDiv.appendChild(labelSpan);
-        headerDiv.appendChild(rightSide);
-        td.appendChild(headerDiv);
-
-        // summary chart + legend — built collapsed, expanded via toggle
-        if (groupExpIds.length) {
-          var chartKey = p.batch.replace(/[^a-zA-Z0-9]/g, '_') + '_' + p.type;
-          var chartId  = 'cl-bgh-' + chartKey;
-
-          var row = document.createElement('div');
-          row.className = 'cl-bgh-row';
-          row.id = chartId + '-row';
-          row.style.display = 'none';
-
-          var chartSide = document.createElement('div');
-          chartSide.className = 'cl-bgh-chart-side';
-          var ytitle = document.createElement('div');
-          ytitle.className = 'cl-bgh-ytitle';
-          ytitle.id = chartId + '-ytitle';
-          ytitle.textContent = '';  // set by renderBatchSummary
-          var chartDiv = document.createElement('div');
-          chartDiv.id = chartId;
-          chartDiv.className = 'cl-bgh-chart';
-          chartSide.appendChild(ytitle);
-          chartSide.appendChild(chartDiv);
-
-          var legendDiv = document.createElement('div');
-          legendDiv.className = 'cl-bgh-legend';
-          legendDiv.id = chartId + '-legend';
-
-          row.appendChild(chartSide);
-          row.appendChild(legendDiv);
-          td.appendChild(row);
-
-          // source-file attachments below the summary chart (hidden until chart expanded)
-          var batchAttsForGroup = batchAtts[p.batch] || [];
-          var attBarEl = null;
-          if (batchAttsForGroup.length) {
-            attBarEl = document.createElement('div');
-            attBarEl.className = 'cl-att-bar';
-            attBarEl.style.display = 'none';
-            batchAttsForGroup.forEach(function (a) {
-              var link = document.createElement('a');
-              link.href = a.url;
-              link.className = 'cl-att-link';
-              link.textContent = '📎 ' + a.label;
-              attBarEl.appendChild(link);
-            });
-            td.appendChild(attBarEl);
-          }
-
-          // toggle button in header (lazy-render chart on first expand)
-          var toggleSpan = document.createElement('span');
-          toggleSpan.className = 'cl-gh-toggle';
-          toggleSpan.textContent = '📊 汇总图 ▼';
-          rightSide.appendChild(toggleSpan);
-
-          (function (cid, eids, rowEl, ts, attEl) {
-            var rendered = false;
-            ts.addEventListener('click', function (ev) {
-              ev.stopPropagation();
-              if (rowEl.style.display === 'none') {
-                rowEl.style.display = 'flex';
-                if (attEl) attEl.style.display = '';
-                ts.textContent = '📊 汇总图 ▲';
-                if (!rendered) {
-                  setTimeout(function () {
-                    (function tryBgh(n) {
-                      var el = document.getElementById(cid);
-                      if (el && el.offsetWidth > 0) {
-                        renderBatchSummary(cid, eids);
-                        rendered = true;
-                      } else if (n > 0) {
-                        setTimeout(function () { tryBgh(n - 1); }, 30);
-                      }
-                    })(20);
-                  }, 50);
-                }
-              } else {
-                rowEl.style.display = 'none';
-                if (attEl) attEl.style.display = 'none';
-                ts.textContent = '📊 汇总图 ▼';
-              }
-            });
-          })(chartId, groupExpIds, row, toggleSpan, attBarEl);
-        }
-
-        gh.appendChild(td);
-        tbody.appendChild(gh);
-      }
-      tbody.appendChild(p.dr);
-      tbody.appendChild(p.er);
-    });
-  }
-
-  function restoreCompoundOrder() {
-    if (!origOrder) return;
-    var tbody = document.getElementById('cl-tbody');
-    tbody.querySelectorAll('.cl-gh').forEach(function (el) { el.remove(); });
-    tbody.querySelectorAll('.cl-batch-gap').forEach(function (el) { el.remove(); });
-    origOrder.forEach(function (p) {
-      tbody.appendChild(p.dr);
-      tbody.appendChild(p.er);
-    });
-  }
-
-  window.setGroup = function (mode) {
-    if (mode === 'batch') applyBatchGrouping();
-    else restoreCompoundOrder();
-
-    // Keep URL in sync so pagination links carry the current group
-    var url = new URL(window.location.href);
-    url.searchParams.set('group', mode);
-    history.replaceState(null, '', url.toString());
-    document.querySelectorAll('.cl-page-btn[href]').forEach(function (a) {
-      var pu = new URL(a.href, window.location.href);
-      pu.searchParams.set('group', mode);
-      a.href = pu.toString();
-    });
-  };
-
-  var urlParams = new URLSearchParams(window.location.search);
-  var initGroup = urlParams.get('group') || 'batch';
-  var sel = document.getElementById('cl-group-sel');
-  if (sel) sel.value = initGroup;
-  if (initGroup === 'batch') applyBatchGrouping();
-});
-</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="/static/js/compound_list.js"></script>
 {% endblock %}
