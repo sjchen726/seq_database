@@ -17,7 +17,7 @@
   <div class="cl-filter-bar">
     <span style="color:#64748b;font-weight:600;">过滤：</span>
     <span class="cl-search-input-wrap">
-      🔍 <input type="text" name="q" value="{{ q }}" placeholder="化合物 ID">
+      🔍 <input type="text" name="q" value="{{ q }}" placeholder="化合物 ID / 靶点 / 序列">
     </span>
     <select name="project">
       <option value="">全部项目</option>
@@ -37,6 +37,13 @@
   </div>
 </form>
 
+{# ── Page header stats ── #}
+<div class="cl-page-header">
+  <div class="cl-stats">
+    <span><strong>{{ page_obj.paginator.count }}</strong> 批次</span>
+  </div>
+</div>
+
 {% if batch_groups %}
 {% for bg in batch_groups %}
 
@@ -51,6 +58,8 @@
       {% if bg.meta.animal %}<span><strong>动物:</strong> {{ bg.meta.animal }}</span>{% endif %}
       {% if bg.meta.route %}<span><strong>给药:</strong> {{ bg.meta.route }}</span>{% endif %}
       {% if bg.meta.target %}<span><strong>靶点:</strong> {{ bg.meta.target }}</span>{% endif %}
+      {% if bg.meta.schedules %}<span><strong>方案:</strong> {{ bg.meta.schedules|join:"/" }}</span>{% endif %}
+      {% if bg.meta.readouts %}<span><strong>指标:</strong> {% for r in bg.meta.readouts %}{% if r == 'body_weight' %}体重%{% elif r == 'knockdown_pct' %}KD%{% else %}{{ r }}{% endif %}{% if not forloop.last %}·{% endif %}{% endfor %}</span>{% endif %}
       <span><strong>化合物:</strong> {{ bg.meta.n_compounds }}个</span>
     </div>
     <div class="cl-batch-tags">
@@ -125,10 +134,37 @@
           {% endif %}
         </div>
         {% endif %}
-        <div class="cl-vitro-chart-wrap">
-          <canvas id="chart-{{ vpid }}" data-chart="vitro"
-            data-mrna="{{ vc.mrna_pts|safe }}"
-            data-kd="{{ vc.kd_pts|safe }}"></canvas>
+        {# Dose-response: left table + right chart #}
+        <div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:4px;">
+          {# Left: dose-mean table #}
+          {% if vc.vitro_rows %}
+          <div style="flex-shrink:0;min-width:190px;">
+            <table class="cl-summary-tbl">
+              <thead><tr><th style="text-align:left;">nM</th><th>mRNA%</th><th>KD%</th></tr></thead>
+              <tbody>
+              {% for row in vc.vitro_rows %}
+              <tr>
+                <td style="text-align:left;font-family:monospace;">{{ row.dose }}</td>
+                <td>{{ row.mean|floatformat:1 }}</td>
+                <td>{{ row.kd_pct|floatformat:1 }}</td>
+              </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
+          {# Right: chart with toggle #}
+          <div style="flex:1;min-width:0;">
+            <div class="cl-vitro-toggle">
+              <button class="cl-vtoggle-btn active" onclick="clToggleVitroReadout(this,'chart-{{ vpid }}','mrna')">mRNA%</button>
+              <button class="cl-vtoggle-btn" onclick="clToggleVitroReadout(this,'chart-{{ vpid }}','kd')">KD%</button>
+            </div>
+            <div class="cl-vitro-chart-wrap">
+              <canvas id="chart-{{ vpid }}" data-chart="vitro"
+                data-mrna="{{ vc.mrna_pts|safe }}"
+                data-kd="{{ vc.kd_pts|safe }}"></canvas>
+            </div>
+          </div>
         </div>
         {% if vc.attachments %}
         <div class="cl-src-section">
@@ -157,7 +193,7 @@
   {% if bg.type == 'mixed' %}
   <div class="cl-sub-hdr vivo">
     🐭 体内
-    <span class="cl-sub-meta">{% if bg.meta.animal %}动物: {{ bg.meta.animal }} · {% endif %}{{ bg.meta.n_vivo }}个化合物</span>
+    <span class="cl-sub-meta">{% if bg.meta.animal %}动物: {{ bg.meta.animal }} · {% endif %}{% if bg.meta.route %}给药: {{ bg.meta.route }} · {% endif %}{{ bg.meta.n_vivo }}个化合物</span>
   </div>
   {% endif %}
 
@@ -245,19 +281,19 @@
                 data-groups="{{ sd.groups|safe }}"
                 data-control="{{ sd.control|safe }}"></canvas>
             </div>
-            {% if sd.groups %}
+            {% if sd.summary_rows %}
             <table class="cl-summary-tbl">
               <thead><tr>
                 <th>组别</th>
-                {% for d in sd.days %}{% if forloop.first or forloop.last %}<th class="cl-r">D{{ d|floatformat:0 }}</th>{% endif %}{% endfor %}
+                {% for d in sd.key_days %}<th class="cl-r">D{{ d|floatformat:0 }}</th>{% endfor %}
               </tr></thead>
               <tbody>
-                {% if sd.control %}<tr class="ctrl-row"><td>{{ sd.control.label }}</td>
-                  {% for d in sd.days %}{% if forloop.first or forloop.last %}<td>{{ sd.control.data|list_index:forloop.counter0|floatformat:1 }}</td>{% endif %}{% endfor %}
-                </tr>{% endif %}
-                {% for g in sd.groups %}<tr><td>{{ g.label }}</td>
-                  {% for d in sd.days %}{% if forloop.first or forloop.last %}<td>{{ g.data|list_index:forloop.counter0|floatformat:1 }}</td>{% endif %}{% endfor %}
-                </tr>{% endfor %}
+              {% for srow in sd.summary_rows %}
+              <tr {% if srow.is_control %}class="ctrl-row"{% endif %}>
+                <td>{{ srow.label }}</td>
+                {% for v in srow.values %}<td>{{ v|floatformat:1|default:"—" }}</td>{% endfor %}
+              </tr>
+              {% endfor %}
               </tbody>
             </table>
             {% endif %}

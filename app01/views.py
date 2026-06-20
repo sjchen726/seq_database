@@ -797,7 +797,11 @@ def _build_vitro_rows(datapoints):
         if dp.replicate == 'Mean' and not dp.is_control and dp.x_type == 'concentration'
     ]
     mean_points.sort(key=lambda dp: -dp.x_value)
-    return [{'dose': dp.x_value, 'mean': dp.value * 100} for dp in mean_points]
+    result = []
+    for dp in mean_points:
+        mrna = dp.value * 100
+        result.append({'dose': dp.x_value, 'mean': mrna, 'kd_pct': round(max(0.0, 100.0 - mrna), 1)})
+    return result
 
 
 def _build_invivo_rows(datapoints, time_unit):
@@ -1024,11 +1028,42 @@ def _build_vivo_schedule_data(vivo_exps_for_compound):
         if all_days:
             day_range = f'Day {int(all_days[0])}–{int(all_days[-1])}'
 
+        def _select_key_days(days):
+            if not days or len(days) <= 5:
+                return list(days)
+            key = {days[0], days[-1]}
+            for d in days:
+                if d in (7.0, 14.0, 7, 14):
+                    key.add(d)
+            return sorted(key)
+
+        def _arm_values_at_key_days(arm_series, key_days_list, all_days_list):
+            day_to_idx = {d: i for i, d in enumerate(all_days_list)}
+            return [arm_series[day_to_idx[d]] if d in day_to_idx else None for d in key_days_list]
+
+        key_days = _select_key_days(all_days)
+
+        summary_rows = []
+        if control:
+            summary_rows.append({
+                'label': control['label'],
+                'is_control': True,
+                'values': _arm_values_at_key_days(control['data'], key_days, all_days),
+            })
+        for g in groups:
+            summary_rows.append({
+                'label': g['label'],
+                'is_control': False,
+                'values': _arm_values_at_key_days(g['data'], key_days, all_days),
+            })
+
         schedules[sched] = {
             'days': all_days,
+            'key_days': key_days,
             'groups': groups,
             'control': control,
             'day_range': day_range,
+            'summary_rows': summary_rows,
         }
 
     # Compute summary stats across all treatment experiments
@@ -1165,6 +1200,10 @@ def _build_batch_group_new(batch_label, experiments, compound_map, dm_modules, c
         if e.compound_id in compound_map and compound_map[e.compound_id].target_name
     })
 
+    # Aggregate schedules and readouts for batch header display
+    all_batch_schedules = sorted({s for vc in vivo_compounds for s in vc['schedules']})
+    all_batch_readouts  = sorted({r for vc in vivo_compounds for r in vc['readouts']})
+
     meta = {
         'date': rep.date,
         'cell_line': ', '.join(cell_lines),
@@ -1174,6 +1213,8 @@ def _build_batch_group_new(batch_label, experiments, compound_map, dm_modules, c
         'n_vitro': len(vitro_by_cid),
         'n_vivo': len(vivo_by_cid),
         'n_compounds': len(set(vitro_by_cid) | set(vivo_by_cid)),
+        'schedules': all_batch_schedules,
+        'readouts': all_batch_readouts,
     }
 
     return {

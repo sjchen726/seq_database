@@ -243,3 +243,12 @@ tr.open .cl-chevron { transform: rotate(90deg); color: #64748b; }
 
 /* ── Empty state ── */
 .cl-empty { text-align: center; padding: 60px 20px; color: #94a3b8; font-size: 13px; }
+
+/* ── Vitro readout toggle (mRNA% / KD%) ── */
+.cl-vitro-toggle { display: flex; gap: 6px; margin-bottom: 4px; }
+.cl-vtoggle-btn {
+  font-size: 10px; font-weight: 600; padding: 2px 8px;
+  border: 1px solid #e2e8f0; border-radius: 4px;
+  background: white; cursor: pointer; color: #64748b;
+}
+.cl-vtoggle-btn.active { background: #dbeafe; color: #1d4ed8; border-color: #bfdbfe; }

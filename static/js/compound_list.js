@@ -191,3 +191,19 @@ function clTogglePreview(btnEl, wrapId, attachPk) {
 function _clEsc(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+
+// ── Vitro mRNA% / KD% toggle ─────────────────────────────────
+function clToggleVitroReadout(btn, chartId, readout) {
+  const chart = _clChartInstances[chartId];
+  if (!chart) return;
+  btn.closest('.cl-vitro-toggle').querySelectorAll('.cl-vtoggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const canvas = document.getElementById(chartId);
+  const mrna = JSON.parse(canvas.dataset.mrna || '[]');
+  const kd   = JSON.parse(canvas.dataset.kd   || '[]');
+  const pts  = readout === 'kd' ? kd : mrna;
+  chart.data.datasets[0].data  = pts.map(([x, y]) => ({ x, y }));
+  chart.data.datasets[0].label = readout === 'kd' ? 'KD%' : 'mRNA残余%';
+  chart.options.scales.y.title.text = readout === 'kd' ? 'KD%' : 'mRNA%';
+  chart.update();
+}
