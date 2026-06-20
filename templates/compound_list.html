@@ -170,14 +170,13 @@
         <div class="cl-src-section">
           <div class="cl-src-label">源文件</div>
           {% for att in vc.attachments %}
-          {% with awid="prev-v-"|add:att.pk|stringformat:"d" %}
           <div class="cl-src-item">
             <span class="cl-src-name">📊 {{ att.label|default:att.file.name }}</span>
-            <button class="cl-src-btn" onclick="clTogglePreview(this,'{{ awid }}',{{ att.pk }})">👁 预览</button>
+            <button class="cl-src-btn" onclick="clTogglePreview(this,'prev-att-{{ att.pk }}',{{ att.pk }})">👁 预览</button>
             <a class="cl-src-btn" href="{% url 'attachment_download' att.pk %}">⬇ 下载</a>
           </div>
-          <div class="cl-src-preview-wrap" id="{{ awid }}"></div>
-          {% endwith %}{% endfor %}
+          <div class="cl-src-preview-wrap" id="prev-att-{{ att.pk }}"></div>
+          {% endfor %}
         </div>
         {% endif %}
         <a href="{% url 'compound_detail' vc.compound.compound_id %}" class="cl-detail-link">📊 查看化合物详情 →</a>
@@ -308,14 +307,13 @@
         <div class="cl-src-section">
           <div class="cl-src-label">源文件</div>
           {% for att in vc.attachments %}
-          {% with awid="prev-i-"|add:att.pk|stringformat:"d" %}
           <div class="cl-src-item">
             <span class="cl-src-name">📊 {{ att.label|default:att.file.name }}</span>
-            <button class="cl-src-btn" onclick="clTogglePreview(this,'{{ awid }}',{{ att.pk }})">👁 预览</button>
+            <button class="cl-src-btn" onclick="clTogglePreview(this,'prev-att-{{ att.pk }}',{{ att.pk }})">👁 预览</button>
             <a class="cl-src-btn" href="{% url 'attachment_download' att.pk %}">⬇ 下载</a>
           </div>
-          <div class="cl-src-preview-wrap" id="{{ awid }}"></div>
-          {% endwith %}{% endfor %}
+          <div class="cl-src-preview-wrap" id="prev-att-{{ att.pk }}"></div>
+          {% endfor %}
         </div>
         {% endif %}
 

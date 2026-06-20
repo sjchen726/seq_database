@@ -1196,6 +1196,20 @@ def _build_batch_group_new(batch_label, experiments, compound_map, dm_modules, c
         if e.compound_id in compound_map and compound_map[e.compound_id].target_name
     })
 
+    # Batch-level attachments: collect all unique attachments from every experiment
+    # in the batch so every compound's expand panel shows the same source files.
+    batch_att_pks = set()
+    batch_atts = []
+    for e in experiments:
+        for att in e.attachments.all():
+            if att.pk not in batch_att_pks:
+                batch_att_pks.add(att.pk)
+                batch_atts.append(att)
+    for vc in vitro_compounds:
+        vc['attachments'] = batch_atts
+    for vc in vivo_compounds:
+        vc['attachments'] = batch_atts
+
     # Aggregate schedules and readouts for batch header display
     all_batch_schedules = sorted({
         s
@@ -1203,7 +1217,7 @@ def _build_batch_group_new(batch_label, experiments, compound_map, dm_modules, c
         for rd_item in vc['readout_data']
         for s in rd_item['schedules']
     })
-    all_batch_readouts  = sorted({r for vc in vivo_compounds for r in vc['readouts']})
+    all_batch_readouts = sorted({r for vc in vivo_compounds for r in vc['readouts']})
 
     meta = {
         'date': rep.date,

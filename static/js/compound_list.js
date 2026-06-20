@@ -11,8 +11,9 @@ function clToggleRow(rowId, panelId) {
   panel.classList.toggle('show', !isOpen);
 
   if (!isOpen) {
-    // Initialize charts on first open (panel must be visible for canvas sizing)
     clInitChartsInPanel(panel);
+    // Scroll the expand panel into view so the user sees the content
+    setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
   }
 }
 
@@ -83,7 +84,7 @@ function _clInitVitroChart(canvas) {
           ticks: { font: { size: 9 } },
         },
         y: {
-          min: 0, max: 110,
+          min: 0,
           title: { display: true, text: 'mRNA%', font: { size: 9 } },
           ticks: { font: { size: 9 } },
         },

@@ -31,10 +31,11 @@
   background: white;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  overflow: hidden;
   box-shadow: 0 1px 4px rgba(0,0,0,.06);
   margin-bottom: 24px;
+  overflow: visible;
 }
+.cl-batch-hdr { border-radius: 11px 11px 0 0; }
 
 /* Left colored vertical bar: 4px strip on left edge */
 .cl-batch-sec.type-invitro  { border-left: 4px solid #3b82f6; }
