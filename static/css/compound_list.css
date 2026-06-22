@@ -373,3 +373,7 @@ tr.open .cl-chevron { transform: rotate(90deg); color: #64748b; }
 }
 .cl-cep-section-hdr.vitro { color: #1d4ed8; }
 .cl-cep-section-hdr.vivo  { color: #c2410c; }
+
+/* ── Vivo dose group labels ── */
+.cl-dg      { font-size: 11px; color: #374151; white-space: nowrap; }
+.cl-dg-ctrl { color: #94a3b8; }

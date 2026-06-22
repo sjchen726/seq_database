@@ -84,10 +84,6 @@
       {% if bg.meta.readouts %}<span><strong>指标:</strong> {% for r in bg.meta.readouts %}{% if r == 'body_weight' %}体重%{% elif r == 'knockdown_pct' %}KD%{% else %}{{ r }}{% endif %}{% if not forloop.last %}·{% endif %}{% endfor %}</span>{% endif %}
       <span><strong>化合物:</strong> {{ bg.meta.n_compounds }}个</span>
     </div>
-    <div class="cl-batch-tags">
-      {% if bg.type == 'in_vitro' or bg.type == 'mixed' %}<span class="cl-btag vitro">体外</span>{% endif %}
-      {% if bg.type == 'in_vivo'  or bg.type == 'mixed' %}<span class="cl-btag vivo">体内</span>{% endif %}
-    </div>
   </div>
 
   {# ════════ IN-VITRO SUB-SECTION ════════ #}
@@ -107,7 +103,7 @@
       <th style="width:70px">项目</th>
       <th style="width:80px">靶点</th>
       <th style="width:90px" class="cl-r">IC50 (nM)</th>
-      <th style="width:80px" class="cl-r">MaxKD%</th>
+      <th style="width:80px" class="cl-r">最高 KD%</th>
       <th style="width:90px">细胞系</th>
       <th style="width:32px"></th>
     </tr></thead>
@@ -226,7 +222,13 @@
       </td>
       <td>{{ vc.compound.project|default:"—" }}</td>
       <td>{{ vc.compound.target_name|default:"—" }}</td>
-      <td><span class="cl-dim" style="font-size:11px;">{{ vc.dose_group_label|default:"—" }}</span></td>
+      <td>
+        {% if vc.dose_groups %}
+          {% for dg in vc.dose_groups %}
+            <span class="cl-dg{% if dg.is_control %} cl-dg-ctrl{% endif %}">{{ dg.label }}</span>{% if not forloop.last %} · {% endif %}
+          {% endfor %}
+        {% else %}<span class="cl-dim">—</span>{% endif %}
+      </td>
       <td>{% if vc.summary.max_bw_drop is not None %}<span class="{{ vc.summary.max_bw_drop|bw_drop_class }}">{{ vc.summary.max_bw_drop|floatformat:1 }}%</span>{% else %}<span class="cl-dim">—</span>{% endif %}</td>
       <td>{% if vc.summary.peak_kd is not None %}<span class="{{ vc.summary.peak_kd|vivo_kd_class }}">{{ vc.summary.peak_kd|floatformat:0 }}%</span>{% else %}<span class="cl-dim">—</span>{% endif %}</td>
       <td><span class="cl-chevron">▶</span></td>

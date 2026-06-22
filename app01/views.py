@@ -1101,12 +1101,16 @@ def _build_vivo_compound_entry(compound, vivo_exps):
     readouts = [rd['readout'] for rd in readout_data]
     seqs = _get_strand_seqs(compound)
 
-    schedule_labels = []
+    # Build dose_groups from summary_rows (already has is_control flag)
+    dose_groups = []
     if readout_data:
-        for sched, data in readout_data[0]['schedules'].items():
-            doses = '/'.join(g['label'] for g in data['groups'])
-            schedule_labels.append(f"{doses} {sched}".strip() if sched else doses)
-    dose_group_label = ' · '.join(schedule_labels)
+        first_sched = next(iter(readout_data[0]['schedules'].values()), None)
+        if first_sched:
+            seen = set()
+            for row in first_sched['summary_rows']:
+                if row['label'] not in seen:
+                    seen.add(row['label'])
+                    dose_groups.append({'label': row['label'], 'is_control': row['is_control']})
 
     all_attachments = []
     seen_att = set()
@@ -1121,7 +1125,7 @@ def _build_vivo_compound_entry(compound, vivo_exps):
         'readout_data': readout_data,
         'readouts': readouts,
         'summary': summary,
-        'dose_group_label': dose_group_label,
+        'dose_groups': dose_groups,
         'as_seq': seqs.get('AS', ''),
         'ss_seq': seqs.get('SS', ''),
         'attachments': all_attachments,
