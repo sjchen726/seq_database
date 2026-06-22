@@ -1342,11 +1342,11 @@ def _build_compound_centric_page(exp_qs, page):
     for exp in exp_qs:
         cid_map[exp.compound_id].append(exp)
 
-    def _latest_date(cid):
-        dates = [e.date for e in cid_map[cid] if e.date is not None]
-        return max(dates) if dates else ''
+    def _latest_batch(cid):
+        labels = [e.batch_label for e in cid_map[cid] if e.batch_label]
+        return max(labels) if labels else ''
 
-    sorted_cids = sorted(cid_map.keys(), key=_latest_date, reverse=True)
+    sorted_cids = sorted(cid_map.keys(), key=_latest_batch, reverse=True)
     paginator = Paginator(sorted_cids, 20)
     try:
         page_obj = paginator.page(int(page))
