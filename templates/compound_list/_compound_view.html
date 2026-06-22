@@ -4,14 +4,39 @@
 <table class="cl-table" style="width:100%;border-collapse:collapse;font-size:12px;">
   <thead>
     <tr>
-      <th style="width:120px">化合物 ID</th>
+      <th style="width:120px">
+        <a class="cl-sort-link{% if sort == 'compound_id' %} cl-sort-active{% endif %}"
+           href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}view=compound&sort=compound_id&order={% if sort == 'compound_id' and order == 'asc' %}desc{% else %}asc{% endif %}">
+          化合物 ID <span class="cl-sort-arrow">{% if sort == 'compound_id' %}{% if order == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}</span>
+        </a>
+      </th>
       <th style="width:300px">AS 序列</th>
       <th style="width:80px">靶点</th>
       <th style="width:70px">项目</th>
-      <th style="width:100px;text-align:right;">最佳 IC50 (nM)</th>
-      <th style="width:80px;text-align:right;">最高 KD%</th>
-      <th style="width:60px;text-align:right;">体外批次</th>
-      <th style="width:60px;text-align:right;">体内批次</th>
+      <th style="width:100px;text-align:right;">
+        <a class="cl-sort-link{% if sort == 'ic50' %} cl-sort-active{% endif %}"
+           href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}view=compound&sort=ic50&order={% if sort == 'ic50' and order == 'asc' %}desc{% else %}asc{% endif %}">
+          最佳 IC50 (nM) <span class="cl-sort-arrow">{% if sort == 'ic50' %}{% if order == 'asc' %}▲{% else %}▼{% endif %}{% else %}⇅{% endif %}</span>
+        </a>
+      </th>
+      <th style="width:80px;text-align:right;">
+        <a class="cl-sort-link{% if sort == 'kd' %} cl-sort-active{% endif %}"
+           href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}view=compound&sort=kd&order={% if sort == 'kd' and order == 'desc' %}asc{% else %}desc{% endif %}">
+          最高 KD% <span class="cl-sort-arrow">{% if sort == 'kd' %}{% if order == 'desc' %}▼{% else %}▲{% endif %}{% else %}⇅{% endif %}</span>
+        </a>
+      </th>
+      <th style="width:60px;text-align:right;">
+        <a class="cl-sort-link{% if sort == 'n_vitro' %} cl-sort-active{% endif %}"
+           href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}view=compound&sort=n_vitro&order={% if sort == 'n_vitro' and order == 'desc' %}asc{% else %}desc{% endif %}">
+          体外批次 <span class="cl-sort-arrow">{% if sort == 'n_vitro' %}{% if order == 'desc' %}▼{% else %}▲{% endif %}{% else %}⇅{% endif %}</span>
+        </a>
+      </th>
+      <th style="width:60px;text-align:right;">
+        <a class="cl-sort-link{% if sort == 'n_vivo' %} cl-sort-active{% endif %}"
+           href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}view=compound&sort=n_vivo&order={% if sort == 'n_vivo' and order == 'desc' %}asc{% else %}desc{% endif %}">
+          体内批次 <span class="cl-sort-arrow">{% if sort == 'n_vivo' %}{% if order == 'desc' %}▼{% else %}▲{% endif %}{% else %}⇅{% endif %}</span>
+        </a>
+      </th>
       <th style="width:32px;"></th>
     </tr>
   </thead>

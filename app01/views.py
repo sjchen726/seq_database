@@ -1341,16 +1341,34 @@ def _build_compound_entry(compound, experiments):
     }
 
 
-def _build_compound_centric_page(exp_qs, page):
+def _build_compound_centric_page(exp_qs, page, sort='', order='desc'):
     cid_map = defaultdict(list)
     for exp in exp_qs:
         cid_map[exp.compound_id].append(exp)
 
-    def _latest_batch(cid):
-        labels = [e.batch_label for e in cid_map[cid] if e.batch_label]
-        return max(labels) if labels else ''
+    def _cid_sort_key(cid):
+        exps = cid_map[cid]
+        if sort == 'compound_id':
+            return cid
+        elif sort == 'ic50':
+            vals = [e.summary.ic50_nm for e in exps if getattr(e, 'summary', None) and e.summary.ic50_nm is not None]
+            return min(vals) if vals else float('inf')
+        elif sort == 'kd':
+            vals = [e.summary.max_kd_pct for e in exps if getattr(e, 'summary', None) and e.summary.max_kd_pct is not None]
+            return max(vals) if vals else -1
+        elif sort == 'n_vitro':
+            return sum(1 for e in exps if e.exp_type == 'in_vitro')
+        elif sort == 'n_vivo':
+            return sum(1 for e in exps if e.exp_type == 'in_vivo')
+        else:
+            labels = [e.batch_label for e in exps if e.batch_label]
+            return max(labels) if labels else ''
 
-    sorted_cids = sorted(cid_map.keys(), key=_latest_batch, reverse=True)
+    reverse = (order == 'desc')
+    if sort == 'compound_id':
+        reverse = (order == 'desc')
+
+    sorted_cids = sorted(cid_map.keys(), key=_cid_sort_key, reverse=reverse)
     paginator = Paginator(sorted_cids, 20)
     try:
         page_obj = paginator.page(int(page))
@@ -1406,7 +1424,7 @@ def compound_list(request):
     # ── Branch by view_mode ──
     if view_mode == 'compound':
         compound_entries, page_obj = _build_compound_centric_page(
-            exp_qs, request.GET.get('page', 1)
+            exp_qs, request.GET.get('page', 1), sort=sort, order=order
         )
         batch_groups = []
     else:

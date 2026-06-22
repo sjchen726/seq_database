@@ -377,3 +377,14 @@ tr.open .cl-chevron { transform: rotate(90deg); color: #64748b; }
 /* ── Vivo dose group labels ── */
 .cl-dg      { font-size: 11px; color: #374151; white-space: nowrap; }
 .cl-dg-ctrl { color: #94a3b8; }
+
+/* ── Compound view sortable column headers ── */
+.cl-sort-link {
+  text-decoration: none; color: inherit; display: flex;
+  align-items: center; justify-content: flex-end; gap: 4px; white-space: nowrap;
+}
+.cl-sort-link:hover { color: #1e293b; }
+.cl-sort-active { color: #1e293b; font-weight: 700; }
+.cl-sort-arrow { font-size: 9px; color: #cbd5e1; }
+.cl-sort-active .cl-sort-arrow { color: #1e293b; }
+th:first-child .cl-sort-link { justify-content: flex-start; }
