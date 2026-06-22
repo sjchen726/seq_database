@@ -1248,12 +1248,128 @@ def build_invivo_summary(experiments):
     return dict(result)
 
 
+def _build_vitro_batch_card(exp, best_ic50):
+    summary = getattr(exp, 'summary', None)
+    all_dps = list(exp.datapoints.all())
+    rows = _build_vitro_rows(all_dps)
+    mrna_pts = [
+        [round(math.log10(r['dose']), 4), round(r['mean'], 2)]
+        for r in rows if r.get('dose') and r['dose'] > 0 and r.get('mean') is not None
+    ]
+    kd_pts = [[x, round(max(0.0, 100 - y), 2)] for x, y in mrna_pts]
+    ic50_nm = summary.ic50_nm if summary else None
+    return {
+        'batch_label': exp.batch_label,
+        'date': exp.date,
+        'cell_line': exp.cell_line or '',
+        'ic50_nm': ic50_nm,
+        'max_kd_pct': summary.max_kd_pct if summary else None,
+        'is_best': ic50_nm is not None and best_ic50 is not None and ic50_nm == best_ic50,
+        'vitro_rows': rows,
+        'mrna_pts': mrna_pts,
+        'kd_pts': kd_pts,
+        'attachments': list(exp.attachments.all()),
+    }
+
+
+def _build_vivo_batch_card(batch_exps):
+    """One card per unique batch_label for a compound's vivo experiments."""
+    readout_data, summary = _build_vivo_schedule_data(batch_exps)
+    exp = batch_exps[0]
+    seen, atts = set(), []
+    for e in batch_exps:
+        for att in e.attachments.all():
+            if att.pk not in seen:
+                seen.add(att.pk)
+                atts.append(att)
+    return {
+        'batch_label': exp.batch_label,
+        'date': exp.date,
+        'animal': f"{exp.gender or ''} {exp.animal_strain or ''}".strip(),
+        'route': exp.route or '',
+        'schedule': exp.schedule or '',
+        'peak_kd': summary.get('peak_kd'),
+        'max_bw_drop': summary.get('max_bw_drop'),
+        'readout_data': readout_data,
+        'attachments': atts,
+    }
+
+
+def _build_compound_entry(compound, experiments):
+    vitro_exps = [e for e in experiments if e.exp_type == 'in_vitro']
+    vivo_exps  = [e for e in experiments if e.exp_type == 'in_vivo']
+    seqs = _get_strand_seqs(compound)
+
+    vitro_ic50s = [
+        e.summary.ic50_nm for e in vitro_exps
+        if getattr(e, 'summary', None) and e.summary.ic50_nm is not None
+    ]
+    vitro_kds = [
+        e.summary.max_kd_pct for e in vitro_exps
+        if getattr(e, 'summary', None) and e.summary.max_kd_pct is not None
+    ]
+    best_ic50   = min(vitro_ic50s) if vitro_ic50s else None
+    best_kd_pct = max(vitro_kds)   if vitro_kds   else None
+
+    vitro_batches = sorted(
+        [_build_vitro_batch_card(e, best_ic50) for e in vitro_exps],
+        key=lambda x: str(x['date'] or ''), reverse=True
+    )
+
+    vivo_by_batch = defaultdict(list)
+    for e in vivo_exps:
+        vivo_by_batch[e.batch_label].append(e)
+    vivo_batches = sorted(
+        [_build_vivo_batch_card(exps) for exps in vivo_by_batch.values()],
+        key=lambda x: str(x['date'] or ''), reverse=True
+    )
+
+    return {
+        'compound': compound,
+        'as_seq': seqs.get('AS', ''),
+        'ss_seq': seqs.get('SS', ''),
+        'best_ic50': best_ic50,
+        'best_kd_pct': best_kd_pct,
+        'n_vitro': len(vitro_batches),
+        'n_vivo': len(vivo_batches),
+        'vitro_batches': vitro_batches,
+        'vivo_batches': vivo_batches,
+    }
+
+
+def _build_compound_centric_page(exp_qs, page):
+    cid_map = defaultdict(list)
+    for exp in exp_qs:
+        cid_map[exp.compound_id].append(exp)
+
+    sorted_cids = sorted(cid_map.keys())
+    paginator = Paginator(sorted_cids, 20)
+    try:
+        page_obj = paginator.page(int(page))
+    except (ValueError, InvalidPage):
+        page_obj = paginator.page(1)
+
+    page_cids = list(page_obj.object_list)
+    compound_map = {
+        c.compound_id: c
+        for c in Compound.objects.filter(compound_id__in=page_cids)
+                          .prefetch_related('strands')
+    }
+    entries = [
+        _build_compound_entry(compound_map[cid], cid_map[cid])
+        for cid in page_cids
+        if cid in compound_map
+    ]
+    return entries, page_obj
+
+
 @login_required
 def compound_list(request):
     q = request.GET.get('q', '').strip()
     project_filter = request.GET.get('project', '').strip()
     target_name_filter = request.GET.get('target_name', '').strip()
     tag = request.GET.get('tag', '').strip()
+    view_mode = request.GET.get('view', 'compound')
 
     # ── Fetch and filter experiments ──
     exp_qs = (
@@ -1275,38 +1391,41 @@ def compound_list(request):
     if tag:
         exp_qs = exp_qs.filter(exp_type=tag)
 
-    # ── Group experiments by batch_label ──
-    batch_map = defaultdict(list)
-    for exp in exp_qs:
-        batch_map[exp.batch_label].append(exp)
+    # ── Branch by view_mode ──
+    if view_mode == 'compound':
+        compound_entries, page_obj = _build_compound_centric_page(
+            exp_qs, request.GET.get('page', 1)
+        )
+        batch_groups = []
+    else:
+        compound_entries = []
+        # ── Group experiments by batch_label ──
+        batch_map = defaultdict(list)
+        for exp in exp_qs:
+            batch_map[exp.batch_label].append(exp)
 
-    # Sort batches newest first (batch_label is typically date-prefixed)
-    sorted_batches = sorted(batch_map.items(), key=lambda x: x[0], reverse=True)
+        sorted_batches = sorted(batch_map.items(), key=lambda x: x[0], reverse=True)
 
-    # ── Paginate by batch (10 batches per page) ──
-    paginator = Paginator(sorted_batches, 10)
-    try:
-        page_obj = paginator.page(int(request.GET.get('page', 1)))
-    except (ValueError, InvalidPage):
-        page_obj = paginator.page(1)
+        paginator = Paginator(sorted_batches, 10)
+        try:
+            page_obj = paginator.page(int(request.GET.get('page', 1)))
+        except (ValueError, InvalidPage):
+            page_obj = paginator.page(1)
 
-    # ── Pre-fetch Compound objects with strands for this page's experiments ──
-    page_cids = {
-        exp.compound_id
-        for _, exps in page_obj.object_list
-        for exp in exps
-    }
-    compound_map = {
-        c.compound_id: c
-        for c in Compound.objects.filter(compound_id__in=page_cids)
-                          .prefetch_related('strands')
-    }
-
-    # ── Build batch_groups ──
-    batch_groups = [
-        _build_batch_group_new(bl, exps, compound_map)
-        for bl, exps in page_obj.object_list
-    ]
+        page_cids = {
+            exp.compound_id
+            for _, exps in page_obj.object_list
+            for exp in exps
+        }
+        compound_map = {
+            c.compound_id: c
+            for c in Compound.objects.filter(compound_id__in=page_cids)
+                              .prefetch_related('strands')
+        }
+        batch_groups = [
+            _build_batch_group_new(bl, exps, compound_map)
+            for bl, exps in page_obj.object_list
+        ]
 
     all_projects = sorted(
         Compound.objects.exclude(project='').values_list('project', flat=True).distinct()
@@ -1342,6 +1461,8 @@ def compound_list(request):
         'total_vitro_batches': total_vitro_batches,
         'total_vivo_batches': total_vivo_batches,
         'filtered_compound_count': filtered_compound_count,
+        'view_mode': view_mode,
+        'compound_entries': compound_entries,
     })
 
 
