@@ -4,7 +4,6 @@
 <table class="cl-table" style="width:100%;border-collapse:collapse;font-size:12px;">
   <thead>
     <tr>
-      <th style="width:28px;padding:4px;"></th>
       <th style="width:120px">化合物 ID</th>
       <th style="width:300px">AS 序列</th>
       <th style="width:80px">靶点</th>
@@ -20,10 +19,7 @@
   {% for entry in compound_entries %}
   {% with cid=entry.compound.compound_id %}
   {% with rowid="ccr-"|add:cid panelid="ccp-"|add:cid %}
-  <tr class="cmp-row" id="{{ rowid }}" data-cid="{{ cid }}" data-exp-type="{% if entry.n_vitro %}vitro{% elif entry.n_vivo %}vivo{% else %}compound{% endif %}" data-panel-id="{{ panelid }}" onclick="clToggleRow('{{ rowid }}','{{ panelid }}')">
-    <td onclick="event.stopPropagation()" class="cl-cmp-chk-cell">
-      <input type="checkbox" class="cl-cmp-chk" onchange="clToggleCmpCheck(this)">
-    </td>
+  <tr class="cmp-row" id="{{ rowid }}" data-cid="{{ cid }}" data-exp-type="compound" data-panel-id="{{ panelid }}" onclick="clToggleRow('{{ rowid }}','{{ panelid }}')">
     <td>
       <a href="{% url 'compound_detail' cid %}" class="cl-cid v" onclick="event.stopPropagation()">{{ cid }}</a>
     </td>
@@ -44,7 +40,7 @@
     <td><span class="cl-chevron">▶</span></td>
   </tr>
   <tr class="expand-row">
-    <td colspan="10">
+    <td colspan="9">
       <div class="cl-ep" id="{{ panelid }}">
         <div class="cl-mini-expand">
 
