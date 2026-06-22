@@ -12,6 +12,14 @@
 
 {% block content %}
 
+{# ── View mode tab strip ── #}
+<div class="cl-view-tabs">
+  <a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}view=batch"
+     class="cl-view-tab {% if view_mode == 'batch' %}active{% endif %}">按批次</a>
+  <a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}view=compound"
+     class="cl-view-tab {% if view_mode == 'compound' %}active{% endif %}">按化合物</a>
+</div>
+
 {# ── Filter toolbar ── #}
 <form method="get" action="">
   <div class="cl-filter-bar">
@@ -27,31 +35,31 @@
       <option value="">全部靶点</option>
       {% for t in all_targets %}<option value="{{ t }}" {% if t == target_name %}selected{% endif %}>{{ t }}</option>{% endfor %}
     </select>
-    <select name="tag">
+    <select name="tag" title="筛选影响列表，展开后始终显示该化合物全部批次">
       <option value="" {% if not tag %}selected{% endif %}>全部类型</option>
       <option value="in_vitro" {% if tag == 'in_vitro' %}selected{% endif %}>体外</option>
       <option value="in_vivo"  {% if tag == 'in_vivo'  %}selected{% endif %}>体内</option>
     </select>
+    <input type="hidden" name="view" value="{{ view_mode }}">
     <button type="submit" class="ds-btn ds-btn-primary" style="font-size:12px;padding:4px 14px;">搜索</button>
-    <a href="{% url 'compound_list' %}" style="font-size:12px;color:#64748b;text-decoration:none;padding:4px 8px;">清除</a>
-    <div style="margin-left:auto;display:flex;gap:0;">
-      <a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}view=compound"
-         class="cl-view-btn {% if view_mode == 'compound' %}active{% endif %}">按化合物</a>
-      <a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}view=batch"
-         class="cl-view-btn {% if view_mode == 'batch' %}active{% endif %}">按批次</a>
-    </div>
+    <a href="{% url 'compound_list' %}?view={{ view_mode }}" style="font-size:12px;color:#64748b;text-decoration:none;padding:4px 8px;">清除</a>
   </div>
 </form>
 
 {# ── Page header stats ── #}
 <div class="cl-page-header">
   <div class="cl-stats">
-    <span><strong>{{ total_compounds }}</strong> 个化合物</span>
-    {% if filtered_compound_count is not None %}
-      <span>筛选命中 <strong>{{ filtered_compound_count }}</strong> 个</span>
-    {% endif %}
-    <span>体外批次 <strong>{{ total_vitro_batches }}</strong></span>
-    <span>体内批次 <strong>{{ total_vivo_batches }}</strong></span>
+    <span>
+      {% if view_mode == 'compound' %}
+        第 <strong>{{ page_start }}–{{ page_end }}</strong> 个，共 <strong>{{ page_total }}</strong> 个化合物
+        {% if filtered_compound_count is not None %}
+          <span class="cl-stats-filter">（筛选，全库 {{ total_compounds }} 个）</span>
+        {% endif %}
+      {% else %}
+        第 <strong>{{ page_start }}–{{ page_end }}</strong> 批，共 <strong>{{ page_total }}</strong> 批
+      {% endif %}
+    </span>
+    <span>体外 <strong>{{ total_vitro_batches }}</strong> 批 · 体内 <strong>{{ total_vivo_batches }}</strong> 批</span>
   </div>
 </div>
 
@@ -325,12 +333,13 @@
 {# ── Pagination ── #}
 {% if page_obj.has_other_pages %}
 <div class="cl-pagination">
-  {% if page_obj.has_previous %}<a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}view={{ view_mode }}&page={{ page_obj.previous_page_number }}">‹ 上页</a>{% endif %}
+  <span class="cl-pg-info">第 {{ page_obj.number }} 页 / 共 {{ page_obj.paginator.num_pages }} 页</span>
+  {% if page_obj.has_previous %}<a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}view={{ view_mode }}&{% if sort %}sort={{ sort }}&order={{ order }}&{% endif %}page={{ page_obj.previous_page_number }}">‹ 上页</a>{% endif %}
   {% for num in page_obj.paginator.page_range %}
     {% if num == page_obj.number %}<span class="current">{{ num }}</span>
-    {% else %}<a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}view={{ view_mode }}&page={{ num }}">{{ num }}</a>{% endif %}
+    {% else %}<a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}view={{ view_mode }}&{% if sort %}sort={{ sort }}&order={{ order }}&{% endif %}page={{ num }}">{{ num }}</a>{% endif %}
   {% endfor %}
-  {% if page_obj.has_next %}<a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}view={{ view_mode }}&page={{ page_obj.next_page_number }}">下页 ›</a>{% endif %}
+  {% if page_obj.has_next %}<a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}view={{ view_mode }}&{% if sort %}sort={{ sort }}&order={{ order }}&{% endif %}page={{ page_obj.next_page_number }}">下页 ›</a>{% endif %}
 </div>
 {% endif %}
 

@@ -1374,6 +1374,10 @@ def compound_list(request):
     target_name_filter = request.GET.get('target_name', '').strip()
     tag = request.GET.get('tag', '').strip()
     view_mode = request.GET.get('view', 'batch')
+    sort  = request.GET.get('sort', '').strip()
+    order = request.GET.get('order', 'desc').strip()
+    if order not in ('asc', 'desc'):
+        order = 'desc'
 
     # ── Fetch and filter experiments ──
     exp_qs = (
@@ -1452,6 +1456,11 @@ def compound_list(request):
     if any([q, project_filter, target_name_filter, tag]):
         filtered_compound_count = exp_qs.values('compound_id').distinct().count()
 
+    per_page = page_obj.paginator.per_page
+    page_start = (page_obj.number - 1) * per_page + 1
+    page_end   = min(page_obj.number * per_page, page_obj.paginator.count)
+    page_total = page_obj.paginator.count
+
     return render(request, 'compound_list.html', {
         'batch_groups': batch_groups,
         'page_obj': page_obj,
@@ -1467,6 +1476,11 @@ def compound_list(request):
         'filtered_compound_count': filtered_compound_count,
         'view_mode': view_mode,
         'compound_entries': compound_entries,
+        'sort': sort,
+        'order': order,
+        'page_start': page_start,
+        'page_end': page_end,
+        'page_total': page_total,
     })
 
 
