@@ -34,6 +34,12 @@
     </select>
     <button type="submit" class="ds-btn ds-btn-primary" style="font-size:12px;padding:4px 14px;">搜索</button>
     <a href="{% url 'compound_list' %}" style="font-size:12px;color:#64748b;text-decoration:none;padding:4px 8px;">清除</a>
+    <div style="margin-left:auto;display:flex;gap:0;">
+      <a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}view=compound"
+         class="cl-view-btn {% if view_mode == 'compound' %}active{% endif %}">按化合物</a>
+      <a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}view=batch"
+         class="cl-view-btn {% if view_mode == 'batch' %}active{% endif %}">按批次</a>
+    </div>
   </div>
 </form>
 
@@ -49,6 +55,9 @@
   </div>
 </div>
 
+{% if view_mode == 'compound' %}
+  {% include "compound_list/_compound_view.html" %}
+{% else %}
 {% if batch_groups %}
 {% for bg in batch_groups %}
 
@@ -311,16 +320,17 @@
 {% else %}
 <div class="cl-empty">暂无化合物数据</div>
 {% endif %}
+{% endif %}
 
 {# ── Pagination ── #}
 {% if page_obj.has_other_pages %}
 <div class="cl-pagination">
-  {% if page_obj.has_previous %}<a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}page={{ page_obj.previous_page_number }}">‹ 上页</a>{% endif %}
+  {% if page_obj.has_previous %}<a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}view={{ view_mode }}&page={{ page_obj.previous_page_number }}">‹ 上页</a>{% endif %}
   {% for num in page_obj.paginator.page_range %}
     {% if num == page_obj.number %}<span class="current">{{ num }}</span>
-    {% else %}<a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}page={{ num }}">{{ num }}</a>{% endif %}
+    {% else %}<a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}view={{ view_mode }}&page={{ num }}">{{ num }}</a>{% endif %}
   {% endfor %}
-  {% if page_obj.has_next %}<a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}page={{ page_obj.next_page_number }}">下页 ›</a>{% endif %}
+  {% if page_obj.has_next %}<a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}view={{ view_mode }}&page={{ page_obj.next_page_number }}">下页 ›</a>{% endif %}
 </div>
 {% endif %}
 
