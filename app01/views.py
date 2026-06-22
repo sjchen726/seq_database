@@ -1458,10 +1458,10 @@ def compound_list(request):
         ]
 
     all_projects = sorted(
-        Compound.objects.exclude(project='').values_list('project', flat=True).distinct()
+        Compound.objects.exclude(project='').order_by().values_list('project', flat=True).distinct()
     )
     all_targets = sorted(
-        Compound.objects.exclude(target_name='').values_list('target_name', flat=True).distinct()
+        Compound.objects.exclude(target_name='').order_by().values_list('target_name', flat=True).distinct()
     )
 
     # ── Stats bar data ──
