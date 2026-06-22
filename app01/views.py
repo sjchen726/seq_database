@@ -797,10 +797,17 @@ def _build_vitro_rows(datapoints):
         if dp.replicate == 'Mean' and not dp.is_control and dp.x_type == 'concentration'
     ]
     mean_points.sort(key=lambda dp: -dp.x_value)
+
+    rep_counts = defaultdict(int)
+    for dp in datapoints:
+        if dp.replicate not in ('Mean', 'SD') and not dp.is_control and dp.x_type == 'concentration':
+            rep_counts[dp.x_value] += 1
+
     result = []
     for dp in mean_points:
         mrna = dp.value * 100
-        result.append({'dose': dp.x_value, 'mean': mrna, 'kd_pct': round(max(0.0, 100.0 - mrna), 1)})
+        n = rep_counts.get(dp.x_value) or None
+        result.append({'dose': dp.x_value, 'mean': mrna, 'kd_pct': round(max(0.0, 100.0 - mrna), 1), 'n': n})
     return result
 
 
@@ -915,53 +922,11 @@ def _is_control_arm(dose_info: str) -> bool:
     return dose_info.lower().strip() in _CONTROL_KEYWORDS
 
 
-def _build_strand_tokens(compound, dm_modules, color_map, lk_modules):
-    """Return {'AS': [token, ...], 'SS': [token, ...]} for a compound's strands.
-
-    Tokens from get_modify_seq_colored have keys:
-        char, type, count, is_combo, delivery_label, delivery_color
-    We normalise to: char, type, bg_color, text_color for template use.
-    """
-    result = {'AS': [], 'SS': []}
+def _get_strand_seqs(compound):
+    """Return {'AS': modify_seq_str, 'SS': modify_seq_str} for a compound's strands."""
+    result = {}
     for strand in compound.strands.all():
-        raw_tokens = get_modify_seq_colored(
-            strand.modify_seq,
-            selected_seq_type='AS',
-            seq_type=strand.strand_type,
-            dm_modules=dm_modules,
-            color_map=color_map,
-            lk_modules=lk_modules,
-        )
-        normalized = []
-        for tok in raw_tokens:
-            # delivery_color carries the combo-token background; fall back to
-            # per-type defaults so templates always have a colour to use.
-            tok_type = tok.get('type', '')
-            if tok.get('delivery_color'):
-                bg = tok['delivery_color']
-            elif tok_type in ('normal',):
-                bg = '#f1f5f9'
-            elif tok_type in ('m',):
-                bg = '#dbeafe'
-            elif tok_type in ('f',):
-                bg = '#fef9c3'
-            elif tok_type in ('moe',):
-                bg = '#dcfce7'
-            elif tok_type in ('s', 'ss', 'o'):
-                bg = '#e2e8f0'
-            else:
-                bg = '#f1f5f9'
-            normalized.append({
-                'char': tok.get('char', ''),
-                'type': tok_type,
-                'bg_color': bg,
-                'text_color': '#374151',
-                'count': tok.get('count', ''),
-                'is_combo': tok.get('is_combo', False),
-                'delivery_label': tok.get('delivery_label'),
-                'delivery_color': tok.get('delivery_color'),
-            })
-        result[strand.strand_type] = normalized
+        result[strand.strand_type] = strand.modify_seq
     return result
 
 
@@ -1005,6 +970,13 @@ def _build_vivo_schedule_data(vivo_exps_for_compound):
                 and dp.replicate == 'Mean'
                 and dp.readout_type == readout_type)
         }
+        if readout_type == 'body_weight':
+            day0 = mean_map.get(0.0)
+            if day0:
+                return [
+                    round((mean_map[d] - day0) / day0 * 100, 2) if d in mean_map else None
+                    for d in days
+                ]
         return [mean_map.get(d) for d in days]
 
     def _arm_vals_at_key(series, key_days, all_days):
@@ -1072,27 +1044,34 @@ def _build_vivo_schedule_data(vivo_exps_for_compound):
             readout_data.append({'readout': rt, 'schedules': sched_dict})
 
     # Summary stats
-    max_bw_drop = None
+    max_bw_drop = None  # maximum % drop from Day 0 baseline (most negative value)
     peak_kd = None
     for exp in treatment_exps:
         summary = getattr(exp, 'summary', None)
         if summary and summary.max_kd_pct is not None:
             peak_kd = max(peak_kd or 0, summary.max_kd_pct)
-        for dp in exp.datapoints.all():
-            if dp.readout_type == 'body_weight' and dp.replicate == 'Mean':
-                if max_bw_drop is None or dp.value < max_bw_drop:
-                    max_bw_drop = dp.value
+        bw_map = {
+            dp.x_value: dp.value
+            for dp in exp.datapoints.all()
+            if dp.readout_type == 'body_weight' and dp.replicate == 'Mean'
+        }
+        day0 = bw_map.get(0.0)
+        if day0:
+            for val in bw_map.values():
+                pct = (val - day0) / day0 * 100
+                if max_bw_drop is None or pct < max_bw_drop:
+                    max_bw_drop = pct
 
     return readout_data, {'max_bw_drop': max_bw_drop, 'peak_kd': peak_kd}
 
 
-def _build_vitro_compound_entry(compound, vitro_exps, dm_modules, color_map, lk_modules):
+def _build_vitro_compound_entry(compound, vitro_exps):
     """One entry per compound for the vitro sub-table. Uses the first experiment."""
     exp = vitro_exps[0]
     summary = getattr(exp, 'summary', None)
     all_dps = list(exp.datapoints.all())
     rows = _build_vitro_rows(all_dps)
-    strand_tokens = _build_strand_tokens(compound, dm_modules, color_map, lk_modules)
+    seqs = _get_strand_seqs(compound)
 
     mrna_pts = [
         [round(math.log10(r['dose']), 4), round(r['mean'], 2)]
@@ -1105,21 +1084,22 @@ def _build_vitro_compound_entry(compound, vitro_exps, dm_modules, color_map, lk_
         'compound': compound,
         'experiment': exp,
         'ic50_str': f"{summary.ic50_nm:.2f}" if summary and summary.ic50_nm is not None else '',
+        'ic50_nm': summary.ic50_nm if summary else None,
         'max_kd_pct': summary.max_kd_pct if summary else None,
         'vitro_rows': rows,
         'mrna_pts': mrna_pts,
         'kd_pts': kd_pts,
-        'colored_as': strand_tokens.get('AS', []),
-        'colored_ss': strand_tokens.get('SS', []),
+        'as_seq': seqs.get('AS', ''),
+        'ss_seq': seqs.get('SS', ''),
         'attachments': list(exp.attachments.all()),
     }
 
 
-def _build_vivo_compound_entry(compound, vivo_exps, dm_modules, color_map, lk_modules):
+def _build_vivo_compound_entry(compound, vivo_exps):
     """One entry per compound for the vivo sub-table."""
     readout_data, summary = _build_vivo_schedule_data(vivo_exps)
     readouts = [rd['readout'] for rd in readout_data]
-    strand_tokens = _build_strand_tokens(compound, dm_modules, color_map, lk_modules)
+    seqs = _get_strand_seqs(compound)
 
     schedule_labels = []
     if readout_data:
@@ -1142,13 +1122,13 @@ def _build_vivo_compound_entry(compound, vivo_exps, dm_modules, color_map, lk_mo
         'readouts': readouts,
         'summary': summary,
         'dose_group_label': dose_group_label,
-        'colored_as': strand_tokens.get('AS', []),
-        'colored_ss': strand_tokens.get('SS', []),
+        'as_seq': seqs.get('AS', ''),
+        'ss_seq': seqs.get('SS', ''),
         'attachments': all_attachments,
     }
 
 
-def _build_batch_group_new(batch_label, experiments, compound_map, dm_modules, color_map, lk_modules):
+def _build_batch_group_new(batch_label, experiments, compound_map):
     """
     Build one batch_group dict from a list of Experiment objects sharing a batch_label.
     compound_map: dict[compound_id -> Compound] (pre-fetched with strands).
@@ -1170,9 +1150,7 @@ def _build_batch_group_new(batch_label, experiments, compound_map, dm_modules, c
         vitro_by_cid[e.compound_id].append(e)
 
     vitro_compounds = [
-        _build_vitro_compound_entry(
-            compound_map[cid], exps, dm_modules, color_map, lk_modules
-        )
+        _build_vitro_compound_entry(compound_map[cid], exps)
         for cid, exps in sorted(vitro_by_cid.items())
         if cid in compound_map
     ]
@@ -1182,9 +1160,7 @@ def _build_batch_group_new(batch_label, experiments, compound_map, dm_modules, c
         vivo_by_cid[e.compound_id].append(e)
 
     vivo_compounds = [
-        _build_vivo_compound_entry(
-            compound_map[cid], exps, dm_modules, color_map, lk_modules
-        )
+        _build_vivo_compound_entry(compound_map[cid], exps)
         for cid, exps in sorted(vivo_by_cid.items())
         if cid in compound_map
     ]
@@ -1279,11 +1255,6 @@ def compound_list(request):
     target_name_filter = request.GET.get('target_name', '').strip()
     tag = request.GET.get('tag', '').strip()
 
-    # ── Pre-load shared coloring resources ──
-    dm_modules = list(DeliveryModule.objects.all())
-    color_map = get_color_map(dm_modules)
-    lk_modules = list(LinkerModule.objects.all())
-
     # ── Fetch and filter experiments ──
     exp_qs = (
         Experiment.objects
@@ -1292,7 +1263,11 @@ def compound_list(request):
         .order_by('batch_label', 'compound__compound_id')
     )
     if q:
-        exp_qs = exp_qs.filter(compound__compound_id__icontains=q)
+        exp_qs = exp_qs.filter(
+            Q(compound__compound_id__icontains=q) |
+            Q(compound__target_name__icontains=q) |
+            Q(compound__strands__modify_seq__icontains=q)
+        ).distinct()
     if project_filter:
         exp_qs = exp_qs.filter(compound__project=project_filter)
     if target_name_filter:
@@ -1329,7 +1304,7 @@ def compound_list(request):
 
     # ── Build batch_groups ──
     batch_groups = [
-        _build_batch_group_new(bl, exps, compound_map, dm_modules, color_map, lk_modules)
+        _build_batch_group_new(bl, exps, compound_map)
         for bl, exps in page_obj.object_list
     ]
 
@@ -2182,7 +2157,10 @@ def smart_upload_confirm_view(request):
         try:
             with transaction.atomic():
                 for c in preview_copy.get('new_compounds', []):
-                    Compound.objects.get_or_create(compound_id=c['compound_id'])
+                    compound, _ = Compound.objects.get_or_create(compound_id=c['compound_id'])
+                    if project_code:
+                        compound.project = project_code
+                        compound.save(update_fields=['project'])
 
                 id_remap = preview_copy.get('id_format_mismatch', {})
                 for cid, seq_data in preview_copy.get('strand_map', {}).items():
@@ -2206,6 +2184,9 @@ def smart_upload_confirm_view(request):
                 for exp_data in preview_copy.get('experiments', []):
                     cid = exp_data['compound_id']
                     compound, _ = Compound.objects.get_or_create(compound_id=cid)
+                    if project_code:
+                        compound.project = project_code
+                        compound.save(update_fields=['project'])
                     exp, exp_created = Experiment.objects.get_or_create(
                         compound=compound,
                         batch_label=preview_copy['batch_label'],
@@ -2303,6 +2284,9 @@ def smart_upload_confirm_view(request):
             with transaction.atomic():
                 for g in group['groups']:
                     compound, _ = Compound.objects.get_or_create(compound_id=g['compound_id'])
+                    if project_code:
+                        compound.project = project_code
+                        compound.save(update_fields=['project'])
                     dose_info = g.get('dose') or meta['dose_override']
                     schedule = g.get('schedule', '')
 
@@ -2454,20 +2438,61 @@ def attachment_download(request, pk):
 
 @login_required
 def attachment_preview(request, pk):
-    """Return first 50 rows of a CSV attachment as JSON for inline preview."""
+    """Return first 50 rows of a CSV attachment as JSON for inline preview.
+
+    When the CSV has many duplicate column headers (multi-animal body-weight
+    format), automatically aggregates same-named columns into their mean so the
+    preview is readable without horizontal scrolling.
+    """
     import itertools
+    import csv
+    from io import StringIO
     att = get_object_or_404(ExperimentAttachment, pk=pk)
     if not att.file:
         return JsonResponse({'headers': [], 'rows': []}, status=404)
     try:
-        import csv
-        from io import StringIO
         with att.file.open('rb') as f:
             text = f.read().decode('utf-8', errors='replace')
         reader = csv.reader(StringIO(text))
         rows = list(itertools.islice(reader, 51))
-        headers = rows[0] if rows else []
-        data_rows = rows[1:]  # already capped at 50 by islice
-        return JsonResponse({'headers': headers, 'rows': data_rows})
+        if not rows:
+            return JsonResponse({'headers': [], 'rows': []})
+
+        raw_headers = [h.lstrip('﻿').strip() for h in rows[0]]
+        data_rows = rows[1:]
+
+        # Detect multi-animal format: many columns with duplicate names
+        value_headers = [h for h in raw_headers[1:] if h]
+        unique_names = set(value_headers)
+        if len(raw_headers) > 10 and unique_names and len(unique_names) < len(value_headers) * 0.7:
+            # Group column indices by header name (preserving insertion order)
+            groups = {}
+            for i, h in enumerate(raw_headers):
+                if i == 0:
+                    continue
+                name = h or f'Col{i}'
+                groups.setdefault(name, []).append(i)
+
+            agg_headers = [raw_headers[0] or 'Day'] + list(groups.keys())
+            agg_rows = []
+            for row in data_rows:
+                if not row or not str(row[0]).strip():
+                    continue
+                agg_row = [row[0]]
+                for indices in groups.values():
+                    vals = []
+                    for idx in indices:
+                        if idx < len(row):
+                            try:
+                                vals.append(float(row[idx].rstrip('*').strip()))
+                            except (ValueError, TypeError):
+                                pass
+                    agg_row.append(f'{sum(vals)/len(vals):.2f}' if vals else '—')
+                agg_rows.append(agg_row)
+
+            note = f'已按组合并均值（{len(groups)} 组 · 原 {len(value_headers)} 列动物数据）'
+            return JsonResponse({'headers': agg_headers, 'rows': agg_rows, 'note': note})
+
+        return JsonResponse({'headers': raw_headers, 'rows': data_rows})
     except Exception:
         return JsonResponse({'headers': [], 'rows': []})
