@@ -18,7 +18,8 @@
   </thead>
   <tbody>
   {% for entry in compound_entries %}
-  {% with cid=entry.compound.compound_id rowid="ccr-"|add:cid panelid="ccp-"|add:cid %}
+  {% with cid=entry.compound.compound_id %}
+  {% with rowid="ccr-"|add:cid panelid="ccp-"|add:cid %}
   <tr class="cmp-row" id="{{ rowid }}" data-cid="{{ cid }}" data-exp-type="compound" data-panel-id="{{ panelid }}" onclick="clToggleRow('{{ rowid }}','{{ panelid }}')">
     <td onclick="event.stopPropagation()" class="cl-cmp-chk-cell">
       <input type="checkbox" class="cl-cmp-chk" onchange="clToggleCmpCheck(this)">
@@ -199,6 +200,7 @@
       </div>
     </td>
   </tr>
+  {% endwith %}
   {% endwith %}
   {% endfor %}
   </tbody>
