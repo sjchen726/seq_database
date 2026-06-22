@@ -1315,6 +1315,20 @@ def compound_list(request):
         Compound.objects.exclude(target_name='').values_list('target_name', flat=True).distinct()
     )
 
+    # ── Stats bar data ──
+    total_compounds = Compound.objects.count()
+    total_vitro_batches = (
+        exp_qs.filter(exp_type='in_vitro')
+        .values('batch_label').distinct().count()
+    )
+    total_vivo_batches = (
+        exp_qs.filter(exp_type='in_vivo')
+        .values('batch_label').distinct().count()
+    )
+    filtered_compound_count = None
+    if any([q, project_filter, target_name_filter, tag]):
+        filtered_compound_count = exp_qs.values('compound_id').distinct().count()
+
     return render(request, 'compound_list.html', {
         'batch_groups': batch_groups,
         'page_obj': page_obj,
@@ -1324,6 +1338,10 @@ def compound_list(request):
         'project': project_filter,
         'target_name': target_name_filter,
         'tag': tag,
+        'total_compounds': total_compounds,
+        'total_vitro_batches': total_vitro_batches,
+        'total_vivo_batches': total_vivo_batches,
+        'filtered_compound_count': filtered_compound_count,
     })
 
 
