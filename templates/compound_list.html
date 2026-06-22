@@ -79,6 +79,7 @@
 
   <table class="cl-table">
     <thead><tr>
+      <th style="width:28px;padding:4px;"></th>
       <th style="width:110px">ID</th>
       <th style="width:380px">序列 (AS / SS)</th>
       <th style="width:70px">项目</th>
@@ -91,47 +92,30 @@
     <tbody>
     {% for vc in bg.vitro_compounds %}
     {% with vrid="vr-"|add:bg.batch_label|add:"-"|add:vc.compound.compound_id vpid="vp-"|add:bg.batch_label|add:"-"|add:vc.compound.compound_id %}
-    <tr class="cmp-row" id="{{ vrid }}" onclick="clToggleRow('{{ vrid }}','{{ vpid }}')">
+    <tr class="cmp-row" id="{{ vrid }}" data-cid="{{ vc.compound.compound_id }}" data-exp-type="vitro" data-panel-id="{{ vpid }}" onclick="clToggleRow('{{ vrid }}','{{ vpid }}')">
+      <td onclick="event.stopPropagation()" class="cl-cmp-chk-cell"><input type="checkbox" class="cl-cmp-chk" onchange="clToggleCmpCheck(this)"></td>
       <td><a href="{% url 'compound_detail' vc.compound.compound_id %}" class="cl-cid v" onclick="event.stopPropagation()">{{ vc.compound.compound_id }}</a></td>
       <td>
-        {% if vc.colored_as %}
-        <div class="cl-seq-strand">
-          <span class="cl-seq-label">AS</span>
-          {% for tok in vc.colored_as %}{% if tok.type != 'SEP' %}<span class="cl-tok" style="background:{{ tok.bg_color }};color:{{ tok.text_color }};">{{ tok.char }}</span>{% endif %}{% endfor %}
-        </div>
-        {% endif %}
-        {% if vc.colored_ss %}
-        <div class="cl-seq-strand" style="margin-top:2px;opacity:.75;">
-          <span class="cl-seq-label">SS</span>
-          {% for tok in vc.colored_ss %}{% if tok.type != 'SEP' %}<span class="cl-tok" style="background:{{ tok.bg_color }};color:{{ tok.text_color }};font-size:8px;">{{ tok.char }}</span>{% endif %}{% endfor %}
-        </div>
-        {% endif %}
+        {% if vc.as_seq %}<div class="cl-seq-strand"><span class="cl-seq-label">AS</span><span class="cl-seq-text">{{ vc.as_seq|truncatechars:60 }}</span></div>{% endif %}
+        {% if vc.ss_seq %}<div class="cl-seq-strand" style="margin-top:2px;opacity:.75;"><span class="cl-seq-label">SS</span><span class="cl-seq-text" style="font-size:9px;">{{ vc.ss_seq|truncatechars:60 }}</span></div>{% endif %}
       </td>
       <td>{{ vc.compound.project|default:"—" }}</td>
       <td>{{ vc.compound.target_name|default:"—" }}</td>
-      <td class="cl-num">{% if vc.ic50_str %}{{ vc.ic50_str }}{% else %}<span class="cl-dim">—</span>{% endif %}</td>
-      <td class="cl-num cl-r">{% if vc.max_kd_pct is not None %}{{ vc.max_kd_pct|floatformat:0 }}%{% else %}<span class="cl-dim">—</span>{% endif %}</td>
+      <td class="cl-num {{ vc.ic50_nm|ic50_class }}">{% if vc.ic50_str %}{{ vc.ic50_str }}{% else %}<span class="cl-dim">—</span>{% endif %}</td>
+      <td class="cl-num cl-r {{ vc.max_kd_pct|kd_class }}">{% if vc.max_kd_pct is not None %}{{ vc.max_kd_pct|floatformat:0 }}%{% else %}<span class="cl-dim">—</span>{% endif %}</td>
       <td style="font-size:11px;color:#64748b;">{{ vc.experiment.cell_line|default:"—" }}</td>
       <td><span class="cl-chevron">▶</span></td>
     </tr>
-    <tr class="expand-row"><td colspan="8"><div class="cl-ep" id="{{ vpid }}">
+    <tr class="expand-row"><td colspan="9"><div class="cl-ep" id="{{ vpid }}">
       <div class="cl-mini-expand">
         <div class="cl-meta-row">
           {% if vc.experiment.cell_line %}<span><strong>细胞系:</strong> {{ vc.experiment.cell_line }}</span>{% endif %}
           {% if vc.experiment.notes %}<span><strong>备注:</strong> {{ vc.experiment.notes }}</span>{% endif %}
         </div>
-        {% if vc.colored_as %}
+        {% if vc.as_seq %}
         <div style="margin-bottom:10px;">
-          <div class="cl-seq-strand">
-            <span class="cl-seq-label">AS</span>
-            {% for tok in vc.colored_as %}{% if tok.type != 'SEP' %}<span class="cl-tok" style="background:{{ tok.bg_color }};color:{{ tok.text_color }};">{{ tok.char }}</span>{% endif %}{% endfor %}
-          </div>
-          {% if vc.colored_ss %}
-          <div class="cl-seq-strand" style="margin-top:3px;opacity:.75;">
-            <span class="cl-seq-label">SS</span>
-            {% for tok in vc.colored_ss %}{% if tok.type != 'SEP' %}<span class="cl-tok" style="background:{{ tok.bg_color }};color:{{ tok.text_color }};font-size:8px;">{{ tok.char }}</span>{% endif %}{% endfor %}
-          </div>
-          {% endif %}
+          <div class="cl-seq-strand"><span class="cl-seq-label">AS</span><span class="cl-seq-text">{{ vc.as_seq }}</span></div>
+          {% if vc.ss_seq %}<div class="cl-seq-strand" style="margin-top:3px;opacity:.75;"><span class="cl-seq-label">SS</span><span class="cl-seq-text" style="font-size:9px;">{{ vc.ss_seq }}</span></div>{% endif %}
         </div>
         {% endif %}
         {# Dose-response: left table + right chart #}
@@ -140,13 +124,14 @@
           {% if vc.vitro_rows %}
           <div style="flex-shrink:0;min-width:190px;">
             <table class="cl-summary-tbl">
-              <thead><tr><th style="text-align:left;">nM</th><th>mRNA%</th><th>KD%</th></tr></thead>
+              <thead><tr><th style="text-align:left;">nM</th><th>mRNA%</th><th>KD%</th><th>n</th></tr></thead>
               <tbody>
               {% for row in vc.vitro_rows %}
               <tr>
                 <td style="text-align:left;font-family:monospace;">{{ row.dose }}</td>
                 <td>{{ row.mean|floatformat:1 }}</td>
                 <td>{{ row.kd_pct|floatformat:1 }}</td>
+                <td style="color:#94a3b8;">{% if row.n %}{{ row.n }}{% else %}—{% endif %}</td>
               </tr>
               {% endfor %}
               </tbody>
@@ -198,53 +183,42 @@
 
   <table class="cl-table">
     <thead><tr>
+      <th style="width:28px;padding:4px;"></th>
       <th style="width:110px">ID</th>
       <th style="width:360px">序列 (AS)</th>
       <th style="width:70px">项目</th>
       <th style="width:80px">靶点</th>
       <th style="width:170px">剂量组</th>
-      <th style="width:150px">最大体重降幅</th>
+      <th style="width:150px">体重最大变化 (vs D0)</th>
       <th style="width:120px">峰值KD%</th>
       <th style="width:32px"></th>
     </tr></thead>
     <tbody>
     {% for vc in bg.vivo_compounds %}
     {% with irid="ir-"|add:bg.batch_label|add:"-"|add:vc.compound.compound_id ipid="ip-"|add:bg.batch_label|add:"-"|add:vc.compound.compound_id tgid="it-"|add:bg.batch_label|add:"-"|add:vc.compound.compound_id %}
-    <tr class="cmp-row" id="{{ irid }}" onclick="clToggleRow('{{ irid }}','{{ ipid }}')">
+    <tr class="cmp-row" id="{{ irid }}" data-cid="{{ vc.compound.compound_id }}" data-exp-type="vivo" data-panel-id="{{ ipid }}" onclick="clToggleRow('{{ irid }}','{{ ipid }}')">
+      <td onclick="event.stopPropagation()" class="cl-cmp-chk-cell"><input type="checkbox" class="cl-cmp-chk" onchange="clToggleCmpCheck(this)"></td>
       <td><a href="{% url 'compound_detail' vc.compound.compound_id %}" class="cl-cid i" onclick="event.stopPropagation()">{{ vc.compound.compound_id }}</a></td>
       <td>
-        {% if vc.colored_as %}
-        <div class="cl-seq-strand">
-          <span class="cl-seq-label">AS</span>
-          {% for tok in vc.colored_as %}{% if tok.type != 'SEP' %}<span class="cl-tok" style="background:{{ tok.bg_color }};color:{{ tok.text_color }};">{{ tok.char }}</span>{% endif %}{% endfor %}
-        </div>
-        {% endif %}
+        {% if vc.as_seq %}<div class="cl-seq-strand"><span class="cl-seq-label">AS</span><span class="cl-seq-text">{{ vc.as_seq|truncatechars:60 }}</span></div>{% endif %}
       </td>
       <td>{{ vc.compound.project|default:"—" }}</td>
       <td>{{ vc.compound.target_name|default:"—" }}</td>
       <td><span class="cl-dim" style="font-size:11px;">{{ vc.dose_group_label|default:"—" }}</span></td>
-      <td>{% if vc.summary.max_bw_drop is not None %}<span class="cl-pill i">{{ vc.summary.max_bw_drop|floatformat:1 }}%</span>{% else %}<span class="cl-dim">—</span>{% endif %}</td>
-      <td>{% if vc.summary.peak_kd is not None %}<span class="cl-pill i">{{ vc.summary.peak_kd|floatformat:0 }}%</span>{% else %}<span class="cl-dim">—</span>{% endif %}</td>
+      <td>{% if vc.summary.max_bw_drop is not None %}<span class="{{ vc.summary.max_bw_drop|bw_drop_class }}">{{ vc.summary.max_bw_drop|floatformat:1 }}%</span>{% else %}<span class="cl-dim">—</span>{% endif %}</td>
+      <td>{% if vc.summary.peak_kd is not None %}<span class="{{ vc.summary.peak_kd|vivo_kd_class }}">{{ vc.summary.peak_kd|floatformat:0 }}%</span>{% else %}<span class="cl-dim">—</span>{% endif %}</td>
       <td><span class="cl-chevron">▶</span></td>
     </tr>
-    <tr class="expand-row"><td colspan="8"><div class="cl-ep" id="{{ ipid }}">
+    <tr class="expand-row"><td colspan="9"><div class="cl-ep" id="{{ ipid }}">
       <div class="cl-mini-expand vivo-bg">
         <div class="cl-meta-row">
           {% if bg.meta.animal %}<span><strong>动物:</strong> {{ bg.meta.animal }}</span>{% endif %}
           {% if bg.meta.route %}<span><strong>给药:</strong> {{ bg.meta.route }}</span>{% endif %}
         </div>
-        {% if vc.colored_as %}
+        {% if vc.as_seq %}
         <div style="margin-bottom:10px;">
-          <div class="cl-seq-strand">
-            <span class="cl-seq-label">AS</span>
-            {% for tok in vc.colored_as %}{% if tok.type != 'SEP' %}<span class="cl-tok" style="background:{{ tok.bg_color }};color:{{ tok.text_color }};">{{ tok.char }}</span>{% endif %}{% endfor %}
-          </div>
-          {% if vc.colored_ss %}
-          <div class="cl-seq-strand" style="margin-top:3px;opacity:.75;">
-            <span class="cl-seq-label">SS</span>
-            {% for tok in vc.colored_ss %}{% if tok.type != 'SEP' %}<span class="cl-tok" style="background:{{ tok.bg_color }};color:{{ tok.text_color }};font-size:8px;">{{ tok.char }}</span>{% endif %}{% endfor %}
-          </div>
-          {% endif %}
+          <div class="cl-seq-strand"><span class="cl-seq-label">AS</span><span class="cl-seq-text">{{ vc.as_seq }}</span></div>
+          {% if vc.ss_seq %}<div class="cl-seq-strand" style="margin-top:3px;opacity:.75;"><span class="cl-seq-label">SS</span><span class="cl-seq-text" style="font-size:9px;">{{ vc.ss_seq }}</span></div>{% endif %}
         </div>
         {% endif %}
 
@@ -276,6 +250,7 @@
             <div class="cl-chart-wrap">
               <canvas id="chart-{{ ipid }}-{{ rd_item.readout }}-{{ forloop.counter }}"
                 data-chart="vivo"
+                data-readout="{{ rd_item.readout }}"
                 data-days="{{ sd.days_json }}"
                 data-groups="{{ sd.groups_json }}"
                 data-control="{{ sd.control_json }}"></canvas>
@@ -290,7 +265,7 @@
               {% for srow in sd.summary_rows %}
               <tr {% if srow.is_control %}class="ctrl-row"{% endif %}>
                 <td>{{ srow.label }}</td>
-                {% for v in srow.values %}<td>{{ v|floatformat:1|default:"—" }}</td>{% endfor %}
+                {% for v in srow.values %}<td>{{ v|fmt_or_dash:1 }}</td>{% endfor %}
               </tr>
               {% endfor %}
               </tbody>
@@ -343,6 +318,39 @@
   {% if page_obj.has_next %}<a href="?{% if q %}q={{ q }}&{% endif %}{% if project %}project={{ project }}&{% endif %}{% if target_name %}target_name={{ target_name }}&{% endif %}{% if tag %}tag={{ tag }}&{% endif %}page={{ page_obj.next_page_number }}">下页 ›</a>{% endif %}
 </div>
 {% endif %}
+
+{# ── Comparison sticky bar ── #}
+<div id="cl-cmp-bar" class="cl-cmp-bar" style="display:none">
+  <span id="cl-cmp-count" class="cl-cmp-count-label"></span>
+  <button class="ds-btn ds-btn-primary" style="font-size:12px;padding:4px 16px;" onclick="clOpenCmpModal()">对比曲线</button>
+  <button class="cl-cmp-clear-btn" onclick="clClearCmpSelection()">✕ 清除</button>
+</div>
+
+{# ── Comparison modal ── #}
+<div id="cl-cmp-overlay" class="cl-cmp-overlay" onclick="clCloseCmpModal()" style="display:none"></div>
+<div id="cl-cmp-modal" class="cl-cmp-modal" style="display:none">
+  <div class="cl-cmp-hdr">
+    <span class="cl-cmp-title">化合物曲线对比</span>
+    <button class="cl-cmp-close" onclick="clCloseCmpModal()">✕</button>
+  </div>
+  <div class="cl-tab-row cl-cmp-tabs">
+    <button id="cl-cmp-tab-vitro" class="cl-tab-btn active" onclick="clCmpTab(this,'vitro')">体外剂量-响应</button>
+    <button id="cl-cmp-tab-vivo"  class="cl-tab-btn"        onclick="clCmpTab(this,'vivo')">体内时间曲线</button>
+  </div>
+  <div class="cl-cmp-body">
+    <div id="cl-cmp-pane-vitro" class="cl-cmp-pane">
+      <div class="cl-vitro-toggle" style="margin-bottom:8px;">
+        <button class="cl-vtoggle-btn active" onclick="clCmpVitroReadout(this,'mrna')">mRNA%</button>
+        <button class="cl-vtoggle-btn" onclick="clCmpVitroReadout(this,'kd')">KD%</button>
+      </div>
+      <div class="cl-cmp-chart-wrap"><canvas id="cl-cmp-vitro-canvas"></canvas></div>
+    </div>
+    <div id="cl-cmp-pane-vivo" class="cl-cmp-pane" style="display:none">
+      <div id="cl-cmp-vivo-rt-tabs" class="cl-tab-row" style="margin:0 0 10px;padding:0;border-bottom:1px solid #e2e8f0;"></div>
+      <div id="cl-cmp-vivo-charts"></div>
+    </div>
+  </div>
+</div>
 
 {% endblock %}
 
