@@ -317,3 +317,46 @@ tr.open .cl-chevron { transform: rotate(90deg); color: #64748b; }
 .cl-cmp-body { flex: 1; overflow-y: auto; padding: 16px 20px 20px; }
 .cl-cmp-pane { min-height: 0; }
 .cl-cmp-chart-wrap { position: relative; height: 340px; margin-top: 8px; }
+
+/* ── View mode toggle buttons ── */
+.cl-view-btn {
+  font-size: 11px; font-weight: 600; padding: 4px 12px;
+  border: 1px solid #e2e8f0; color: #64748b;
+  text-decoration: none; background: white;
+  display: inline-block; line-height: 1.6;
+}
+.cl-view-btn:first-child { border-radius: 5px 0 0 5px; }
+.cl-view-btn:last-child  { border-radius: 0 5px 5px 0; border-left: none; }
+.cl-view-btn.active { background: #1e293b; color: white; border-color: #1e293b; }
+
+/* ── Compound view: batch cards ── */
+.cl-batch-cards-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.cl-batch-card {
+  border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px;
+  background: white; cursor: pointer; min-width: 160px; max-width: 230px;
+  flex: 0 0 auto; position: relative;
+}
+.cl-batch-card:hover { border-color: #bfdbfe; background: #fafcff; }
+.cl-batch-card.vitro { border-left: 3px solid #3b82f6; }
+.cl-batch-card.vivo  { border-left: 3px solid #f97316; }
+.cl-batch-card.best::after {
+  content: '★'; color: #f59e0b; font-size: 11px;
+  position: absolute; top: 6px; right: 8px;
+}
+.cl-card-badge { font-size: 9px; font-weight: 700; }
+.cl-card-meta  { font-size: 9px; color: #64748b; margin-top: 2px; }
+.cl-card-metrics { font-size: 10px; margin-top: 4px; }
+.cl-card-expand-hint { font-size: 8px; color: #93c5fd; margin-top: 4px; }
+
+/* ── Batch card inline sub-panel ── */
+.cl-card-panel { display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid #e2e8f0; }
+.cl-card-panel.show { display: block; }
+
+/* ── Compound-view expand panel (reuses .cl-ep show/hide logic) ── */
+.cl-cep-seqs { margin-bottom: 12px; }
+.cl-cep-section-hdr {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .05em; margin: 10px 0 6px;
+}
+.cl-cep-section-hdr.vitro { color: #1d4ed8; }
+.cl-cep-section-hdr.vivo  { color: #c2410c; }
