@@ -336,6 +336,7 @@ tr.open .cl-chevron { transform: rotate(90deg); color: #64748b; }
   background: white; cursor: pointer; min-width: 160px; max-width: 230px;
   flex: 0 0 auto; position: relative;
 }
+.cl-batch-card.expanded { max-width: none; flex: 1 1 100%; }
 .cl-batch-card:hover { border-color: #bfdbfe; background: #fafcff; }
 .cl-batch-card.vitro { border-left: 3px solid #3b82f6; }
 .cl-batch-card.vivo  { border-left: 3px solid #f97316; }
