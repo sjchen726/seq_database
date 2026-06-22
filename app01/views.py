@@ -1373,7 +1373,7 @@ def compound_list(request):
     project_filter = request.GET.get('project', '').strip()
     target_name_filter = request.GET.get('target_name', '').strip()
     tag = request.GET.get('tag', '').strip()
-    view_mode = request.GET.get('view', 'compound')
+    view_mode = request.GET.get('view', 'batch')
 
     # ── Fetch and filter experiments ──
     exp_qs = (
