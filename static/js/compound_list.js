@@ -453,8 +453,9 @@ function clToggleBatchCard(event, panelId) {
   event.stopPropagation();
   const panel = document.getElementById(panelId);
   if (!panel) return;
+  const card = panel.closest('.cl-batch-card');
   const isOpen = panel.classList.contains('show');
   panel.classList.toggle('show', !isOpen);
-  panel.closest('.cl-batch-card')?.classList.toggle('expanded', !isOpen);
+  if (card) card.classList.toggle('expanded', !isOpen);
   if (!isOpen) clInitChartsInPanel(panel);
 }
