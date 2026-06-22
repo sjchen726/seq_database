@@ -20,7 +20,7 @@
   {% for entry in compound_entries %}
   {% with cid=entry.compound.compound_id %}
   {% with rowid="ccr-"|add:cid panelid="ccp-"|add:cid %}
-  <tr class="cmp-row" id="{{ rowid }}" data-cid="{{ cid }}" data-exp-type="compound" data-panel-id="{{ panelid }}" onclick="clToggleRow('{{ rowid }}','{{ panelid }}')">
+  <tr class="cmp-row" id="{{ rowid }}" data-cid="{{ cid }}" data-exp-type="{% if entry.n_vitro %}vitro{% elif entry.n_vivo %}vivo{% else %}compound{% endif %}" data-panel-id="{{ panelid }}" onclick="clToggleRow('{{ rowid }}','{{ panelid }}')">
     <td onclick="event.stopPropagation()" class="cl-cmp-chk-cell">
       <input type="checkbox" class="cl-cmp-chk" onchange="clToggleCmpCheck(this)">
     </td>
