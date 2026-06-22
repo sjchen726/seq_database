@@ -1,0 +1,209 @@
+{% load cl_extras %}
+{% if compound_entries %}
+<div style="overflow-x:auto;">
+<table class="cl-table" style="width:100%;border-collapse:collapse;font-size:12px;">
+  <thead>
+    <tr>
+      <th style="width:28px;padding:4px;"></th>
+      <th style="width:120px">化合物 ID</th>
+      <th style="width:300px">AS 序列</th>
+      <th style="width:80px">靶点</th>
+      <th style="width:70px">项目</th>
+      <th style="width:100px;text-align:right;">最佳 IC50 (nM)</th>
+      <th style="width:80px;text-align:right;">最高 KD%</th>
+      <th style="width:60px;text-align:right;">体外批次</th>
+      <th style="width:60px;text-align:right;">体内批次</th>
+      <th style="width:32px;"></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for entry in compound_entries %}
+  {% with cid=entry.compound.compound_id rowid="ccr-"|add:cid panelid="ccp-"|add:cid %}
+  <tr class="cmp-row" id="{{ rowid }}" onclick="clToggleRow('{{ rowid }}','{{ panelid }}')">
+    <td onclick="event.stopPropagation()" class="cl-cmp-chk-cell">
+      <input type="checkbox" class="cl-cmp-chk" onchange="clToggleCmpCheck(this)">
+    </td>
+    <td>
+      <a href="{% url 'compound_detail' cid %}" class="cl-cid v" onclick="event.stopPropagation()">{{ cid }}</a>
+    </td>
+    <td>
+      {% if entry.as_seq %}<div class="cl-seq-strand"><span class="cl-seq-label">AS</span><span class="cl-seq-text">{{ entry.as_seq|truncatechars:50 }}</span></div>{% endif %}
+      {% if entry.ss_seq %}<div class="cl-seq-strand" style="margin-top:2px;opacity:.75;"><span class="cl-seq-label">SS</span><span class="cl-seq-text" style="font-size:9px;">{{ entry.ss_seq|truncatechars:50 }}</span></div>{% endif %}
+    </td>
+    <td style="font-size:11px;color:#374151;">{{ entry.compound.target_name|default:"—" }}</td>
+    <td style="font-size:11px;color:#374151;">{{ entry.compound.project|default:"—" }}</td>
+    <td class="cl-num {{ entry.best_ic50|ic50_class }}">
+      {% if entry.best_ic50 is not None %}{{ entry.best_ic50|floatformat:2 }}{% else %}<span class="cl-dim">—</span>{% endif %}
+    </td>
+    <td class="cl-num cl-r {{ entry.best_kd_pct|kd_class }}">
+      {% if entry.best_kd_pct is not None %}{{ entry.best_kd_pct|floatformat:0 }}%{% else %}<span class="cl-dim">—</span>{% endif %}
+    </td>
+    <td class="cl-num cl-r">{% if entry.n_vitro %}<strong>{{ entry.n_vitro }}</strong>{% else %}<span class="cl-dim">—</span>{% endif %}</td>
+    <td class="cl-num cl-r">{% if entry.n_vivo %}<strong>{{ entry.n_vivo }}</strong>{% else %}<span class="cl-dim">—</span>{% endif %}</td>
+    <td><span class="cl-chevron">▶</span></td>
+  </tr>
+  <tr class="expand-row">
+    <td colspan="10">
+      <div class="cl-ep" id="{{ panelid }}">
+        <div class="cl-mini-expand">
+
+          {# Sequences #}
+          {% if entry.as_seq %}
+          <div class="cl-cep-seqs">
+            <div class="cl-seq-strand"><span class="cl-seq-label">AS</span><span class="cl-seq-text">{{ entry.as_seq }}</span></div>
+            {% if entry.ss_seq %}<div class="cl-seq-strand" style="margin-top:3px;opacity:.75;"><span class="cl-seq-label">SS</span><span class="cl-seq-text" style="font-size:9px;">{{ entry.ss_seq }}</span></div>{% endif %}
+          </div>
+          {% endif %}
+
+          {# ── Vitro batch cards ── #}
+          {% if entry.vitro_batches %}
+          <div class="cl-cep-section-hdr vitro">🔬 体外实验（{{ entry.n_vitro }}批）</div>
+          <div class="cl-batch-cards-grid">
+            {% for card in entry.vitro_batches %}
+            {% with cpid="cbv-"|add:cid|add:"-"|add:card.batch_label %}
+            <div class="cl-batch-card vitro{% if card.is_best %} best{% endif %}"
+                 onclick="clToggleBatchCard(event,'{{ cpid }}')">
+              <div class="cl-card-badge" style="color:#1e40af;">{{ card.batch_label }}</div>
+              <div class="cl-card-meta">{{ card.cell_line|default:"—" }}{% if card.date %} · {{ card.date }}{% endif %}</div>
+              <div class="cl-card-metrics">
+                {% if card.ic50_nm is not None %}<span class="{{ card.ic50_nm|ic50_class }}">IC50 {{ card.ic50_nm|floatformat:2 }}nM</span>{% endif %}
+                {% if card.max_kd_pct is not None %}<span style="margin-left:4px;" class="{{ card.max_kd_pct|kd_class }}">KD {{ card.max_kd_pct|floatformat:0 }}%</span>{% endif %}
+              </div>
+              <div class="cl-card-expand-hint">▼ 展开图表</div>
+              <div class="cl-card-panel" id="{{ cpid }}" onclick="event.stopPropagation()">
+                {% if card.vitro_rows %}
+                <div style="display:flex;gap:12px;align-items:flex-start;margin-top:6px;">
+                  <div style="flex-shrink:0;min-width:160px;">
+                    <table class="cl-summary-tbl">
+                      <thead><tr><th style="text-align:left;">nM</th><th>mRNA%</th><th>KD%</th></tr></thead>
+                      <tbody>
+                      {% for row in card.vitro_rows %}
+                      <tr>
+                        <td style="text-align:left;font-family:monospace;">{{ row.dose }}</td>
+                        <td>{{ row.mean|floatformat:1 }}</td>
+                        <td>{{ row.kd_pct|floatformat:1 }}</td>
+                      </tr>
+                      {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style="flex:1;min-width:0;">
+                    <div class="cl-vitro-toggle">
+                      <button class="cl-vtoggle-btn active" onclick="event.stopPropagation();clToggleVitroReadout(this,'chart-{{ cpid }}','mrna')">mRNA%</button>
+                      <button class="cl-vtoggle-btn" onclick="event.stopPropagation();clToggleVitroReadout(this,'chart-{{ cpid }}','kd')">KD%</button>
+                    </div>
+                    <div class="cl-vitro-chart-wrap" style="height:180px;">
+                      <canvas id="chart-{{ cpid }}" data-chart="vitro"
+                        data-mrna="{{ card.mrna_pts|safe }}"
+                        data-kd="{{ card.kd_pts|safe }}"></canvas>
+                    </div>
+                  </div>
+                </div>
+                {% endif %}
+                {% if card.attachments %}
+                <div class="cl-src-section">
+                  <div class="cl-src-label">源文件</div>
+                  {% for att in card.attachments %}
+                  <div class="cl-src-item">
+                    <span class="cl-src-name">📊 {{ att.label|default:att.file.name }}</span>
+                    <button class="cl-src-btn" onclick="event.stopPropagation();clTogglePreview(this,'prev-{{ cid }}-{{ att.pk }}',{{ att.pk }})">👁 预览</button>
+                    <a class="cl-src-btn" href="{% url 'attachment_download' att.pk %}">⬇ 下载</a>
+                  </div>
+                  <div class="cl-src-preview-wrap" id="prev-{{ cid }}-{{ att.pk }}"></div>
+                  {% endfor %}
+                </div>
+                {% endif %}
+              </div>
+            </div>
+            {% endwith %}
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          {# ── Vivo batch cards ── #}
+          {% if entry.vivo_batches %}
+          <div class="cl-cep-section-hdr vivo">🐭 体内实验（{{ entry.n_vivo }}批）</div>
+          <div class="cl-batch-cards-grid">
+            {% for card in entry.vivo_batches %}
+            {% with vpid="cbi-"|add:cid|add:"-"|add:card.batch_label %}
+            <div class="cl-batch-card vivo" onclick="clToggleBatchCard(event,'{{ vpid }}')">
+              <div class="cl-card-badge" style="color:#c2410c;">{{ card.batch_label }}</div>
+              <div class="cl-card-meta">
+                {{ card.animal|default:"" }}{% if card.route %} · {{ card.route }}{% endif %}{% if card.schedule %} · {{ card.schedule }}{% endif %}{% if card.date %} · {{ card.date }}{% endif %}
+              </div>
+              <div class="cl-card-metrics">
+                {% if card.peak_kd is not None %}<span class="{{ card.peak_kd|vivo_kd_class }}">峰值KD {{ card.peak_kd|floatformat:0 }}%</span>{% endif %}
+                {% if card.max_bw_drop is not None %}<span style="margin-left:4px;" class="{{ card.max_bw_drop|bw_drop_class }}">体重 {{ card.max_bw_drop|floatformat:1 }}%</span>{% endif %}
+              </div>
+              <div class="cl-card-expand-hint">▼ 展开图表</div>
+              <div class="cl-card-panel" id="{{ vpid }}" onclick="event.stopPropagation()">
+                {% for rd_item in card.readout_data %}
+                {% for sched, sd in rd_item.schedules.items %}
+                <div class="cl-sched-panel" style="margin-top:8px;">
+                  <div class="cl-sched-hdr">
+                    <span style="font-size:9px;font-weight:700;color:#64748b;">
+                      {% if rd_item.readout == 'body_weight' %}体重变化%{% elif rd_item.readout == 'knockdown_pct' %}KD%{% else %}{{ rd_item.readout }}{% endif %}
+                      {% if sched %} · {{ sched }}{% endif %}
+                    </span>
+                    {% if sd.day_range %}<span style="font-size:9px;color:#94a3b8;margin-left:6px;">{{ sd.day_range }}</span>{% endif %}
+                  </div>
+                  <div class="cl-chart-wrap" style="height:160px;">
+                    <canvas id="chart-{{ vpid }}-{{ rd_item.readout }}-{{ forloop.parentloop.counter }}-{{ forloop.counter }}"
+                      data-chart="vivo"
+                      data-readout="{{ rd_item.readout }}"
+                      data-days="{{ sd.days_json }}"
+                      data-groups="{{ sd.groups_json }}"
+                      data-control="{{ sd.control_json }}"></canvas>
+                  </div>
+                  {% if sd.summary_rows %}
+                  <table class="cl-summary-tbl" style="font-size:9px;">
+                    <thead><tr>
+                      <th>组别</th>
+                      {% for d in sd.key_days %}<th class="cl-r">D{{ d|floatformat:0 }}</th>{% endfor %}
+                    </tr></thead>
+                    <tbody>
+                    {% for srow in sd.summary_rows %}
+                    <tr {% if srow.is_control %}class="ctrl-row"{% endif %}>
+                      <td>{{ srow.label }}</td>
+                      {% for v in srow.values %}<td>{{ v|fmt_or_dash:1 }}</td>{% endfor %}
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                  </table>
+                  {% endif %}
+                </div>
+                {% endfor %}
+                {% endfor %}
+                {% if card.attachments %}
+                <div class="cl-src-section">
+                  <div class="cl-src-label">源文件</div>
+                  {% for att in card.attachments %}
+                  <div class="cl-src-item">
+                    <span class="cl-src-name">📊 {{ att.label|default:att.file.name }}</span>
+                    <button class="cl-src-btn" onclick="event.stopPropagation();clTogglePreview(this,'prev-{{ cid }}-vivo-{{ att.pk }}',{{ att.pk }})">👁 预览</button>
+                    <a class="cl-src-btn" href="{% url 'attachment_download' att.pk %}">⬇ 下载</a>
+                  </div>
+                  <div class="cl-src-preview-wrap" id="prev-{{ cid }}-vivo-{{ att.pk }}"></div>
+                  {% endfor %}
+                </div>
+                {% endif %}
+              </div>
+            </div>
+            {% endwith %}
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          <a href="{% url 'compound_detail' cid %}" class="cl-detail-link">📊 查看化合物详情 →</a>
+        </div>
+      </div>
+    </td>
+  </tr>
+  {% endwith %}
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="cl-empty">暂无化合物数据</div>
+{% endif %}
