@@ -40,7 +40,12 @@
 {# ── Page header stats ── #}
 <div class="cl-page-header">
   <div class="cl-stats">
-    <span><strong>{{ page_obj.paginator.count }}</strong> 批次</span>
+    <span><strong>{{ total_compounds }}</strong> 个化合物</span>
+    {% if filtered_compound_count is not None %}
+      <span>筛选命中 <strong>{{ filtered_compound_count }}</strong> 个</span>
+    {% endif %}
+    <span>体外批次 <strong>{{ total_vitro_batches }}</strong></span>
+    <span>体内批次 <strong>{{ total_vivo_batches }}</strong></span>
   </div>
 </div>
 
