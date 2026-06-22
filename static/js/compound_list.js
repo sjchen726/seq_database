@@ -448,14 +448,45 @@ function clToggleVitroReadout(btn, chartId, readout) {
   chart.update();
 }
 
-// ── Compound-view batch card expand/collapse ──────────────────
-function clToggleBatchCard(event, panelId) {
+// ── Compound-view batch card drawer ──────────────────────────
+function clSelectBatchCard(event, cardEl) {
   event.stopPropagation();
+  const drawerId = cardEl.dataset.drawer;
+  const panelId  = cardEl.dataset.panel;
+  const drawer   = document.getElementById(drawerId);
+  const grid     = cardEl.closest('.cl-batch-cards-grid');
+  if (!drawer || !grid) return;
+
+  // Clicking the already-selected card closes the drawer
+  if (cardEl.classList.contains('selected')) {
+    cardEl.classList.remove('selected');
+    drawer.classList.remove('show');
+    return;
+  }
+
+  // Deselect all cards in this grid
+  grid.querySelectorAll('.cl-batch-card').forEach(c => c.classList.remove('selected'));
+  cardEl.classList.add('selected');
+
+  // Hide all panels in drawer, show the target panel
+  drawer.querySelectorAll('.cl-drawer-panel').forEach(p => { p.style.display = 'none'; });
   const panel = document.getElementById(panelId);
-  if (!panel) return;
-  const card = panel.closest('.cl-batch-card');
-  const isOpen = panel.classList.contains('show');
-  panel.classList.toggle('show', !isOpen);
-  if (card) card.classList.toggle('expanded', !isOpen);
-  if (!isOpen) clInitChartsInPanel(panel);
+  if (panel) panel.style.display = 'block';
+
+  // Update drawer title from card badge
+  const badge = cardEl.querySelector('.cl-card-badge');
+  const title = drawer.querySelector('.cl-drawer-title');
+  if (title && badge) title.textContent = badge.textContent.trim();
+
+  // Show drawer and init charts lazily
+  drawer.classList.add('show');
+  if (panel) clInitChartsInPanel(panel);
+}
+
+function clCloseBatchDrawer(event, drawerId) {
+  event.stopPropagation();
+  const drawer = document.getElementById(drawerId);
+  if (!drawer) return;
+  drawer.classList.remove('show');
+  document.querySelectorAll(`[data-drawer="${drawerId}"]`).forEach(c => c.classList.remove('selected'));
 }
