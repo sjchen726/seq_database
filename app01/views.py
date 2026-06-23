@@ -2552,14 +2552,14 @@ def smart_upload_confirm_view(request):
             logger.error(f'smart_upload_confirm invivo error: {e}')
             invivo_errors.append(f'文件 {group["filename"]}: {e}')
 
-    # Clean up any remaining temp files
+    # Clean up any remaining temp files.
+    # invivo_groups saved_paths are deleted inside their transaction block — skip them.
+    # source_files may or may not have been deleted by the attach blocks above, so
+    # let the loop below handle them (default_storage.exists check prevents double-delete).
     handled_paths = set()
     for group in invivo_groups:
         if group.get('saved_path'):
             handled_paths.add(group['saved_path'])
-    for sf in source_files:
-        if sf.get('saved_path'):
-            handled_paths.add(sf['saved_path'])
     for det in smart_preview.get('file_detections', []):
         path = det.get('saved_path', '')
         if path and path not in handled_paths:
