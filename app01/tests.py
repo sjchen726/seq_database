@@ -128,6 +128,7 @@ class ExperimentAndDataPointTest(TestCase):
 from io import BytesIO
 from app01.upload_pipeline import (
     detect_id_format, normalize_compound_ids, parse_seq_file,
+    canonicalize_compound_id,
 )
 
 
@@ -165,6 +166,47 @@ class NormalizeCompoundIdsTest(TestCase):
 
     def test_large_serial_unchanged_for_2digit(self):
         self.assertEqual(normalize_compound_ids(['BPR_3M03FN100'], '2-digit'), ['BPR_3M03FN100'])
+
+
+class CanonicalizeCompoundIdTest(TestCase):
+    def test_already_canonical(self):
+        self.assertEqual(canonicalize_compound_id('BPR3M03-FN01', '3M03'), 'BPR3M03-FN01')
+
+    def test_bpr_underscore_prefix(self):
+        self.assertEqual(canonicalize_compound_id('BPR_3M03FN01', '3M03'), 'BPR3M03-FN01')
+
+    def test_bpr_dash_prefix(self):
+        self.assertEqual(canonicalize_compound_id('BPR-3M03FN01', '3M03'), 'BPR3M03-FN01')
+
+    def test_bpr_no_separator(self):
+        self.assertEqual(canonicalize_compound_id('BPR3M03FN01', '3M03'), 'BPR3M03-FN01')
+
+    def test_bare_project_and_serial(self):
+        self.assertEqual(canonicalize_compound_id('3M03FN01', '3M03'), 'BPR3M03-FN01')
+
+    def test_numeric_serial_bare(self):
+        self.assertEqual(canonicalize_compound_id('350025087', '350'), 'BPR350-025087')
+
+    def test_numeric_bpr_underscore(self):
+        self.assertEqual(canonicalize_compound_id('BPR_350025087', '350'), 'BPR350-025087')
+
+    def test_numeric_bpr_dash(self):
+        self.assertEqual(canonicalize_compound_id('BPR-350025087', '350'), 'BPR350-025087')
+
+    def test_numeric_already_canonical(self):
+        self.assertEqual(canonicalize_compound_id('BPR350-025087', '350'), 'BPR350-025087')
+
+    def test_control_compound_unchanged(self):
+        self.assertEqual(canonicalize_compound_id('Alnylam', '350'), 'Alnylam')
+
+    def test_saline_unchanged(self):
+        self.assertEqual(canonicalize_compound_id('Saline', '3M03'), 'Saline')
+
+    def test_empty_raw_id(self):
+        self.assertEqual(canonicalize_compound_id('', '3M03'), '')
+
+    def test_empty_project_code(self):
+        self.assertEqual(canonicalize_compound_id('BPR_3M03FN01', ''), 'BPR_3M03FN01')
 
 
 class ParseSeqFileTest(TestCase):

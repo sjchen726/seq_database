@@ -119,6 +119,34 @@ def normalize_compound_ids(ids: list, target_format: str) -> list:
     return result
 
 
+def canonicalize_compound_id(raw_id: str, project_code: str) -> str:
+    """Normalize raw_id to BPR<project_code>-<serial> form.
+
+    Returns raw_id unchanged if project_code is absent from the ID (control compounds).
+    """
+    if not raw_id or not project_code:
+        return raw_id
+    if raw_id.startswith(f'BPR{project_code}-'):
+        return raw_id
+    serial = None
+    for prefix in (
+        f'BPR_{project_code}',
+        f'BPR-{project_code}',
+        f'BPR{project_code}-',
+        f'BPR{project_code}',
+        project_code,
+    ):
+        if raw_id.startswith(prefix):
+            serial = raw_id[len(prefix):]
+            break
+    if serial is None:
+        return raw_id
+    serial = serial.lstrip('-')
+    if not serial:
+        return raw_id
+    return f'BPR{project_code}-{serial}'
+
+
 def parse_seq_file(file) -> ParsedSeqFile:
     """Parse ID_sequence.csv (columns: siRNAID, SS, AS)."""
     text = _read_csv_text(file)
