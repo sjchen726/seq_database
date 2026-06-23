@@ -2336,6 +2336,7 @@ def smart_upload_confirm_view(request):
     n_attachments = 0
     invitro_errors = []
     invivo_errors = []
+    dup_warnings = []  # filenames skipped because already attached to that experiment
 
     # Write in-vitro (one atomic transaction)
     vitro_experiments = []  # collected for source-file attachment below
@@ -2431,6 +2432,10 @@ def smart_upload_confirm_view(request):
             saved_path = sf.get('saved_path', '')
             if not saved_path or not default_storage.exists(saved_path):
                 continue
+            if ExperimentAttachment.objects.filter(
+                    experiment=vitro_experiments[0], label=sf['filename']).exists():
+                dup_warnings.append(sf['filename'])
+                continue
             try:
                 with default_storage.open(saved_path, 'rb') as fh:
                     content = fh.read()
@@ -2466,6 +2471,10 @@ def smart_upload_confirm_view(request):
                     with default_storage.open(saved_path, 'rb') as fh:
                         content = fh.read()
                     for exp in target_exps:
+                        if ExperimentAttachment.objects.filter(
+                                experiment=exp, label=sf['filename']).exists():
+                            dup_warnings.append(sf['filename'])
+                            continue
                         att = ExperimentAttachment(experiment=exp, label=sf['filename'])
                         att.file.save(sf['filename'], CF(content), save=True)
                         n_attachments += 1
@@ -2539,6 +2548,10 @@ def smart_upload_confirm_view(request):
                         sf_path = sf.get('saved_path', '')
                         if not sf_path or not default_storage.exists(sf_path):
                             continue
+                        if ExperimentAttachment.objects.filter(
+                                experiment=invivo_exps[0], label=sf['filename']).exists():
+                            dup_warnings.append(sf['filename'])
+                            continue
                         try:
                             with default_storage.open(sf_path, 'rb') as fh:
                                 sf_content = fh.read()
@@ -2602,6 +2615,10 @@ def smart_upload_confirm_view(request):
         messages.warning(request, f'部分写入失败：{"；".join(all_err)}')
     else:
         messages.success(request, f'数据已上传：{", ".join(parts) or "0 条"}')
+
+    if dup_warnings:
+        unique_dups = sorted(set(dup_warnings))
+        messages.warning(request, f'以下文件已存在于目标实验，跳过重复上传：{"、".join(unique_dups)}')
 
     return redirect('smart_upload')
 
