@@ -1933,18 +1933,18 @@ def _build_smart_preview(file_detections: list, project_code: str) -> dict:
     Each `file_detections` entry MUST have:
       filename, saved_path, file_type_code, readout_code
 
-    Known parsing codes: vitro_summary / vitro_seq / vitro_cp / vitro_transfection
-    / invivo_summary. Anything else (including custom_attachment + user-added)
-    lands in `attachment_files` with no parsing.
+    Known parsing codes: vitro_summary / vitro_seq / invivo_summary.
+    Anything else (including custom_attachment + user-added)
+    lands in `source_files` with no parsing.
     """
     from app01.models import UploadVocabulary
 
     invitro_type_files = {
-        'vitro_seq': [], 'vitro_summary': [],
-        'vitro_cp': [], 'vitro_transfection': [],
+        'vitro_seq': [],
+        'vitro_summary': [],
     }
     invivo_groups = []
-    attachment_files = []
+    source_files = []
     errors = []
 
     vocab_label_by_code = {
@@ -2000,8 +2000,8 @@ def _build_smart_preview(file_detections: list, project_code: str) -> dict:
                 errors.append(f'{det["filename"]}: 体内数据解析失败 {e}')
             continue
 
-        # Anything else → store as attachment, no parsing
-        attachment_files.append({
+        # Anything else → source file, no parsing
+        source_files.append({
             'filename': det['filename'],
             'saved_path': det['saved_path'],
             'vocab_code': code,
@@ -2010,8 +2010,6 @@ def _build_smart_preview(file_detections: list, project_code: str) -> dict:
 
     seq_parsed = None
     summary_parsed = None
-    cp_parsed_list = []
-    transfection_parsed = None
 
     for filename, file_bytes in invitro_type_files['vitro_seq']:
         try:
@@ -2025,50 +2023,33 @@ def _build_smart_preview(file_detections: list, project_code: str) -> dict:
         except Exception as e:
             errors.append(f'{filename}: 汇总表解析失败 {e}')
 
-    for filename, file_bytes in invitro_type_files['vitro_cp']:
-        try:
-            cp_parsed_list.append(parse_cp_file(_BytesFile(file_bytes)))
-        except Exception as e:
-            errors.append(f'{filename}: Cp 文件解析失败 {e}')
-
-    for filename, file_bytes in invitro_type_files['vitro_transfection']:
-        try:
-            transfection_parsed = parse_transfection_file(_BytesFile(file_bytes))
-        except Exception as e:
-            errors.append(f'{filename}: 转染文件解析失败 {e}')
-
     invitro = None
-    if seq_parsed or summary_parsed or cp_parsed_list:
+    if seq_parsed or summary_parsed:
         try:
-            assay_name = (
-                (summary_parsed.assay_name if summary_parsed else '')
-                or (cp_parsed_list[0].assay_name if cp_parsed_list else '')
-            )
+            assay_name = summary_parsed.assay_name if summary_parsed else ''
             invitro = build_preview(
-                seq_parsed, summary_parsed, cp_parsed_list,
+                seq_parsed, summary_parsed, [],
                 batch_label='', assay_name=assay_name, exp_date=None,
-                transfection_parsed=transfection_parsed,
+                transfection_parsed=None,
             )
         except Exception as e:
             errors.append(f'体外数据整合失败：{e}')
 
     has_no_seq = bool(invitro) and not (invitro.get('strand_map') or seq_parsed)
 
-    # True when uploaded files produce no experiments and no strands — only raw source files
-    # (e.g. Cp file or transfection file without a summary). User will pick which batch to attach to.
-    is_source_only = (
-        bool(invitro) and
-        not invitro.get('experiments') and
-        not invitro.get('strand_map') and
-        not invivo_groups
+    has_exp_data = (
+        bool(invitro and invitro.get('experiments')) or
+        bool(invitro and invitro.get('strand_map')) or
+        bool(invivo_groups)
     )
+    is_source_only = bool(source_files) and not has_exp_data
 
     return {
         'project_code': project_code,
         'file_detections': file_detections,
         'invitro': invitro,
         'invivo_groups': invivo_groups,
-        'attachment_files': attachment_files,
+        'source_files': source_files,
         'errors': errors,
         'has_no_seq': has_no_seq,
         'is_source_only': is_source_only,
@@ -2173,16 +2154,35 @@ def smart_upload_view(request):
     )
 
     if request.GET.get('preview') and 'smart_preview' in request.session:
+        import json as _json
+        preview_data = request.session['smart_preview']
+        proj = preview_data.get('project_code', '')
+        qs = Experiment.objects.filter(compound__project=proj) if proj else Experiment.objects
         available_batches = list(
-            Experiment.objects.values_list('batch_label', flat=True)
+            qs.order_by().values_list('batch_label', flat=True)
             .distinct().order_by('-batch_label')
         )
+        # Build {batch_label: [{exp_type, label, pk}]} for JS checkbox population
+        batch_experiments = {}
+        for exp in qs.order_by('-batch_label'):
+            bl = exp.batch_label
+            if not bl:
+                continue
+            if bl not in batch_experiments:
+                batch_experiments[bl] = []
+            label = exp.assay_name or bl
+            batch_experiments[bl].append({
+                'exp_type': exp.exp_type,
+                'label': label,
+                'pk': exp.pk,
+            })
         return render(request, 'smart_upload.html', {
-            'preview': request.session['smart_preview'],
+            'preview': preview_data,
             'vocab_file_types': vocab_file_types,
             'vocab_readouts': vocab_readouts,
             'suggested_batch_label': _generate_batch_label(),
             'available_batches': available_batches,
+            'batch_experiments_json': _json.dumps(batch_experiments),
         })
 
     if 'smart_preview' in request.session:
