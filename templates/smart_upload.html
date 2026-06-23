@@ -149,9 +149,26 @@
       ci.style.display = (sel.value === '__new__') ? 'block' : 'none';
       ci.required = (sel.value === '__new__');
     }
-    function onAttContext(sel, i) {
-      document.getElementById('att_vitro_' + i).style.display = (sel.value === 'vitro') ? 'block' : 'none';
-      document.getElementById('att_invivo_' + i).style.display = (sel.value === 'invivo') ? 'block' : 'none';
+    var BATCH_EXPERIMENTS = {{ batch_experiments_json|default:"{}"|safe }};
+    function onSourceBatchChange(sel) {
+      var batch = sel.value;
+      var box = document.getElementById('source-exp-checkboxes');
+      if (!box) return;
+      box.innerHTML = '';
+      var exps = BATCH_EXPERIMENTS[batch] || [];
+      var hasVitro = exps.some(function(e){ return e.exp_type === 'in_vitro'; });
+      var hasVivo  = exps.some(function(e){ return e.exp_type === 'in_vivo'; });
+      if (hasVitro) {
+        box.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;">'
+          + '<input type="checkbox" name="source_exp_vitro" value="1" checked> 体外实验</label>';
+      }
+      if (hasVivo) {
+        box.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;">'
+          + '<input type="checkbox" name="source_exp_vivo" value="1" checked> 体内实验</label>';
+      }
+      if (!hasVitro && !hasVivo) {
+        box.innerHTML = '<span style="font-size:11px;color:#94a3b8;">该批次暂无实验记录</span>';
+      }
     }
   </script>
 
@@ -182,16 +199,29 @@
     </div>
     {% elif preview.is_source_only %}
     <div style="border:1px solid #dbeafe;border-radius:8px;padding:12px 16px;margin-bottom:16px;background:#eff6ff;">
-      <div style="font-size:13px;color:#1d4ed8;font-weight:600;margin-bottom:8px;">📎 上传原始源文件 — 请选择要附加到的批次</div>
-      <div style="font-size:11px;color:#64748b;margin-bottom:10px;">这些文件将作为附件保存，可在化合物列表汇总图下方查看下载。</div>
-      <div>
-        <label class="ds-form-label" style="margin-bottom:4px;">附加到批次 *</label>
-        <select name="source_batch" class="ds-form-control" style="width:220px;" required>
-          <option value="">— 请选择批次 —</option>
-          {% for bl in available_batches %}
-          <option value="{{ bl }}">{{ bl }}</option>
-          {% endfor %}
-        </select>
+      <div style="font-size:13px;color:#1d4ed8;font-weight:600;margin-bottom:8px;">📎 源文件（{{ preview.source_files|length }} 个）</div>
+      <div style="margin-bottom:10px;">
+        {% for sf in preview.source_files %}
+        <div style="font-size:12px;color:#374151;">└ {{ sf.filename }} <span style="color:#94a3b8;">{{ sf.label }}</span></div>
+        {% endfor %}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div>
+          <label class="ds-form-label" style="margin-bottom:4px;">批次 *</label>
+          <select name="source_batch" class="ds-form-control" style="width:220px;"
+                  required onchange="onSourceBatchChange(this)">
+            <option value="">— 请选择批次 —</option>
+            {% for bl in available_batches %}
+            <option value="{{ bl }}">{{ bl }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <div class="ds-form-label" style="margin-bottom:4px;">关联实验</div>
+          <div id="source-exp-checkboxes" style="display:flex;flex-direction:column;gap:4px;">
+            <span style="font-size:11px;color:#94a3b8;">请先选择批次</span>
+          </div>
+        </div>
       </div>
     </div>
     {% endif %}
@@ -356,60 +386,8 @@
     </div>
     {% endfor %}
 
-    {% if preview.attachment_files %}
-    <div style="border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;margin-bottom:16px;background:#f8fafc;">
-      <div style="font-weight:600;font-size:13px;color:#1e293b;margin-bottom:10px;">📎 附件文件（不解析，作为项目附件保存）</div>
-      {% for af in preview.attachment_files %}
-      <div style="border:1px solid #e2e8f0;border-radius:6px;padding:10px 12px;margin-bottom:10px;background:white;">
-        <div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:8px;">
-          {{ af.filename }}
-          <span style="font-weight:400;color:#94a3b8;margin-left:6px;">{{ af.label }}</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <label style="font-size:12px;color:#475569;flex-shrink:0;">实验关联</label>
-          <select name="att_{{ forloop.counter0 }}_context" class="ds-form-control" style="width:140px;font-size:12px;"
-                  onchange="onAttContext(this, {{ forloop.counter0 }})">
-            <option value="">-- 不填 --</option>
-            <option value="vitro">体外实验</option>
-            <option value="invivo">体内实验</option>
-          </select>
-        </div>
-        <div id="att_vitro_{{ forloop.counter0 }}" style="display:none;margin-top:8px;">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <label style="font-size:12px;color:#475569;flex-shrink:0;">细胞系</label>
-            <input type="text" name="att_{{ forloop.counter0 }}_cell_line"
-                   class="ds-form-control" style="width:180px;font-size:12px;"
-                   placeholder="如 Hepa1-6、HepG2">
-          </div>
-        </div>
-        <div id="att_invivo_{{ forloop.counter0 }}" style="display:none;margin-top:8px;">
-          <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <div>
-              <label style="font-size:11px;color:#64748b;display:block;">动物模型</label>
-              <input type="text" name="att_{{ forloop.counter0 }}_animal_model"
-                     class="ds-form-control" style="width:150px;font-size:12px;"
-                     placeholder="如 C57BL/6 小鼠">
-            </div>
-            <div>
-              <label style="font-size:11px;color:#64748b;display:block;">剂量</label>
-              <input type="text" name="att_{{ forloop.counter0 }}_dose"
-                     class="ds-form-control" style="width:120px;font-size:12px;"
-                     placeholder="如 5 mg/kg">
-            </div>
-            <div>
-              <label style="font-size:11px;color:#64748b;display:block;">数据类型</label>
-              <input type="text" name="att_{{ forloop.counter0 }}_data_type"
-                     class="ds-form-control" style="width:180px;font-size:12px;"
-                     placeholder="如 体重、mRNA剩余量、肿瘤体积">
-            </div>
-          </div>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-    {% endif %}
 
-    {% if preview.invitro or preview.invivo_groups or preview.attachment_files %}
+    {% if preview.invitro or preview.invivo_groups or preview.source_files %}
     <div style="border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;margin-bottom:16px;background:#f8fafc;">
       <div style="font-weight:600;font-size:13px;color:#1e293b;margin-bottom:10px;">🏷 靶点信息</div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
