@@ -2204,14 +2204,16 @@ def smart_upload_confirm_view(request):
 
     invitro = smart_preview.get('invitro')
     invivo_groups = smart_preview.get('invivo_groups', [])
-    attachment_files = smart_preview.get('attachment_files', [])
+    source_files = smart_preview.get('source_files', [])
     project_code = smart_preview.get('project_code', '')
 
     batch_label = request.POST.get('batch_label', '').strip()
     assay_name = request.POST.get('assay_name', '').strip()
     exp_date = request.POST.get('exp_date', '').strip() or None
     target_name_input = request.POST.get('target_name', '').strip()
-    source_batch = request.POST.get('source_batch', '').strip()  # for source-file-only uploads
+    source_batch = request.POST.get('source_batch', '').strip()
+    attach_vitro = request.POST.get('source_exp_vitro') == '1'
+    attach_vivo  = request.POST.get('source_exp_vivo')  == '1'
 
     is_source_only = smart_preview.get('is_source_only', False)
 
@@ -2229,6 +2231,8 @@ def smart_upload_confirm_view(request):
 
     if is_source_only and not source_batch:
         errors.append('请选择要附加到的批次')
+    if is_source_only and source_batch and not (attach_vitro or attach_vivo):
+        errors.append('请至少选择一种实验类型（体外或体内）')
 
     if has_exp_data:
         # Content-based duplicate check: ID + data values identical to any existing batch
@@ -2302,14 +2306,28 @@ def smart_upload_confirm_view(request):
         })
 
     if errors:
+        import json as _json
         from app01.models import UploadVocabulary
+        qs_err = Experiment.objects.filter(compound__project=project_code) if project_code else Experiment.objects
+        batch_exp_err = {}
+        for exp in qs_err.order_by('-batch_label'):
+            bl = exp.batch_label
+            if not bl:
+                continue
+            if bl not in batch_exp_err:
+                batch_exp_err[bl] = []
+            batch_exp_err[bl].append({'exp_type': exp.exp_type, 'label': exp.assay_name or bl, 'pk': exp.pk})
         return render(request, 'smart_upload.html', {
             'preview': smart_preview,
             'errors': errors,
             'vocab_file_types': list(UploadVocabulary.objects.filter(category='file_type').order_by('-is_builtin', 'label')),
             'vocab_readouts': list(UploadVocabulary.objects.filter(category='invivo_readout').order_by('-is_builtin', 'label')),
             'suggested_batch_label': _generate_batch_label(),
-            'available_batches': list(Experiment.objects.values_list('batch_label', flat=True).distinct().order_by('-batch_label')),
+            'available_batches': list(
+                qs_err.order_by().values_list('batch_label', flat=True)
+                .distinct().order_by('-batch_label')
+            ),
+            'batch_experiments_json': _json.dumps(batch_exp_err),
         })
 
     n_experiments = 0
@@ -2318,7 +2336,6 @@ def smart_upload_confirm_view(request):
     n_attachments = 0
     invitro_errors = []
     invivo_errors = []
-    attachment_errors = []
 
     # Write in-vitro (one atomic transaction)
     vitro_experiments = []  # collected for source-file attachment below
@@ -2407,45 +2424,51 @@ def smart_upload_confirm_view(request):
             logger.error(f'smart_upload_confirm invitro error: {e}')
             invitro_errors.append(str(e))
 
-    # Attach vitro source files to the FIRST vitro experiment only (batch-level, one record per file)
-    VITRO_SOURCE_CODES = {'vitro_summary', 'vitro_seq', 'vitro_cp', 'vitro_transfection'}
-    if vitro_experiments and not invitro_errors:
+    # Auto-attach all source files to newly created vitro experiments
+    if vitro_experiments and source_files and not invitro_errors:
         from django.core.files.base import ContentFile as CF
-        for det in smart_preview.get('file_detections', []):
-            if det.get('file_type_code') not in VITRO_SOURCE_CODES:
-                continue
-            saved_path = det.get('saved_path', '')
+        for sf in source_files:
+            saved_path = sf.get('saved_path', '')
             if not saved_path or not default_storage.exists(saved_path):
                 continue
             try:
                 with default_storage.open(saved_path, 'rb') as fh:
                     content = fh.read()
                 att = ExperimentAttachment(
-                    experiment=vitro_experiments[0], label=det['filename'])
-                att.file.save(det['filename'], CF(content), save=True)
+                    experiment=vitro_experiments[0], label=sf['filename'])
+                att.file.save(sf['filename'], CF(content), save=True)
                 n_attachments += 1
-                default_storage.delete(saved_path)
             except Exception as e:
-                logger.error(f'smart_upload source attachment error: {e}')
+                logger.error(f'smart_upload source vitro attachment error: {e}')
 
-    # Source-only upload: attach all source files to every experiment in the selected batch
-    if is_source_only and source_batch:
+    # Source-only upload: attach source files to experiments in the selected batch
+    if is_source_only and source_batch and source_files:
         from django.core.files.base import ContentFile as CF
-        target_exps = list(Experiment.objects.filter(batch_label=source_batch))
-        if not target_exps:
-            invitro_errors.append(f'批次 {source_batch} 不存在或无实验记录')
-        else:
-            for det in smart_preview.get('file_detections', []):
-                saved_path = det.get('saved_path', '')
+        target_exps = []
+        if attach_vitro:
+            exp = Experiment.objects.filter(batch_label=source_batch, exp_type='in_vitro').first()
+            if exp:
+                target_exps.append(exp)
+            else:
+                invitro_errors.append(f'批次 {source_batch} 无体外实验记录')
+        if attach_vivo:
+            exp = Experiment.objects.filter(batch_label=source_batch, exp_type='in_vivo').first()
+            if exp:
+                target_exps.append(exp)
+            else:
+                invivo_errors.append(f'批次 {source_batch} 无体内实验记录')
+        if target_exps:
+            for sf in source_files:
+                saved_path = sf.get('saved_path', '')
                 if not saved_path or not default_storage.exists(saved_path):
                     continue
                 try:
                     with default_storage.open(saved_path, 'rb') as fh:
                         content = fh.read()
-                    att = ExperimentAttachment(
-                        experiment=target_exps[0], label=det['filename'])
-                    att.file.save(det['filename'], CF(content), save=True)
-                    n_attachments += 1
+                    for exp in target_exps:
+                        att = ExperimentAttachment(experiment=exp, label=sf['filename'])
+                        att.file.save(sf['filename'], CF(content), save=True)
+                        n_attachments += 1
                     default_storage.delete(saved_path)
                 except Exception as e:
                     logger.error(f'smart_upload source-only attachment error: {e}')
@@ -2508,59 +2531,35 @@ def smart_upload_confirm_view(request):
                     att.file.save(group['filename'], CF(content), save=True)
                     n_attachments += 1
                     default_storage.delete(saved_path)
+
+                # Auto-attach source files to the first new in-vivo experiment
+                if invivo_exps and source_files and not vitro_experiments:
+                    from django.core.files.base import ContentFile as CF
+                    for sf in source_files:
+                        sf_path = sf.get('saved_path', '')
+                        if not sf_path or not default_storage.exists(sf_path):
+                            continue
+                        try:
+                            with default_storage.open(sf_path, 'rb') as fh:
+                                sf_content = fh.read()
+                            att = ExperimentAttachment(
+                                experiment=invivo_exps[0], label=sf['filename'])
+                            att.file.save(sf['filename'], CF(sf_content), save=True)
+                            n_attachments += 1
+                        except Exception as e:
+                            logger.error(f'smart_upload source vivo attachment error: {e}')
         except Exception as e:
             logger.error(f'smart_upload_confirm invivo error: {e}')
             invivo_errors.append(f'文件 {group["filename"]}: {e}')
 
-    # Write project attachments (custom-typed files)
-    if attachment_files:
-        from app01.models import ProjectAttachment
-        from django.core.files.base import ContentFile as CF
-        for att_idx, af in enumerate(attachment_files):
-            saved_path = af['saved_path']
-            try:
-                if not default_storage.exists(saved_path):
-                    attachment_errors.append(f'文件 {af["filename"]}: 临时文件已丢失')
-                    continue
-                with default_storage.open(saved_path, 'rb') as fh:
-                    content = fh.read()
-                att_context = request.POST.get(f'att_{att_idx}_context', '').strip()
-                att_notes = {}
-                if att_context == 'vitro':
-                    att_notes = {
-                        'context': 'vitro',
-                        'cell_line': request.POST.get(f'att_{att_idx}_cell_line', '').strip(),
-                    }
-                elif att_context == 'invivo':
-                    att_notes = {
-                        'context': 'invivo',
-                        'animal_model': request.POST.get(f'att_{att_idx}_animal_model', '').strip(),
-                        'dose': request.POST.get(f'att_{att_idx}_dose', '').strip(),
-                        'data_type': request.POST.get(f'att_{att_idx}_data_type', '').strip(),
-                    }
-                pa = ProjectAttachment(
-                    project=project_code,
-                    label=af['label'],
-                    vocab_code=af['vocab_code'],
-                    original_filename=af['filename'],
-                    uploaded_by=request.user if request.user.is_authenticated else None,
-                    notes=att_notes or None,
-                )
-                pa.file.save(af['filename'], CF(content), save=True)
-                default_storage.delete(saved_path)
-                n_attachments += 1
-            except Exception as e:
-                logger.error(f'smart_upload_confirm attachment error: {e}')
-                attachment_errors.append(f'文件 {af["filename"]}: {e}')
-
-    # Clean up any remaining temp files (in-vivo + attachment paths already handled above)
+    # Clean up any remaining temp files
     handled_paths = set()
     for group in invivo_groups:
         if group.get('saved_path'):
             handled_paths.add(group['saved_path'])
-    for af in attachment_files:
-        if af.get('saved_path'):
-            handled_paths.add(af['saved_path'])
+    for sf in source_files:
+        if sf.get('saved_path'):
+            handled_paths.add(sf['saved_path'])
     for det in smart_preview.get('file_detections', []):
         path = det.get('saved_path', '')
         if path and path not in handled_paths:
@@ -2598,7 +2597,7 @@ def smart_upload_confirm_view(request):
     if n_attachments:
         parts.append(f'{n_attachments} 个附件')
 
-    all_err = invitro_errors + invivo_errors + attachment_errors
+    all_err = invitro_errors + invivo_errors
     if all_err:
         messages.warning(request, f'部分写入失败：{"；".join(all_err)}')
     else:
