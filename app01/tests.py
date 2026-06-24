@@ -1980,9 +1980,6 @@ class BuildUserCidRemapTest(TestCase):
         self.assertEqual(errors, [])
 
 
-import json as _json_mod
-
-
 class ExperimentsBulkDeleteTest(TestCase):
     def _make_data(self):
         compound = Compound.objects.create(compound_id='BPR350-TEST01')

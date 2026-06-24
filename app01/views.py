@@ -1483,7 +1483,10 @@ def experiments_bulk_delete(request):
     )
     if not allowed:
         return JsonResponse({'error': '权限不足'}, status=403)
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({'error': 'invalid JSON'}, status=400)
     exp_ids = data.get('exp_ids', [])
     _, breakdown = Experiment.objects.filter(id__in=exp_ids).delete()
     count = breakdown.get('app01.Experiment', 0)
