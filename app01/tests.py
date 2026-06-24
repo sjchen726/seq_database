@@ -27,6 +27,26 @@ class ParseCompoundIdTest(TestCase):
         self.assertEqual(project, '')
         self.assertEqual(target, '')
 
+    def test_new_format_alpha_serial_2digit(self):
+        project, target = _parse_compound_id('BPR3M03-FN01')
+        self.assertEqual(project, '3M03')
+        self.assertEqual(target, 'FN')
+
+    def test_new_format_alpha_serial_3digit(self):
+        project, target = _parse_compound_id('BPR3M03-FN001')
+        self.assertEqual(project, '3M03')
+        self.assertEqual(target, 'FN')
+
+    def test_new_format_numeric_serial(self):
+        project, target = _parse_compound_id('BPR350-025087')
+        self.assertEqual(project, '350')
+        self.assertEqual(target, '')
+
+    def test_new_format_different_target(self):
+        project, target = _parse_compound_id('BPR4A01-CD05')
+        self.assertEqual(project, '4A01')
+        self.assertEqual(target, 'CD')
+
 
 class CompoundModelTest(TestCase):
     def test_create_auto_parses_project_target(self):

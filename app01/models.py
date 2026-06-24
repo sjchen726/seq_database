@@ -57,10 +57,16 @@ class DeliveryModule(models.Model):
 
 
 def _parse_compound_id(compound_id):
-    """Parse BPR_3M03FN01 → project='3M03', target='FN'.
-    Assumes project code is alphanumeric (digits + uppercase) and target is exactly 2 uppercase letters.
-    The greedy match on project is correct as long as the project code does not end in 2+ uppercase letters.
+    """Parse compound ID → (project_code, target_prefix).
+
+    Handles new canonical format BPR3M03-FN01 and legacy BPR_3M03FN01.
     """
+    m = re.match(r'^BPR([A-Z0-9]+)-([A-Z]{2})\d', compound_id)
+    if m:
+        return m.group(1), m.group(2)
+    m = re.match(r'^BPR([A-Z0-9]+)-\d', compound_id)
+    if m:
+        return m.group(1), ''
     m = re.match(r'^BPR_([A-Z0-9]+)([A-Z]{2})(\d{2,3})$', compound_id)
     if m:
         return m.group(1), m.group(2)
