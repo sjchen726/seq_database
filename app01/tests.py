@@ -1867,3 +1867,61 @@ class CompoundDetailInvivoChartContextTest(TestCase):
         self.assertEqual(item['readout_type'], 'knockdown_pct')
         self.assertEqual(len(item['series']), 1)
         self.assertEqual(item['series'][0]['points'][0]['x'], 7.0)
+
+
+class SmartPreviewUniqueCompoundIdsTest(TestCase):
+    def _make_preview(self, vitro_cids=None, invivo_cids=None):
+        """Build a minimal _build_smart_preview return dict for testing."""
+        invitro = None
+        if vitro_cids is not None:
+            invitro = {
+                'experiments': [{'compound_id': c} for c in vitro_cids],
+                'strand_map': {},
+                'new_compounds': [],
+                'id_format_mismatch': {},
+                'assay_name': '',
+                'exp_date': None,
+            }
+        invivo_groups = []
+        if invivo_cids is not None:
+            invivo_groups = [{'groups': [{'compound_id': c} for c in invivo_cids]}]
+        return invitro, invivo_groups
+
+    def test_vitro_only_deduplication(self):
+        invitro, invivo_groups = self._make_preview(
+            vitro_cids=['BPR3M03-FN01', 'BPR3M03-FN02', 'BPR3M03-FN01', 'Saline']
+        )
+        from app01.views import _collect_unique_compound_ids
+        result = _collect_unique_compound_ids(invitro, invivo_groups)
+        self.assertEqual(result, ['BPR3M03-FN01', 'BPR3M03-FN02', 'Saline'])
+
+    def test_invivo_only(self):
+        invitro, invivo_groups = self._make_preview(
+            invivo_cids=['BPR350-025087', 'Saline']
+        )
+        from app01.views import _collect_unique_compound_ids
+        result = _collect_unique_compound_ids(invitro, invivo_groups)
+        self.assertEqual(result, ['BPR350-025087', 'Saline'])
+
+    def test_both_vitro_and_invivo_no_overlap(self):
+        invitro, invivo_groups = self._make_preview(
+            vitro_cids=['BPR3M03-FN01'],
+            invivo_cids=['BPR350-025087'],
+        )
+        from app01.views import _collect_unique_compound_ids
+        result = _collect_unique_compound_ids(invitro, invivo_groups)
+        self.assertEqual(result, ['BPR3M03-FN01', 'BPR350-025087'])
+
+    def test_overlap_between_vitro_and_invivo(self):
+        invitro, invivo_groups = self._make_preview(
+            vitro_cids=['BPR3M03-FN01', 'Saline'],
+            invivo_cids=['Saline', 'BPR350-025087'],
+        )
+        from app01.views import _collect_unique_compound_ids
+        result = _collect_unique_compound_ids(invitro, invivo_groups)
+        self.assertEqual(result, ['BPR3M03-FN01', 'Saline', 'BPR350-025087'])
+
+    def test_no_experiments(self):
+        from app01.views import _collect_unique_compound_ids
+        result = _collect_unique_compound_ids(None, [])
+        self.assertEqual(result, [])

@@ -1524,6 +1524,24 @@ def _ensure_vocab(category: str, label: str):
     return obj
 
 
+def _collect_unique_compound_ids(invitro, invivo_groups):
+    """Return ordered list of unique compound IDs across invitro experiments and invivo groups."""
+    seen = set()
+    result = []
+    for exp in (invitro.get('experiments', []) if invitro else []):
+        cid = exp['compound_id']
+        if cid not in seen:
+            seen.add(cid)
+            result.append(cid)
+    for group in invivo_groups:
+        for g in group.get('groups', []):
+            cid = g['compound_id']
+            if cid not in seen:
+                seen.add(cid)
+                result.append(cid)
+    return result
+
+
 def _build_smart_preview(file_detections: list, project_code: str) -> dict:
     """
     Build the smart upload preview from user-classified files.
@@ -1651,6 +1669,7 @@ def _build_smart_preview(file_detections: list, project_code: str) -> dict:
         'errors': errors,
         'has_no_seq': has_no_seq,
         'is_source_only': is_source_only,
+        'unique_compound_ids': _collect_unique_compound_ids(invitro, invivo_groups),
     }
 
 
