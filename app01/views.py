@@ -1493,6 +1493,46 @@ def experiments_bulk_delete(request):
     return JsonResponse({'deleted': count})
 
 
+@login_required
+def experiments_export_csv(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'method not allowed'}, status=405)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({'error': 'invalid JSON'}, status=400)
+    exp_ids = data.get('exp_ids', [])
+    exps = (
+        Experiment.objects
+        .filter(id__in=exp_ids)
+        .select_related('compound', 'summary')
+        .prefetch_related('datapoints')
+    )
+    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = 'attachment; filename="compound_export.csv"'
+    writer = csv.writer(response)
+    writer.writerow([
+        'compound_id', 'batch_label', 'exp_type', 'assay_name',
+        'cell_line', 'date', 'ic50_nm', 'max_kd_pct',
+        'x_type', 'x_value', 'readout_type', 'replicate', 'value',
+    ])
+    for exp in exps:
+        try:
+            ic50 = exp.summary.ic50_nm
+            max_kd = exp.summary.max_kd_pct
+        except ExperimentSummary.DoesNotExist:
+            ic50 = None
+            max_kd = None
+        for dp in exp.datapoints.all():
+            writer.writerow([
+                exp.compound_id, exp.batch_label, exp.exp_type,
+                exp.assay_name, exp.cell_line, exp.date,
+                ic50, max_kd,
+                dp.x_type, dp.x_value, dp.readout_type, dp.replicate, dp.value,
+            ])
+    return response
+
+
 def _read_from_storage(path: str):
     """Read bytes from default_storage path; returns None if missing or on error."""
     try:

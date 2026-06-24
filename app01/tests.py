@@ -2037,3 +2037,63 @@ class ExperimentsBulkDeleteTest(TestCase):
         self.client.login(username='bdt_da3', password='pass')
         r = self.client.get('/api/experiments/bulk-delete/')
         self.assertEqual(r.status_code, 405)
+
+
+class ExperimentsExportCsvTest(TestCase):
+    def _make_data(self):
+        compound = Compound.objects.create(compound_id='BPR350-TEST02')
+        self.exp = Experiment.objects.create(
+            compound=compound,
+            exp_type='in_vitro',
+            assay_name='export test assay',
+            cell_line='Hepa1-6',
+            batch_label='2099-02',
+        )
+        DataPoint.objects.create(
+            experiment=self.exp,
+            x_value=10.0, x_type='concentration',
+            replicate='Mean', value=0.4, readout_type='mRNA_remaining',
+        )
+        LmsUser.objects.create_user(username='csv_u1', password='pass', user_type='admin')
+
+    def test_returns_csv_content_type(self):
+        self._make_data()
+        self.client.login(username='csv_u1', password='pass')
+        r = self.client.post(
+            '/api/experiments/export-csv/',
+            data=_json_mod.dumps({'exp_ids': [self.exp.id]}),
+            content_type='application/json',
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('text/csv', r.get('Content-Type', ''))
+
+    def test_csv_header_row(self):
+        self._make_data()
+        self.client.login(username='csv_u1', password='pass')
+        r = self.client.post(
+            '/api/experiments/export-csv/',
+            data=_json_mod.dumps({'exp_ids': [self.exp.id]}),
+            content_type='application/json',
+        )
+        content = r.content.decode('utf-8-sig')
+        self.assertIn('compound_id', content)
+        self.assertIn('batch_label', content)
+        self.assertIn('ic50_nm', content)
+
+    def test_csv_data_row(self):
+        self._make_data()
+        self.client.login(username='csv_u1', password='pass')
+        r = self.client.post(
+            '/api/experiments/export-csv/',
+            data=_json_mod.dumps({'exp_ids': [self.exp.id]}),
+            content_type='application/json',
+        )
+        content = r.content.decode('utf-8-sig')
+        self.assertIn('BPR350-TEST02', content)
+        self.assertIn('2099-02', content)
+
+    def test_get_not_allowed(self):
+        LmsUser.objects.create_user(username='csv_u2', password='pass', user_type='admin')
+        self.client.login(username='csv_u2', password='pass')
+        r = self.client.get('/api/experiments/export-csv/')
+        self.assertEqual(r.status_code, 405)
