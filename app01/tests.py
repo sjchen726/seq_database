@@ -209,6 +209,38 @@ class CanonicalizeCompoundIdTest(TestCase):
         self.assertEqual(canonicalize_compound_id('BPR_3M03FN01', ''), 'BPR_3M03FN01')
 
 
+class DetectIdFormatNewFormatTest(TestCase):
+    def test_new_format_2digit(self):
+        self.assertEqual(detect_id_format(['BPR3M03-FN01', 'BPR3M03-FN02']), '2-digit')
+
+    def test_new_format_3digit(self):
+        self.assertEqual(detect_id_format(['BPR3M03-FN001', 'BPR3M03-FN002']), '3-digit')
+
+    def test_new_format_mixed(self):
+        self.assertEqual(detect_id_format(['BPR3M03-FN01', 'BPR3M03-FN002']), 'mixed')
+
+    def test_new_format_numeric_serial_ignored(self):
+        # BPR350-025087 has no 2-letter target code — treated as non-BPR, returns default
+        self.assertEqual(detect_id_format(['BPR350-025087']), '2-digit')
+
+    def test_legacy_format_still_works(self):
+        self.assertEqual(detect_id_format(['BPR_3M03FN01', 'BPR_3M03FN02']), '2-digit')
+
+
+class NormalizeCompoundIdsNewFormatTest(TestCase):
+    def test_new_format_3digit_to_2digit(self):
+        self.assertEqual(normalize_compound_ids(['BPR3M03-FN001'], '2-digit'), ['BPR3M03-FN01'])
+
+    def test_new_format_2digit_to_3digit(self):
+        self.assertEqual(normalize_compound_ids(['BPR3M03-FN01'], '3-digit'), ['BPR3M03-FN001'])
+
+    def test_new_format_numeric_serial_unchanged(self):
+        self.assertEqual(normalize_compound_ids(['BPR350-025087'], '2-digit'), ['BPR350-025087'])
+
+    def test_legacy_format_still_works(self):
+        self.assertEqual(normalize_compound_ids(['BPR_3M03FN001'], '2-digit'), ['BPR_3M03FN01'])
+
+
 class ParseSeqFileTest(TestCase):
     SEQ_CSV = (
         'siRNAID,SS,AS\n'

@@ -94,7 +94,9 @@ def detect_id_format(compound_ids: list) -> str:
     """Return '2-digit', '3-digit', or 'mixed' based on serial number length."""
     formats = set()
     for cid in compound_ids:
-        m = re.match(r'^BPR_[A-Z0-9]+[A-Z]{2}(\d{2,3})$', cid)
+        m = re.match(r'^BPR[A-Z0-9]+-[A-Z]{2}(\d{2,3})$', cid)
+        if not m:
+            m = re.match(r'^BPR_[A-Z0-9]+[A-Z]{2}(\d{2,3})$', cid)
         if m:
             formats.add('2-digit' if len(m.group(1)) == 2 else '3-digit')
     if not formats:
@@ -106,7 +108,9 @@ def normalize_compound_ids(ids: list, target_format: str) -> list:
     """Normalize BPR compound IDs to 2-digit or 3-digit serial number."""
     result = []
     for cid in ids:
-        m = re.match(r'^(BPR_[A-Z0-9]+[A-Z]{2})(\d{2,3})$', cid)
+        m = re.match(r'^(BPR[A-Z0-9]+-[A-Z]{2})(\d{2,3})$', cid)
+        if not m:
+            m = re.match(r'^(BPR_[A-Z0-9]+[A-Z]{2})(\d{2,3})$', cid)
         if not m:
             result.append(cid)
             continue
