@@ -1978,3 +1978,65 @@ class BuildUserCidRemapTest(TestCase):
         remap, errors = _build_user_cid_remap(post)
         self.assertEqual(remap, {'old-A': 'new-A', 'old-B': 'new-B'})
         self.assertEqual(errors, [])
+
+
+import json as _json_mod
+
+
+class ExperimentsBulkDeleteTest(TestCase):
+    def _make_data(self):
+        compound = Compound.objects.create(compound_id='BPR350-TEST01')
+        self.exp = Experiment.objects.create(
+            compound=compound,
+            exp_type='in_vitro',
+            assay_name='bulk delete test',
+            batch_label='2099-01',
+        )
+        DataPoint.objects.create(
+            experiment=self.exp,
+            x_value=10.0, x_type='concentration',
+            replicate='A', value=0.5, readout_type='mRNA_remaining',
+        )
+        return compound
+
+    def test_guest_forbidden(self):
+        self._make_data()
+        LmsUser.objects.create_user(username='bdt_g1', password='pass', user_type='guest')
+        self.client.login(username='bdt_g1', password='pass')
+        r = self.client.post(
+            '/api/experiments/bulk-delete/',
+            data=_json_mod.dumps({'exp_ids': [self.exp.id]}),
+            content_type='application/json',
+        )
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(Experiment.objects.filter(id=self.exp.id).count(), 1)
+
+    def test_data_admin_can_delete(self):
+        self._make_data()
+        LmsUser.objects.create_user(username='bdt_da1', password='pass', user_type='data_admin')
+        self.client.login(username='bdt_da1', password='pass')
+        r = self.client.post(
+            '/api/experiments/bulk-delete/',
+            data=_json_mod.dumps({'exp_ids': [self.exp.id]}),
+            content_type='application/json',
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['deleted'], 1)
+        self.assertFalse(Experiment.objects.filter(id=self.exp.id).exists())
+
+    def test_datapoints_cascade(self):
+        self._make_data()
+        LmsUser.objects.create_user(username='bdt_da2', password='pass', user_type='data_admin')
+        self.client.login(username='bdt_da2', password='pass')
+        self.client.post(
+            '/api/experiments/bulk-delete/',
+            data=_json_mod.dumps({'exp_ids': [self.exp.id]}),
+            content_type='application/json',
+        )
+        self.assertEqual(DataPoint.objects.filter(experiment=self.exp.id).count(), 0)
+
+    def test_get_not_allowed(self):
+        LmsUser.objects.create_user(username='bdt_da3', password='pass', user_type='data_admin')
+        self.client.login(username='bdt_da3', password='pass')
+        r = self.client.get('/api/experiments/bulk-delete/')
+        self.assertEqual(r.status_code, 405)

@@ -23,4 +23,5 @@ urlpatterns = [
     path('upload/smart/confirm/', views.smart_upload_confirm_view, name='smart_upload_confirm'),
     path('attachments/<int:pk>/download/', views.attachment_download, name='attachment_download'),
     path('attachments/<int:pk>/preview/', views.attachment_preview, name='attachment_preview'),
+    path('api/experiments/bulk-delete/', views.experiments_bulk_delete, name='experiments_bulk_delete'),
 ]
