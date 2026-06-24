@@ -170,6 +170,40 @@
         box.innerHTML = '<span style="font-size:11px;color:#94a3b8;">该批次暂无实验记录</span>';
       }
     }
+
+    function toggleCidCard() {
+      var body = document.getElementById('cid-correction-body');
+      var chevron = document.getElementById('cid-chevron');
+      if (body.style.display === 'none') {
+        body.style.display = 'block';
+        chevron.textContent = '▲ 收起';
+      } else {
+        body.style.display = 'none';
+        chevron.textContent = '▼ 展开';
+      }
+    }
+
+    function updateCidBadge() {
+      var inputs = document.querySelectorAll('.cid-new-input');
+      var changed = 0;
+      inputs.forEach(function(inp) {
+        if (inp.value.trim() !== inp.dataset.orig) changed++;
+      });
+      var badge = document.getElementById('cid-badge');
+      if (!badge) return;
+      if (changed > 0) {
+        badge.textContent = '已修正 ' + changed + ' 个';
+        badge.style.display = 'inline';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('.cid-new-input').forEach(function(inp) {
+        inp.addEventListener('input', updateCidBadge);
+      });
+    });
   </script>
 
   {# Confirm form #}
@@ -222,6 +256,45 @@
             <span style="font-size:11px;color:#94a3b8;">请先选择批次</span>
           </div>
         </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if preview.unique_compound_ids %}
+    <div id="cid-correction-card" style="border:1px solid #e2e8f0;border-radius:8px;margin-bottom:16px;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#f8fafc;cursor:pointer;"
+           onclick="toggleCidCard()">
+        <span style="font-size:13px;font-weight:600;color:#1e293b;">化合物 ID 确认</span>
+        <span id="cid-badge" style="display:none;font-size:11px;background:#f59e0b;color:#fff;border-radius:10px;padding:2px 8px;"></span>
+        <span id="cid-chevron" style="font-size:11px;color:#94a3b8;">▼ 展开</span>
+      </div>
+      <div id="cid-correction-body" style="display:none;padding:12px 16px;">
+        <div style="font-size:11px;color:#64748b;margin-bottom:10px;">如识别有误，可在此修正化合物 ID，仅影响本次上传。</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead>
+            <tr style="color:#94a3b8;">
+              <th style="text-align:left;padding:4px 8px;font-weight:500;">解析到的 ID</th>
+              <th style="text-align:left;padding:4px 8px;font-weight:500;width:16px;">→</th>
+              <th style="text-align:left;padding:4px 8px;font-weight:500;">确认/修正为</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cid in preview.unique_compound_ids %}
+            <tr>
+              <td style="padding:4px 8px;color:#475569;">{{ cid }}</td>
+              <td style="padding:4px 8px;color:#94a3b8;">→</td>
+              <td style="padding:4px 8px;">
+                <input type="hidden" name="cid_orig_{{ forloop.counter0 }}" value="{{ cid }}">
+                <input type="text" name="cid_new_{{ forloop.counter0 }}"
+                       value="{{ cid }}"
+                       class="ds-form-control cid-new-input"
+                       data-orig="{{ cid }}"
+                       style="width:200px;font-size:12px;">
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     </div>
     {% endif %}
