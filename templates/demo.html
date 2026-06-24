@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>同批次体内+体外 — 展示方式对比</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f1f5f9;color:#1e293b;font-size:13px;}
+.page-header{background:#1e293b;color:white;padding:14px 28px;}
+.page-header h1{font-size:14px;font-weight:700;}
+.page-header p{font-size:11px;color:#94a3b8;margin-top:2px;}
+.main{max-width:1400px;margin:0 auto;padding:20px 28px;display:flex;flex-direction:column;gap:24px;}
+.scenario-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.scenario-label{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.08em;padding:6px 0 2px;display:flex;align-items:center;gap:8px;}
+.scenario-label::after{content:'';flex:1;height:1px;background:#e2e8f0;}
+
+/* batch shell */
+.batch-sec{background:white;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+
+/* mixed header */
+.batch-hdr-mixed{padding:11px 18px;display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#f0f9ff 0%,#fff7ed 100%);border-bottom:2px solid #e2e8f0;}
+.bid{font-family:monospace;font-weight:800;font-size:13px;color:#374151;}
+.bmeta{font-size:11px;color:#64748b;display:flex;gap:14px;flex-wrap:wrap;}
+.bmeta strong{color:#374151;}
+.btype-row{display:flex;gap:6px;margin-left:auto;}
+.btype{font-size:10px;font-weight:700;padding:2px 9px;border-radius:99px;}
+.btype.vitro{background:#dbeafe;color:#1d4ed8;}
+.btype.vivo{background:#fed7aa;color:#c2410c;}
+.btype.mixed{background:#f3e8ff;color:#7c3aed;}
+
+/* sub-section divider */
+.sub-hdr{padding:7px 14px;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;}
+.sub-hdr.v{background:#eff6ff;border-top:1px solid #bfdbfe;border-bottom:1px solid #dbeafe;color:#1d4ed8;}
+.sub-hdr.i{background:#fff7ed;border-top:1px solid #fed7aa;border-bottom:1px solid #fde68a;color:#c2410c;}
+.sub-hdr .sub-meta{font-weight:400;color:#64748b;margin-left:4px;}
+
+/* table */
+.cl-table{width:100%;border-collapse:collapse;font-size:12px;}
+.cl-table thead tr{background:#f8fafc;}
+.cl-table th{padding:6px 10px;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e2e8f0;white-space:nowrap;}
+.cl-table td{padding:8px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+.cl-table tr.cmp-row{cursor:pointer;}
+.cl-table tr.cmp-row:hover td{background:#f8fafc;}
+.cl-table tr.cmp-row.open td{background:#fafbff;}
+.expand-row td{padding:0!important;border:none!important;}
+.ep{display:none;border-top:1px solid #e2e8f0;}
+.ep.show{display:block;}
+
+.cid{font-family:monospace;font-weight:700;font-size:11px;}
+.cid.v{color:#1d4ed8;} .cid.i{color:#c2410c;}
+.seq-strand{display:flex;align-items:center;gap:3px;flex-wrap:wrap;}
+.sl{font-size:8px;font-weight:700;color:#94a3b8;text-transform:uppercase;width:14px;flex-shrink:0;}
+.tok{font-size:9px;padding:1px 4px;border-radius:3px;font-family:monospace;font-weight:600;}
+.tok-ps{background:#dbeafe;color:#1e40af;} .tok-moe{background:#fef3c7;color:#92400e;} .tok-base{background:#f1f5f9;color:#475569;} .tok-f{background:#fce7f3;color:#9d174d;}
+.dim{color:#94a3b8;font-size:11px;}
+.pill{font-size:10px;padding:2px 7px;border-radius:99px;font-weight:600;display:inline-block;white-space:nowrap;}
+.pv{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;}
+.pi{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;}
+.num{font-family:monospace;} .r{text-align:right;}
+.chevron{font-size:11px;color:#cbd5e1;transition:transform .2s;}
+tr.open .chevron{transform:rotate(90deg);color:#64748b;}
+
+/* mini expand content */
+.mini-expand{padding:12px 16px;background:#fafcff;font-size:11px;}
+.mini-expand.vivo-bg{background:#fffbf5;}
+.meta-row{font-size:11px;color:#64748b;margin-bottom:10px;display:flex;gap:14px;flex-wrap:wrap;}
+.meta-row strong{color:#374151;}
+.chart-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.chart-mini{position:relative;height:150px;}
+.sched-hdr-mini{font-size:10px;font-weight:700;display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.stag{font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px;}
+.stag.q2w{background:#dbeafe;color:#1d4ed8;} .stag.qw{background:#d1fae5;color:#065f46;}
+.chart-wrap1{position:relative;height:160px;}
+
+/* option B: type column */
+.type-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;}
+.type-dot.v{background:#3b82f6;} .type-dot.i{background:#f97316;}
+.type-label{font-size:10px;font-weight:700;}
+.type-label.v{color:#1d4ed8;} .type-label.i{color:#c2410c;}
+.row-stripe-v td{border-left:3px solid #3b82f6;}
+.row-stripe-i td{border-left:3px solid #f97316;}
+
+/* verdict */
+.verdict{padding:12px 16px;font-size:11px;line-height:1.7;border-top:1px solid #e2e8f0;}
+.verdict.a{background:#f5f3ff;color:#4338ca;}
+.verdict.b{background:#ecfeff;color:#0e7490;}
+.verdict strong{display:block;margin-bottom:2px;font-size:12px;}
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>同批次体内 + 体外混合 — 两种展示方式对比</h1>
+  <p>场景：批次 M1 里，BP000001 有体外IC50 + 体内体重数据，BP000002 只有体外</p>
+</div>
+
+<div class="main">
+<div class="scenario-row">
+
+<!-- ══ 方案 A：批次内按类型分子区块 ══ -->
+<div>
+  <div class="scenario-label">方案 A：批次内分子区块（体外区 + 体内区）</div>
+  <div class="batch-sec">
+
+    <!-- mixed batch header -->
+    <div class="batch-hdr-mixed">
+      <span class="bid">M1</span>
+      <div class="bmeta">
+        <span><strong>日期:</strong> 2024-09-01</span>
+        <span><strong>靶点:</strong> PCSK9</span>
+        <span><strong>化合物:</strong> 2个</span>
+      </div>
+      <div class="btype-row">
+        <span class="btype vitro">体外</span>
+        <span class="btype vivo">体内</span>
+      </div>
+    </div>
+
+    <!-- 体外子区 -->
+    <div class="sub-hdr v">
+      🔬 体外 <span class="sub-meta">细胞系: HepG2 · 转染: RNAiMAX · 2个化合物</span>
+    </div>
+    <table class="cl-table">
+      <thead><tr>
+        <th>ID</th><th>序列 (AS)</th><th>靶点</th>
+        <th class="r">IC50 (nM)</th><th class="r">MaxKD%</th><th></th>
+      </tr></thead>
+      <tbody>
+        <tr class="cmp-row" id="aV1" onclick="tog('aV1','apV1')">
+          <td><span class="cid v">BP000001</span></td>
+          <td><div class="seq-strand"><span class="sl">AS</span><span class="tok tok-ps">VP25A</span><span class="tok tok-moe">T(MOE)</span><span class="tok tok-base">A</span><span class="tok tok-moe">C(MOE)</span><span class="tok tok-base">G</span><span class="tok tok-ps">VP25A</span></div></td>
+          <td>PCSK9</td>
+          <td class="r num">0.8</td><td class="r num">78%</td>
+          <td><span class="chevron">▶</span></td>
+        </tr>
+        <tr class="expand-row"><td colspan="6"><div class="ep" id="apV1">
+          <div class="mini-expand">
+            <div class="meta-row"><span><strong>细胞系:</strong> HepG2</span><span><strong>转染:</strong> RNAiMAX</span><span><strong>浓度:</strong> 0.1–100 nM</span></div>
+            <div style="position:relative;height:160px;"><canvas id="cA1"></canvas></div>
+          </div>
+        </div></td></tr>
+
+        <tr class="cmp-row" id="aV2" onclick="tog('aV2','apV2')">
+          <td><span class="cid v">BP000002</span></td>
+          <td><div class="seq-strand"><span class="sl">AS</span><span class="tok tok-moe">T(MOE)</span><span class="tok tok-base">G</span><span class="tok tok-ps">VP25A</span><span class="tok tok-base">C</span><span class="tok tok-moe">U(MOE)</span></div></td>
+          <td>PCSK9</td>
+          <td class="r num">2.1</td><td class="r num">65%</td>
+          <td><span class="chevron">▶</span></td>
+        </tr>
+        <tr class="expand-row"><td colspan="6"><div class="ep" id="apV2">
+          <div class="mini-expand">
+            <div style="position:relative;height:160px;"><canvas id="cA2"></canvas></div>
+          </div>
+        </div></td></tr>
+      </tbody>
+    </table>
+
+    <!-- 体内子区 -->
+    <div class="sub-hdr i">
+      🐭 体内 <span class="sub-meta">动物: 雌性 C57BL/6 · 给药: 皮下注射 · 指标: 体重% · 1个化合物</span>
+    </div>
+    <table class="cl-table">
+      <thead><tr>
+        <th>ID</th><th>序列 (AS)</th><th>靶点</th>
+        <th>剂量组</th><th>最大体重降幅</th><th></th>
+      </tr></thead>
+      <tbody>
+        <tr class="cmp-row" id="aI1" onclick="tog('aI1','apI1')">
+          <td><span class="cid i">BP000001</span></td>
+          <td><div class="seq-strand"><span class="sl">AS</span><span class="tok tok-ps">VP25A</span><span class="tok tok-moe">T(MOE)</span><span class="tok tok-base">A</span><span class="tok tok-moe">C(MOE)</span><span class="tok tok-base">G</span><span class="tok tok-ps">VP25A</span></div></td>
+          <td>PCSK9</td>
+          <td><span class="dim">3/9 mpk Q2W · 1/3/9 mpk QW</span></td>
+          <td><span class="pill pi">−20.2% (9mpk QW, D33)</span></td>
+          <td><span class="chevron">▶</span></td>
+        </tr>
+        <tr class="expand-row"><td colspan="6"><div class="ep" id="apI1">
+          <div class="mini-expand vivo-bg">
+            <div class="meta-row"><span><strong>动物:</strong> 雌性 C57BL/6</span><span><strong>对照:</strong> Saline QW×5</span><span><strong>指标:</strong> 体重变化%</span></div>
+            <div class="chart-pair">
+              <div>
+                <div class="sched-hdr-mini"><span class="stag q2w">Q2W × 3</span><span style="font-size:9px;color:#94a3b8;">Day 0–12</span></div>
+                <div class="chart-mini"><canvas id="aIq"></canvas></div>
+              </div>
+              <div>
+                <div class="sched-hdr-mini"><span class="stag qw">QW × 5</span><span style="font-size:9px;color:#94a3b8;">Day 0–33</span></div>
+                <div class="chart-mini"><canvas id="aIw"></canvas></div>
+              </div>
+            </div>
+          </div>
+        </div></td></tr>
+      </tbody>
+    </table>
+
+    <div class="verdict a">
+      <strong>优点</strong>列头固定，同类型数据列完全一致；体外/体内各自展开内容不混淆。BP000001 在两个子区里各出现一次，一眼能看到它的体外IC50和体内结果都在同一批次。<br>
+      <strong>缺点</strong>一个化合物出现在两行，如果想"对比同一化合物的体外和体内"需要上下滚动。
+    </div>
+  </div>
+</div>
+
+<!-- ══ 方案 B：一张表，左侧用颜色条区分类型 ══ -->
+<div>
+  <div class="scenario-label">方案 B：一张混合表，左侧色条区分体内/体外</div>
+  <div class="batch-sec">
+
+    <div class="batch-hdr-mixed">
+      <span class="bid">M1</span>
+      <div class="bmeta">
+        <span><strong>日期:</strong> 2024-09-01</span>
+        <span><strong>靶点:</strong> PCSK9</span>
+        <span><strong>化合物:</strong> 2个</span>
+      </div>
+      <div class="btype-row">
+        <span class="btype vitro">体外</span>
+        <span class="btype vivo">体内</span>
+      </div>
+    </div>
+
+    <table class="cl-table">
+      <thead><tr>
+        <th>类型</th><th>ID</th><th>序列 (AS)</th><th>靶点</th>
+        <th class="r">IC50 / 体重降幅</th><th class="r">MaxKD% / 峰值KD%</th><th></th>
+      </tr></thead>
+      <tbody>
+
+        <!-- BP000001 体外 -->
+        <tr class="cmp-row row-stripe-v" id="bV1" onclick="tog('bV1','bpV1')">
+          <td><span class="type-dot v"></span><span class="type-label v">体外</span></td>
+          <td><span class="cid v">BP000001</span></td>
+          <td><div class="seq-strand"><span class="sl">AS</span><span class="tok tok-ps">VP25A</span><span class="tok tok-moe">T(MOE)</span><span class="tok tok-base">A</span><span class="tok tok-moe">C(MOE)</span><span class="tok tok-base">G</span></div></td>
+          <td>PCSK9</td>
+          <td class="r num">0.8 nM</td><td class="r num">78%</td>
+          <td><span class="chevron">▶</span></td>
+        </tr>
+        <tr class="expand-row"><td colspan="7"><div class="ep" id="bpV1">
+          <div class="mini-expand">
+            <div class="meta-row"><span><strong>细胞系:</strong> HepG2</span><span><strong>转染:</strong> RNAiMAX</span></div>
+            <div style="position:relative;height:150px;"><canvas id="cB1"></canvas></div>
+          </div>
+        </div></td></tr>
+
+        <!-- BP000001 体内 -->
+        <tr class="cmp-row row-stripe-i" id="bI1" onclick="tog('bI1','bpI1')">
+          <td><span class="type-dot i"></span><span class="type-label i">体内</span></td>
+          <td><span class="cid i">BP000001</span></td>
+          <td><div class="seq-strand"><span class="sl">AS</span><span class="tok tok-ps">VP25A</span><span class="tok tok-moe">T(MOE)</span><span class="tok tok-base">A</span><span class="tok tok-moe">C(MOE)</span><span class="tok tok-base">G</span></div></td>
+          <td>PCSK9</td>
+          <td class="r"><span class="pill pi">−20.2% D33</span></td>
+          <td class="r"><span class="pill pi">87% D35</span></td>
+          <td><span class="chevron">▶</span></td>
+        </tr>
+        <tr class="expand-row"><td colspan="7"><div class="ep" id="bpI1">
+          <div class="mini-expand vivo-bg">
+            <div class="meta-row"><span><strong>动物:</strong> 雌性 C57BL/6</span><span><strong>对照:</strong> Saline QW×5</span></div>
+            <div class="chart-pair">
+              <div>
+                <div class="sched-hdr-mini"><span class="stag q2w">Q2W × 3</span></div>
+                <div class="chart-mini"><canvas id="bIq"></canvas></div>
+              </div>
+              <div>
+                <div class="sched-hdr-mini"><span class="stag qw">QW × 5</span></div>
+                <div class="chart-mini"><canvas id="bIw"></canvas></div>
+              </div>
+            </div>
+          </div>
+        </div></td></tr>
+
+        <!-- BP000002 体外only -->
+        <tr class="cmp-row row-stripe-v" id="bV2" onclick="tog('bV2','bpV2')">
+          <td><span class="type-dot v"></span><span class="type-label v">体外</span></td>
+          <td><span class="cid v">BP000002</span></td>
+          <td><div class="seq-strand"><span class="sl">AS</span><span class="tok tok-moe">T(MOE)</span><span class="tok tok-base">G</span><span class="tok tok-ps">VP25A</span><span class="tok tok-base">C</span><span class="tok tok-moe">U(MOE)</span></div></td>
+          <td>PCSK9</td>
+          <td class="r num">2.1 nM</td><td class="r num">65%</td>
+          <td><span class="chevron">▶</span></td>
+        </tr>
+        <tr class="expand-row"><td colspan="7"><div class="ep" id="bpV2">
+          <div class="mini-expand">
+            <div style="position:relative;height:150px;"><canvas id="cB2"></canvas></div>
+          </div>
+        </div></td></tr>
+
+      </tbody>
+    </table>
+
+    <div class="verdict b">
+      <strong>优点</strong>BP000001 的体外行和体内行紧邻在一起，"同化合物纵向比较"非常直观。列数少，页面不宽。<br>
+      <strong>缺点</strong>列头需要兼顾体外和体内（"IC50 / 体重降幅"这种混合列头），语义模糊。展开内容结构差异大，体外展开和体内展开差别明显，用户需要适应。
+    </div>
+  </div>
+</div>
+
+</div><!-- /scenario-row -->
+</div>
+
+<script>
+function tog(rid,pid){
+  var r=document.getElementById(rid),p=document.getElementById(pid);
+  var o=r.classList.toggle('open');p.classList.toggle('show',o);
+}
+
+const VT_M=[91.2,72.4,44.8,21.3,14.1,11.6,10.2];
+const VT_K=VT_M.map(v=>+(100-v).toFixed(1));
+const VT_M2=[96.1,85.2,62.3,35.1,22.4,16.8,14.5];
+const VT_X=['−1.0','−0.5','0.0','0.5','1.0','1.5','2.0'];
+
+function mkVT(id,data,color){
+  var c=document.getElementById(id);if(!c)return;
+  new Chart(c,{type:'line',data:{labels:VT_X,datasets:[{label:'mRNA残余%',data,borderColor:color||'#3b82f6',backgroundColor:(color||'#3b82f6').replace(')',',0.08)').replace('rgb','rgba'),fill:true,pointRadius:3,tension:.3,borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{title:{display:true,text:'log₁₀(nM)',font:{size:9},color:'#94a3b8'},ticks:{font:{size:8}},grid:{color:'#f8fafc'}},
+              y:{min:0,max:105,title:{display:true,text:'mRNA%',font:{size:9},color:'#94a3b8'},ticks:{font:{size:8},callback:v=>v+'%'},grid:{color:'#f8fafc'}}}}});
+}
+
+const SAL=[0,.84,-.11,-.02,.5,.65,.74,.76,.32,.13,.84,1.13,.67,1.19,1.62,1.19,2.25,2.06,2.42,2.9,2.68,2.71,3.46,3.87,3.44,4.13,4.52,4.65,4.52,4.61,4.78,4.78,5.17,5.5];
+const Q3=[0,0,-1.24,-1.28,-1.76,-1.65,-2.6,-2.19,-3.23,-3.45,-3.3,-3.82,-4.06];
+const Q9=[0,-.54,-2.25,-3.71,-3.79,-3.79,-4.85,-4.57,-5.66,-5.7,-6.11,-6.8,-7.17];
+const W1=[0,.22,-.67,-.65,-.65,-.91,-2,-1.13,-2.58,-2.75,-3.23,-3.75,-3.47,-4.16,-4.92,-5.31,-5.7,-5.99,-6.74,-7.2,-7.4,-7.4,-7.83,-8.13,-8.61,-9.15,-9.02,-9.48,-9.82,-10.91,-11.21,-11.8,-12.21,-12.3];
+const W3=[0,-.07,-1.13,-1.06,-1.39,-1.28,-2.32,-2.67,-4.1,-5.1,-5.4,-5.73,-5.71,-6.14,-6.6,-7.01,-7.4,-8.01,-8.27,-8.98,-9.29,-9.42,-10.31,-11.35,-11.76,-11.37,-11.59,-11.61,-11.76,-12.52,-13.56,-13.74,-13.5,-13.63];
+const W9=[0,-.35,-2.32,-2.58,-3.1,-3.29,-4.2,-4.66,-6.37,-8.04,-9.03,-9.57,-8.9,-9.21,-9.79,-10.85,-11.74,-12.58,-13.19,-13.88,-14.12,-14.75,-15.2,-16.87,-17.44,-17.65,-17.24,-17.48,-17.46,-18.28,-19.99,-20.16,-20.06,-20.1];
+const D33=Array.from({length:34},(_,i)=>i);
+const D12=Array.from({length:13},(_,i)=>i);
+
+function mkIV(id,labels,ds){
+  var c=document.getElementById(id);if(!c)return;
+  new Chart(c,{type:'line',data:{labels,datasets:ds.map(d=>({...d,pointRadius:0,tension:.3,borderWidth:1.8}))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{boxWidth:8,font:{size:9},padding:5}}},
+      scales:{x:{ticks:{font:{size:8},maxTicksLimit:6},grid:{color:'#fef9c3'},title:{display:true,text:'Day',font:{size:8},color:'#94a3b8'}},
+              y:{ticks:{font:{size:8},callback:v=>v+'%'},grid:{color:'#fef9c3'},title:{display:true,text:'体重变化%',font:{size:8},color:'#94a3b8'}}}}});
+}
+
+window.addEventListener('load',function(){
+  mkVT('cA1',VT_M);
+  mkVT('cA2',VT_M2);
+  mkVT('cB1',VT_M);
+  mkVT('cB2',VT_M2);
+  var ivDs_q=[{label:'Saline',data:SAL.slice(0,13),borderColor:'#94a3b8',borderDash:[4,3]},{label:'3mpk Q2W',data:Q3,borderColor:'#60a5fa'},{label:'9mpk Q2W',data:Q9,borderColor:'#1d4ed8'}];
+  var ivDs_w=[{label:'Saline',data:SAL,borderColor:'#94a3b8',borderDash:[4,3]},{label:'1mpk QW',data:W1,borderColor:'#86efac'},{label:'3mpk QW',data:W3,borderColor:'#16a34a'},{label:'9mpk QW',data:W9,borderColor:'#14532d'}];
+  mkIV('aIq',D12,ivDs_q); mkIV('aIw',D33,ivDs_w);
+  mkIV('bIq',D12,ivDs_q); mkIV('bIw',D33,ivDs_w);
+});
+</script>
+</body>
+</html>

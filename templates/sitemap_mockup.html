@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>页面结构说明</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+       background: #f8fafc; color: #1e293b; padding: 32px; }
+
+h1 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+.subtitle { font-size: 12px; color: #64748b; margin-bottom: 32px; }
+
+/* ── legend ── */
+.legend { display: flex; gap: 20px; margin-bottom: 28px; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #475569; }
+.dot { width: 12px; height: 12px; border-radius: 3px; }
+
+/* ── node cards ── */
+.node {
+  border-radius: 8px; padding: 10px 14px;
+  font-size: 12px; line-height: 1.5; min-width: 160px;
+  position: relative;
+}
+.node .url  { font-size: 10px; font-family: monospace; opacity: .65; margin-top: 2px; }
+.node .desc { font-size: 11px; color: #475569; margin-top: 4px; }
+.node .badge {
+  display: inline-block; font-size: 9px; font-weight: 700; padding: 1px 5px;
+  border-radius: 10px; margin-top: 4px; text-transform: uppercase; letter-spacing: .03em;
+}
+
+/* colours */
+.exists   { background: #eff6ff; border: 1.5px solid #93c5fd; }
+.exists .node-title { color: #1d4ed8; font-weight: 600; }
+.new      { background: #f0fdf4; border: 2px solid #4ade80; }
+.new .node-title { color: #15803d; font-weight: 700; }
+.upload   { background: #faf5ff; border: 1.5px solid #c4b5fd; }
+.upload .node-title { color: #6d28d9; font-weight: 600; }
+.badge-new  { background: #dcfce7; color: #15803d; }
+.badge-todo { background: #fef9c3; color: #854d0e; }
+
+/* ── layout grid ── */
+.row { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 20px; }
+.col { display: flex; flex-direction: column; gap: 16px; }
+
+/* ── arrows ── */
+.arrow-block { display: flex; flex-direction: column; align-items: center; gap: 0; }
+.arrow-h { /* horizontal connector */ }
+svg.connector { overflow: visible; }
+
+/* ── section label ── */
+.section-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: #94a3b8; margin-bottom: 8px;
+}
+
+/* ── flow container ── */
+.flow { margin-bottom: 36px; }
+.flow-title {
+  font-size: 13px; font-weight: 700; color: #334155;
+  border-left: 3px solid #2563eb; padding-left: 10px; margin-bottom: 16px;
+}
+
+/* ── highlight box for new page ── */
+.highlight-box {
+  border: 2px dashed #4ade80; border-radius: 12px; padding: 16px 20px;
+  background: #f0fdf4; margin-top: 24px;
+}
+.highlight-box h3 { font-size: 13px; color: #15803d; margin-bottom: 10px; }
+
+/* ── simple table for comparison ── */
+table { border-collapse: collapse; width: 100%; font-size: 12px; margin-top: 12px; }
+th { background: #f1f5f9; color: #475569; font-weight: 600; padding: 8px 12px;
+     text-align: left; border-bottom: 1px solid #e2e8f0; }
+td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+td.yes { color: #15803d; font-weight: 600; }
+td.no  { color: #dc2626; }
+td.url { font-family: monospace; font-size: 11px; color: #6d28d9; }
+</style>
+</head>
+<body>
+
+<h1>页面结构 &amp; 数据归属</h1>
+<div class="subtitle">现有页面（蓝）+ 建议新增（绿）</div>
+
+<!-- legend -->
+<div class="legend">
+  <div class="legend-item"><div class="dot" style="background:#eff6ff;border:1.5px solid #93c5fd;"></div>已有页面</div>
+  <div class="legend-item"><div class="dot" style="background:#f0fdf4;border:2px solid #4ade80;"></div>建议新增</div>
+  <div class="legend-item"><div class="dot" style="background:#faf5ff;border:1.5px solid #c4b5fd;"></div>上传入口</div>
+</div>
+
+<!-- ────────── 现有结构 ────────── -->
+<div class="flow">
+<div class="flow-title">现有页面结构</div>
+
+<div class="row" style="flex-wrap:wrap; gap:12px;">
+
+  <div class="node exists" style="min-width:200px;">
+    <div class="node-title">化合物列表</div>
+    <div class="url">/compounds/</div>
+    <div class="desc">
+      所有化合物卡片<br>
+      体外剂量-效应图<br>
+      体内 KD% 折线图<br>
+      <span style="color:#dc2626;">← 体重图也塞在这里（❌ 不合适）</span>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;font-size:18px;color:#94a3b8;">→</div>
+
+  <div class="node exists" style="min-width:200px;">
+    <div class="node-title">化合物详情页</div>
+    <div class="url">/compounds/BPR_350025087/</div>
+    <div class="desc">
+      该化合物的全部实验数据<br>
+      体外 + 体内 KD%<br>
+      <span style="color:#94a3b8;">（暂无体重，因为体重是批次级别）</span>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;font-size:18px;color:#94a3b8;">→</div>
+
+  <div class="node exists" style="min-width:180px;">
+    <div class="node-title">批次列表</div>
+    <div class="url">/batches/</div>
+    <div class="desc">
+      所有批次的文字列表<br>
+      目前只有删除操作<br>
+      <span style="color:#dc2626;">← 没有体重图的入口</span>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ────────── 建议新增 ────────── -->
+<div class="flow">
+<div class="flow-title">建议新增：体重批次页</div>
+
+<div class="row" style="flex-wrap:wrap; gap:12px;">
+
+  <div class="node exists" style="min-width:180px;">
+    <div class="node-title">批次列表</div>
+    <div class="url">/batches/</div>
+    <div class="desc">每个体内批次旁边加<br>「查看体重图」链接</div>
+  </div>
+
+  <div style="display:flex;align-items:center;font-size:18px;color:#4ade80;">→</div>
+
+  <div class="node new" style="min-width:240px;">
+    <div class="node-title">体重批次详情页 🆕</div>
+    <div class="url">/batches/20260619-001/body-weight/</div>
+    <div class="desc">
+      这批实验的所有组<br>
+      两张图（按给药方案分）<br>
+      Saline + 各剂量组叠加<br>
+      批次元信息（物种/品系/性别…）
+    </div>
+    <span class="badge badge-new">需新建</span>
+  </div>
+
+</div>
+
+<div style="margin-top:16px; color:#475569; font-size:12px;">
+  也可以从 <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px;">/compounds/BPR_350025087/</code>
+  → 体内 Tab → 看到「该化合物所在批次」→ 点击链接跳到体重批次页
+</div>
+
+</div>
+
+<!-- ────────── 数据归属对比 ────────── -->
+<div class="flow">
+<div class="flow-title">数据归属对比表</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>数据类型</th>
+      <th>归属</th>
+      <th>展示位置</th>
+      <th>URL 示例</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>体外剂量-效应（IC50）</td>
+      <td>单个化合物</td>
+      <td class="yes">化合物详情页</td>
+      <td class="url">/compounds/BPR_350025087/</td>
+    </tr>
+    <tr>
+      <td>体内 KD% 时间曲线</td>
+      <td>单个化合物</td>
+      <td class="yes">化合物详情页</td>
+      <td class="url">/compounds/BPR_350025087/</td>
+    </tr>
+    <tr>
+      <td>体重时间曲线</td>
+      <td>整批实验（多化合物）</td>
+      <td class="yes">体重批次页 🆕</td>
+      <td class="url">/batches/20260619-001/body-weight/</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<!-- ────────── 化合物详情页内部结构 ────────── -->
+<div class="flow">
+<div class="flow-title">化合物详情页内部结构（建议 Tab 布局）</div>
+
+<div style="border:1.5px solid #93c5fd;border-radius:10px;padding:16px 20px;background:#eff6ff;max-width:500px;">
+  <div style="font-size:12px;font-weight:700;color:#1d4ed8;margin-bottom:12px;">
+    /compounds/BPR_350025087/
+  </div>
+  <div style="display:flex;gap:0;margin-bottom:12px;">
+    <div style="padding:6px 16px;background:#2563eb;color:#fff;border-radius:6px 0 0 6px;font-size:12px;font-weight:600;">体外</div>
+    <div style="padding:6px 16px;background:#dbeafe;color:#1d4ed8;border-radius:0;font-size:12px;">体内 KD%</div>
+    <div style="padding:6px 16px;background:#dbeafe;color:#1d4ed8;border-radius:0 6px 6px 0;font-size:12px;">体内批次链接</div>
+  </div>
+  <div style="font-size:11px;color:#475569;line-height:1.7;">
+    <div>✅ 体外 Tab → 剂量-效应图、IC50</div>
+    <div>✅ 体内 KD% Tab → KD% 折线图（按批次）</div>
+    <div>✅ 体内批次链接 → 「→ 查看 20260619-001 体重图」</div>
+  </div>
+</div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>体重时间曲线 — 原型</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+       background: #f8fafc; color: #1e293b; padding: 24px; }
+h2  { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+.meta { font-size: 12px; color: #64748b; margin-bottom: 20px; }
+.charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
+.chart-card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+  padding: 16px 20px 12px;
+}
+.chart-title {
+  font-size: 13px; font-weight: 600; color: #1e293b; margin-bottom: 2px;
+}
+.chart-sub {
+  font-size: 11px; color: #94a3b8; margin-bottom: 12px;
+}
+.chart-wrap { position: relative; height: 260px; }
+.legend-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #475569; }
+.legend-dot { width: 22px; height: 3px; border-radius: 2px; }
+.legend-dot.dashed { background: repeating-linear-gradient(90deg,currentColor 0,currentColor 5px,transparent 5px,transparent 9px); }
+</style>
+</head>
+<body>
+
+<h2>BPR_350025087 — 体重时间曲线</h2>
+<div class="meta">批次 20260619-001 &nbsp;·&nbsp; Mouse C57BL/6 &nbsp;·&nbsp; SC &nbsp;·&nbsp; Male &nbsp;·&nbsp; 阴影 = ± SD</div>
+
+<div class="charts-row">
+  <!-- Chart 1: QW*5 -->
+  <div class="chart-card">
+    <div class="chart-title">给药方案：QW×5（每周一次，共5次）</div>
+    <div class="chart-sub">Saline + 1 / 3 / 9 mpk &nbsp;·&nbsp; n = 8/组</div>
+    <div class="chart-wrap"><canvas id="c1"></canvas></div>
+    <div class="legend-row">
+      <div class="legend-item"><div class="legend-dot" style="background:#94a3b8;border-top:2px dashed #94a3b8;height:0;width:22px;"></div>Saline</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#60a5fa;"></div>1 mpk</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#2563eb;"></div>3 mpk</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#7c3aed;"></div>9 mpk</div>
+    </div>
+  </div>
+
+  <!-- Chart 2: Q2W*3 -->
+  <div class="chart-card">
+    <div class="chart-title">给药方案：Q2W×3（每两周一次，共3次）</div>
+    <div class="chart-sub">Saline（参考）+ 3 / 9 mpk &nbsp;·&nbsp; n = 8/组</div>
+    <div class="chart-wrap"><canvas id="c2"></canvas></div>
+    <div class="legend-row">
+      <div class="legend-item"><div class="legend-dot" style="background:#94a3b8;border-top:2px dashed #94a3b8;height:0;width:22px;"></div>Saline（参考）</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#2563eb;"></div>3 mpk</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#7c3aed;"></div>9 mpk</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const RAW = [{"compound_id":"Saline","dose":"","schedule":"QW*5","timepoints":[{"time":0.0,"mean":46.21,"sd":2.28},{"time":1.0,"mean":46.6,"sd":2.37},{"time":2.0,"mean":46.16,"sd":2.27},{"time":3.0,"mean":46.2,"sd":2.36},{"time":4.0,"mean":46.44,"sd":2.21},{"time":5.0,"mean":46.51,"sd":2.27},{"time":6.0,"mean":46.55,"sd":2.34},{"time":7.0,"mean":46.56,"sd":2.42},{"time":8.0,"mean":46.36,"sd":2.47},{"time":9.0,"mean":46.27,"sd":2.44},{"time":10.0,"mean":46.6,"sd":2.46},{"time":11.0,"mean":46.73,"sd":2.63},{"time":12.0,"mean":46.52,"sd":2.48},{"time":13.0,"mean":46.76,"sd":2.63},{"time":14.0,"mean":46.96,"sd":2.71},{"time":15.0,"mean":46.76,"sd":2.36},{"time":16.0,"mean":47.25,"sd":2.42},{"time":17.0,"mean":47.16,"sd":2.5},{"time":18.0,"mean":47.33,"sd":2.47},{"time":19.0,"mean":47.55,"sd":2.35},{"time":20.0,"mean":47.45,"sd":2.23},{"time":21.0,"mean":47.46,"sd":2.4},{"time":22.0,"mean":47.81,"sd":2.34},{"time":23.0,"mean":48.0,"sd":2.47},{"time":24.0,"mean":47.8,"sd":2.46},{"time":25.0,"mean":48.12,"sd":2.32},{"time":26.0,"mean":48.3,"sd":2.44},{"time":27.0,"mean":48.36,"sd":2.27},{"time":28.0,"mean":48.3,"sd":2.48},{"time":29.0,"mean":48.34,"sd":2.59},{"time":30.0,"mean":48.42,"sd":2.66},{"time":31.0,"mean":48.42,"sd":2.63},{"time":32.0,"mean":48.6,"sd":2.8},{"time":33.0,"mean":48.75,"sd":2.71}]},{"compound_id":"BPR_350025087","dose":"3mpk","schedule":"Q2W*3","timepoints":[{"time":0.0,"mean":46.11,"sd":3.08},{"time":1.0,"mean":46.11,"sd":3.05},{"time":2.0,"mean":45.54,"sd":3.21},{"time":3.0,"mean":45.52,"sd":3.24},{"time":4.0,"mean":45.3,"sd":3.5},{"time":5.0,"mean":45.35,"sd":3.32},{"time":6.0,"mean":44.91,"sd":3.23},{"time":7.0,"mean":45.1,"sd":3.12},{"time":8.0,"mean":44.62,"sd":3.3},{"time":9.0,"mean":44.52,"sd":3.11},{"time":10.0,"mean":44.59,"sd":3.1},{"time":11.0,"mean":44.35,"sd":2.81},{"time":12.0,"mean":44.24,"sd":3.09}]},{"compound_id":"BPR_350025087","dose":"9mpk","schedule":"Q2W*3","timepoints":[{"time":0.0,"mean":46.15,"sd":5.11},{"time":1.0,"mean":45.9,"sd":5.03},{"time":2.0,"mean":45.11,"sd":5.01},{"time":3.0,"mean":44.44,"sd":4.7},{"time":4.0,"mean":44.4,"sd":4.41},{"time":5.0,"mean":44.4,"sd":4.28},{"time":6.0,"mean":43.91,"sd":4.24},{"time":7.0,"mean":44.04,"sd":3.98},{"time":8.0,"mean":43.54,"sd":3.89},{"time":9.0,"mean":43.52,"sd":3.55},{"time":10.0,"mean":43.33,"sd":3.48},{"time":11.0,"mean":43.01,"sd":3.37},{"time":12.0,"mean":42.84,"sd":3.09}]},{"compound_id":"BPR_350025087","dose":"1mpk","schedule":"QW*5","timepoints":[{"time":0.0,"mean":46.11,"sd":2.42},{"time":1.0,"mean":46.21,"sd":2.24},{"time":2.0,"mean":45.8,"sd":2.3},{"time":3.0,"mean":45.81,"sd":2.24},{"time":4.0,"mean":45.81,"sd":2.3},{"time":5.0,"mean":45.69,"sd":2.39},{"time":6.0,"mean":45.19,"sd":2.58},{"time":7.0,"mean":45.59,"sd":2.72},{"time":8.0,"mean":44.92,"sd":2.47},{"time":9.0,"mean":44.84,"sd":2.79},{"time":10.0,"mean":44.62,"sd":2.72},{"time":11.0,"mean":44.38,"sd":2.84},{"time":12.0,"mean":44.51,"sd":2.82},{"time":13.0,"mean":44.19,"sd":2.87},{"time":14.0,"mean":43.84,"sd":3.02},{"time":15.0,"mean":43.66,"sd":3.19},{"time":16.0,"mean":43.48,"sd":3.5},{"time":17.0,"mean":43.35,"sd":3.49},{"time":18.0,"mean":43.0,"sd":3.48},{"time":19.0,"mean":42.79,"sd":3.46},{"time":20.0,"mean":42.7,"sd":3.43},{"time":21.0,"mean":42.7,"sd":3.53},{"time":22.0,"mean":42.5,"sd":3.52},{"time":23.0,"mean":42.36,"sd":3.53},{"time":24.0,"mean":42.14,"sd":3.61},{"time":25.0,"mean":41.89,"sd":3.61},{"time":26.0,"mean":41.95,"sd":3.69},{"time":27.0,"mean":41.74,"sd":3.63},{"time":28.0,"mean":41.58,"sd":3.59},{"time":29.0,"mean":41.08,"sd":3.5},{"time":30.0,"mean":40.94,"sd":3.67},{"time":31.0,"mean":40.67,"sd":3.68},{"time":32.0,"mean":40.48,"sd":3.75},{"time":33.0,"mean":40.44,"sd":3.63}]},{"compound_id":"BPR_350025087","dose":"3mpk","schedule":"QW*5","timepoints":[{"time":0.0,"mean":46.08,"sd":3.79},{"time":1.0,"mean":46.05,"sd":3.74},{"time":2.0,"mean":45.56,"sd":3.64},{"time":3.0,"mean":45.59,"sd":3.57},{"time":4.0,"mean":45.44,"sd":3.5},{"time":5.0,"mean":45.49,"sd":3.48},{"time":6.0,"mean":45.01,"sd":3.45},{"time":7.0,"mean":44.85,"sd":3.52},{"time":8.0,"mean":44.19,"sd":3.43},{"time":9.0,"mean":43.73,"sd":3.68},{"time":10.0,"mean":43.59,"sd":3.74},{"time":11.0,"mean":43.44,"sd":3.66},{"time":12.0,"mean":43.45,"sd":3.71},{"time":13.0,"mean":43.25,"sd":3.67},{"time":14.0,"mean":43.04,"sd":3.49},{"time":15.0,"mean":42.85,"sd":3.1},{"time":16.0,"mean":42.67,"sd":3.15},{"time":17.0,"mean":42.39,"sd":3.28},{"time":18.0,"mean":42.27,"sd":3.05},{"time":19.0,"mean":41.94,"sd":3.03},{"time":20.0,"mean":41.8,"sd":2.87},{"time":21.0,"mean":41.74,"sd":2.67},{"time":22.0,"mean":41.33,"sd":2.36},{"time":23.0,"mean":40.85,"sd":2.38},{"time":24.0,"mean":40.66,"sd":2.17},{"time":25.0,"mean":40.84,"sd":2.08},{"time":26.0,"mean":40.74,"sd":1.72},{"time":27.0,"mean":40.73,"sd":1.89},{"time":28.0,"mean":40.66,"sd":1.74},{"time":29.0,"mean":40.31,"sd":1.61},{"time":30.0,"mean":39.83,"sd":1.72},{"time":31.0,"mean":39.75,"sd":1.87},{"time":32.0,"mean":39.86,"sd":1.84},{"time":33.0,"mean":39.8,"sd":1.71}]},{"compound_id":"BPR_350025087","dose":"9mpk","schedule":"QW*5","timepoints":[{"time":0.0,"mean":46.17,"sd":3.53},{"time":1.0,"mean":46.01,"sd":3.45},{"time":2.0,"mean":45.1,"sd":3.37},{"time":3.0,"mean":44.98,"sd":3.33},{"time":4.0,"mean":44.74,"sd":3.08},{"time":5.0,"mean":44.65,"sd":3.21},{"time":6.0,"mean":44.23,"sd":2.9},{"time":7.0,"mean":44.02,"sd":3.18},{"time":8.0,"mean":43.23,"sd":3.14},{"time":9.0,"mean":42.46,"sd":3.12},{"time":10.0,"mean":42.0,"sd":2.89},{"time":11.0,"mean":41.75,"sd":2.97},{"time":12.0,"mean":42.06,"sd":3.02},{"time":13.0,"mean":41.92,"sd":2.96},{"time":14.0,"mean":41.65,"sd":3.01},{"time":15.0,"mean":41.16,"sd":2.77},{"time":16.0,"mean":40.75,"sd":2.82},{"time":17.0,"mean":40.36,"sd":2.82},{"time":18.0,"mean":40.08,"sd":2.44},{"time":19.0,"mean":39.76,"sd":2.51},{"time":20.0,"mean":39.65,"sd":2.55},{"time":21.0,"mean":39.36,"sd":2.52},{"time":22.0,"mean":39.15,"sd":2.34},{"time":23.0,"mean":38.38,"sd":2.41},{"time":24.0,"mean":38.12,"sd":2.21},{"time":25.0,"mean":38.02,"sd":2.14},{"time":26.0,"mean":38.21,"sd":2.19},{"time":27.0,"mean":38.1,"sd":2.17},{"time":28.0,"mean":38.11,"sd":2.15},{"time":29.0,"mean":37.73,"sd":2.05},{"time":30.0,"mean":36.94,"sd":1.98},{"time":31.0,"mean":36.86,"sd":1.74},{"time":32.0,"mean":36.91,"sd":1.84},{"time":33.0,"mean":36.89,"sd":1.91}]}];
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+function bandDatasets(tps, color, label, lineDash) {
+  const xs   = tps.map(t => t.time);
+  const up   = tps.map(t => +(t.mean + t.sd).toFixed(2));
+  const dn   = tps.map(t => +(t.mean - t.sd).toFixed(2));
+  const mean = tps.map(t => t.mean);
+  const alpha = '26';  // 15% opacity for band
+  return [
+    // upper band (fill to lower)
+    { label: null, data: up.map((y,i)=>({x:xs[i],y})), borderWidth:0,
+      backgroundColor: color + alpha, pointRadius:0, fill: '+1',
+      tension:0.3, showInLegend:false },
+    // lower band
+    { label: null, data: dn.map((y,i)=>({x:xs[i],y})), borderWidth:0,
+      backgroundColor: color + alpha, pointRadius:0, fill: false,
+      tension:0.3 },
+    // mean line
+    { label, data: mean.map((y,i)=>({x:xs[i],y})),
+      borderColor: color, borderWidth: 2,
+      borderDash: lineDash || [],
+      backgroundColor: 'transparent',
+      pointRadius:0, pointHoverRadius:4,
+      tension:0.3, fill:false },
+  ];
+}
+
+function makeChart(canvasId, groups, yMin, yMax) {
+  const datasets = [];
+  groups.forEach(g => datasets.push(...bandDatasets(g.tps, g.color, g.label, g.dash)));
+
+  return new Chart(document.getElementById(canvasId), {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          filter: item => item.dataset.label != null,
+          callbacks: {
+            label: ctx => {
+              const g = groups.find(g => g.label === ctx.dataset.label);
+              if (!g) return '';
+              const tp = g.tps.find(t => t.time === ctx.parsed.x);
+              if (!tp) return `${ctx.dataset.label}: ${ctx.parsed.y}`;
+              return `${ctx.dataset.label}: ${tp.mean.toFixed(1)} ± ${tp.sd.toFixed(1)} g`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          title: { display: true, text: '时间（天）', font:{size:11}, color:'#64748b' },
+          ticks: { font:{size:10}, color:'#94a3b8', maxTicksLimit:12 },
+          grid: { color:'#f1f5f9' },
+        },
+        y: {
+          min: yMin, max: yMax,
+          title: { display: true, text: '体重（g）', font:{size:11}, color:'#64748b' },
+          ticks: { font:{size:10}, color:'#94a3b8' },
+          grid: { color:'#f1f5f9' },
+        }
+      }
+    }
+  });
+}
+
+// ── Data organisation ────────────────────────────────────────────────────────
+const saline = RAW.find(r => r.compound_id === 'Saline');
+
+const qw5 = [
+  { label:'Saline',  tps: saline.timepoints,                                              color:'#94a3b8', dash:[5,4] },
+  { label:'1 mpk',   tps: RAW.find(r=>r.dose==='1mpk'&&r.schedule==='QW*5').timepoints,  color:'#60a5fa' },
+  { label:'3 mpk',   tps: RAW.find(r=>r.dose==='3mpk'&&r.schedule==='QW*5').timepoints,  color:'#2563eb' },
+  { label:'9 mpk',   tps: RAW.find(r=>r.dose==='9mpk'&&r.schedule==='QW*5').timepoints,  color:'#7c3aed' },
+];
+
+// For Q2W*3, clip Saline to matching day range (day 0–12)
+const maxQ2W = 12;
+const salineClipped = saline.timepoints.filter(t => t.time <= maxQ2W);
+const q2w3 = [
+  { label:'Saline（参考）', tps: salineClipped,                                              color:'#94a3b8', dash:[5,4] },
+  { label:'3 mpk',          tps: RAW.find(r=>r.dose==='3mpk'&&r.schedule==='Q2W*3').timepoints, color:'#2563eb' },
+  { label:'9 mpk',          tps: RAW.find(r=>r.dose==='9mpk'&&r.schedule==='Q2W*3').timepoints, color:'#7c3aed' },
+];
+
+makeChart('c1', qw5,  34, 53);
+makeChart('c2', q2w3, 34, 53);
+</script>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>导航方式对比</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f1f5f9;color:#1e293b;padding:24px;display:flex;gap:24px;min-height:100vh}
+
+/* ── 每列是一个方案 ── */
+.option{flex:1;display:flex;flex-direction:column;gap:0}
+.option-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+              color:#fff;padding:8px 14px;border-radius:8px 8px 0 0;text-align:center}
+.opt-a .option-label{background:#2563eb}
+.opt-b .option-label{background:#7c3aed}
+
+/* ── 模拟浏览器 ── */
+.browser{background:#fff;border:1px solid #e2e8f0;border-radius:0 0 10px 10px;
+         overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06);display:flex;flex-direction:column;flex:1}
+.address-bar{background:#f8fafc;border-bottom:1px solid #e2e8f0;
+             padding:6px 12px;font-size:11px;font-family:monospace;
+             color:#64748b;display:flex;align-items:center;gap:8px}
+.dot-group{display:flex;gap:4px}
+.dot{width:10px;height:10px;border-radius:50%}
+.url-box{background:#fff;border:1px solid #e2e8f0;border-radius:4px;
+         padding:3px 10px;flex:1;font-size:11px;color:#1e293b}
+
+/* ── 页面内容 ── */
+.page-body{display:flex;flex:1}
+.sidebar{width:130px;background:#1e293b;padding:10px 0;flex-shrink:0}
+.s-logo{padding:10px 12px 8px;font-size:12px;font-weight:700;color:#f1f5f9;
+        border-bottom:1px solid #334155;margin-bottom:6px}
+.s-item{padding:6px 12px;font-size:11px;color:#94a3b8;cursor:pointer}
+.s-item.active{background:#2563eb;color:#fff;border-radius:4px;margin:0 6px}
+.s-item.active-b{background:#7c3aed;color:#fff;border-radius:4px;margin:0 6px}
+.main{flex:1;padding:14px;overflow:hidden}
+
+/* ── topbar ── */
+.topbar{background:#fff;border-bottom:1px solid #e2e8f0;padding:8px 14px;
+        font-size:12px;font-weight:600;color:#1e293b;display:flex;
+        align-items:center;justify-content:space-between;margin:-14px -14px 12px -14px}
+
+/* ── 批次卡片 ── */
+.batch-card{border:1px solid #e2e8f0;border-radius:7px;margin-bottom:8px;overflow:hidden}
+.batch-hdr{padding:8px 12px;display:flex;align-items:center;justify-content:space-between;
+           background:#f8fafc;border-bottom:1px solid #e2e8f0;cursor:pointer}
+.batch-hdr-label{font-size:12px;font-weight:700;color:#1e293b}
+.batch-hdr-meta{font-size:10px;color:#94a3b8}
+.batch-body{padding:10px 12px}
+
+/* ── 化合物行 ── */
+.cmp-row{display:flex;align-items:center;justify-content:space-between;
+         padding:5px 0;border-bottom:1px solid #f1f5f9;font-size:11px}
+.cmp-row:last-child{border:none}
+.cmp-id{font-weight:600;color:#1e293b;width:120px}
+.cmp-val{color:#2563eb;font-weight:600}
+.cmp-bar-wrap{flex:1;margin:0 10px;background:#f1f5f9;border-radius:3px;height:6px}
+.cmp-bar{height:6px;border-radius:3px;background:#2563eb}
+
+/* ── 批次选택器（方案B用）── */
+.batch-selector{display:flex;align-items:center;gap:8px;margin-bottom:12px;
+                padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;
+                border-radius:7px}
+.batch-selector label{font-size:11px;font-weight:600;color:#1d4ed8;white-space:nowrap}
+.batch-selector select{font-size:11px;border:1px solid #bfdbfe;border-radius:5px;
+                        padding:3px 8px;color:#1e293b;background:#fff;flex:1}
+.batch-selector .badge{font-size:10px;background:#2563eb;color:#fff;
+                        padding:2px 8px;border-radius:10px;white-space:nowrap}
+
+/* ── 单独批次列表页（方案A入口）── */
+.batch-list-row{display:flex;align-items:center;justify-content:space-between;
+                border:1px solid #e2e8f0;border-radius:7px;padding:9px 12px;
+                background:#fff;margin-bottom:7px}
+.bl-label{font-size:12px;font-weight:700}
+.bl-meta{font-size:10px;color:#64748b;margin-top:2px}
+.btn-go{font-size:10px;padding:3px 10px;border-radius:5px;background:#2563eb;
+        color:#fff;border:none;cursor:pointer;white-space:nowrap}
+
+/* ── 路径指示 ── */
+.path-flow{display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.path-step{font-size:10px;padding:3px 10px;border-radius:12px;font-weight:600}
+.path-step.cur{background:#2563eb;color:#fff}
+.path-step.cur-b{background:#7c3aed;color:#fff}
+.path-step.done{background:#f1f5f9;color:#64748b}
+.path-arrow{color:#94a3b8;font-size:12px}
+
+/* ── 标注 ── */
+.pros{margin-top:12px;padding:10px 12px;background:#f0fdf4;border:1px solid #86efac;
+      border-radius:7px;font-size:11px;color:#166534}
+.cons{margin-top:6px;padding:8px 12px;background:#fef9c3;border:1px solid #fde047;
+      border-radius:7px;font-size:11px;color:#854d0e}
+.pros li,.cons li{margin-left:14px;margin-bottom:2px}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ 方案 A ══════════════ -->
+<div class="option opt-a" style="display:flex;flex-direction:column;gap:8px">
+  <div class="option-label">方案 A — 两个独立页面</div>
+
+  <!-- Step 1: 批次列表页 -->
+  <div class="browser" style="flex:0 0 auto">
+    <div class="address-bar">
+      <div class="dot-group"><div class="dot" style="background:#f87171"></div><div class="dot" style="background:#fbbf24"></div><div class="dot" style="background:#4ade80"></div></div>
+      <div class="url-box">/batches/</div>
+    </div>
+    <div class="page-body" style="min-height:180px">
+      <div class="sidebar">
+        <div class="s-logo">SeqDB</div>
+        <div class="s-item">化合物列表</div>
+        <div class="s-item active">批次管理</div>
+        <div class="s-item">上传</div>
+      </div>
+      <div class="main">
+        <div class="topbar"><span>批次管理</span></div>
+        <div class="path-flow">
+          <div class="path-step cur">批次列表</div>
+          <div class="path-arrow">→</div>
+          <div class="path-step done">批次详情</div>
+        </div>
+        <div class="batch-list-row">
+          <div><div class="bl-label">20260619-001</div><div class="bl-meta">体重 · 6组 · Mouse C57BL/6</div></div>
+          <button class="btn-go">查看 →</button>
+        </div>
+        <div class="batch-list-row">
+          <div><div class="bl-label">20260610-001</div><div class="bl-meta">体内 KD% · 4化合物 · Mouse</div></div>
+          <button class="btn-go">查看 →</button>
+        </div>
+        <div class="batch-list-row">
+          <div><div class="bl-label">20260601-001</div><div class="bl-meta">体外 IC50 · 10化合物 · Hepa1-6</div></div>
+          <button class="btn-go">查看 →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: 批次详情页 -->
+  <div style="text-align:center;font-size:18px;color:#2563eb">↓ 点击"查看"</div>
+  <div class="browser" style="flex:1">
+    <div class="address-bar">
+      <div class="dot-group"><div class="dot" style="background:#f87171"></div><div class="dot" style="background:#fbbf24"></div><div class="dot" style="background:#4ade80"></div></div>
+      <div class="url-box">/batches/20260601-001/</div>
+    </div>
+    <div class="page-body">
+      <div class="sidebar">
+        <div class="s-logo">SeqDB</div>
+        <div class="s-item">化合物列表</div>
+        <div class="s-item active">批次管理</div>
+        <div class="s-item">上传</div>
+      </div>
+      <div class="main">
+        <div class="topbar"><span>批次 20260601-001 — 体外 IC50</span></div>
+        <div class="path-flow">
+          <div class="path-step done">批次列表</div>
+          <div class="path-arrow">→</div>
+          <div class="path-step cur">批次详情</div>
+        </div>
+        <div class="batch-body" style="border:1px solid #e2e8f0;border-radius:7px;padding:10px 12px;">
+          <div style="font-size:10px;color:#64748b;margin-bottom:8px">Hepa1-6 · 10 化合物 · 20260601</div>
+          <div class="cmp-row"><span class="cmp-id">BPR_350025087</span><div class="cmp-bar-wrap"><div class="cmp-bar" style="width:90%"></div></div><span class="cmp-val">IC50 2.3 nM</span></div>
+          <div class="cmp-row"><span class="cmp-id">BPR_350025088</span><div class="cmp-bar-wrap"><div class="cmp-bar" style="width:60%"></div></div><span class="cmp-val">IC50 5.1 nM</span></div>
+          <div class="cmp-row"><span class="cmp-id">BPR_350025089</span><div class="cmp-bar-wrap"><div class="cmp-bar" style="width:35%"></div></div><span class="cmp-val">IC50 8.7 nM</span></div>
+          <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:6px">… 共 10 个化合物</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pros"><strong>优点：</strong><ul><li>URL 结构清晰，每批次独立页面可收藏/分享</li><li>批次详情页可展示完整图表，不受化合物列表限制</li></ul></div>
+  <div class="cons"><strong>缺点：</strong><ul><li>多一层导航（先去批次列表，再进详情）</li><li>化合物列表和批次详情是两个入口，用户需要切换</li></ul></div>
+</div>
+
+<!-- ══════════════ 方案 B ══════════════ -->
+<div class="option opt-b" style="display:flex;flex-direction:column;gap:8px">
+  <div class="option-label">方案 B — 化合物列表 + 批次筛选器</div>
+
+  <!-- 化合物列表页（带批次筛选） -->
+  <div class="browser" style="flex:1">
+    <div class="address-bar">
+      <div class="dot-group"><div class="dot" style="background:#f87171"></div><div class="dot" style="background:#fbbf24"></div><div class="dot" style="background:#4ade80"></div></div>
+      <div class="url-box">/compounds/?batch=20260601-001</div>
+    </div>
+    <div class="page-body">
+      <div class="sidebar">
+        <div class="s-logo">SeqDB</div>
+        <div class="s-item active-b">化合物列表</div>
+        <div class="s-item">批次管理</div>
+        <div class="s-item">上传</div>
+      </div>
+      <div class="main">
+        <div class="topbar"><span>化合物列表</span></div>
+
+        <!-- 批次筛选器 -->
+        <div class="batch-selector">
+          <label>当前批次</label>
+          <select>
+            <option>— 全部化合物 —</option>
+            <option selected>20260619-001（体重）</option>
+            <option>20260610-001（KD%）</option>
+            <option>20260601-001（体外 IC50）✓</option>
+          </select>
+          <div class="badge">10 个化合物</div>
+        </div>
+
+        <!-- 该批次化合物 -->
+        <div class="batch-body" style="border:1px solid #e2e8f0;border-radius:7px;padding:10px 12px;">
+          <div style="font-size:10px;color:#64748b;margin-bottom:8px">批次 20260601-001 · Hepa1-6 · 体外 IC50</div>
+          <div class="cmp-row"><span class="cmp-id">BPR_350025087</span><div class="cmp-bar-wrap"><div class="cmp-bar" style="width:90%"></div></div><span class="cmp-val">IC50 2.3 nM</span></div>
+          <div class="cmp-row"><span class="cmp-id">BPR_350025088</span><div class="cmp-bar-wrap"><div class="cmp-bar" style="width:60%"></div></div><span class="cmp-val">IC50 5.1 nM</span></div>
+          <div class="cmp-row"><span class="cmp-id">BPR_350025089</span><div class="cmp-bar-wrap"><div class="cmp-bar" style="width:35%"></div></div><span class="cmp-val">IC50 8.7 nM</span></div>
+          <div style="font-size:10px;color:#94a3b8;text-align:center;margin-top:6px">… 共 10 个化合物</div>
+        </div>
+
+        <div style="margin-top:10px;font-size:10px;color:#94a3b8;text-align:center">
+          切换下拉框 → 立刻切换批次
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pros"><strong>优点：</strong><ul><li>一个页面搞定所有，切换批次无需跳转</li><li>用户始终在 /compounds/ 里，不迷路</li></ul></div>
+  <div class="cons"><strong>缺点：</strong><ul><li>URL 带参数，不易分享特定批次</li><li>体重批次（批次级别图表）仍需额外页面</li></ul></div>
+</div>
+
+</body>
+</html>
