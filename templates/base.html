@@ -48,12 +48,6 @@
     <a href="{% url 'smart_upload' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'smart_upload' or request.resolver_match.url_name == 'smart_upload_confirm' %}active{% endif %}">
       <i class="bi bi-lightning-charge ds-nav-icon"></i> 智能上传
     </a>
-    <a href="{% url 'upload' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'upload' or request.resolver_match.url_name == 'upload_confirm' or request.resolver_match.url_name == 'upload_success' %}active{% endif %}">
-      <i class="bi bi-file-earmark-arrow-up ds-nav-icon"></i> 上传实验数据
-    </a>
-    <a href="{% url 'invivo_upload' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'invivo_upload' or request.resolver_match.url_name == 'invivo_upload_confirm' %}active{% endif %}">
-      <i class="bi bi-activity ds-nav-icon"></i> 上传体内数据
-    </a>
     <a href="{% url 'batch_list' %}" class="ds-nav-item {% if request.resolver_match.url_name == 'batch_list' %}active{% endif %}">
       <i class="bi bi-layers ds-nav-icon"></i> 批次管理
     </a>
