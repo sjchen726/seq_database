@@ -547,7 +547,7 @@ from app01.upload_pipeline import (
     parse_seq_file, parse_summary_csv, parse_cp_file,
     build_preview, normalize_compound_ids, parse_transfection_file,
     parse_invivo_kd_file, parse_body_weight_file, detect_invivo_file_type,
-    _BytesFile,
+    _BytesFile, canonicalize_compound_id,
 )
 
 
@@ -2354,7 +2354,9 @@ def smart_upload_confirm_view(request):
         try:
             with transaction.atomic():
                 for c in preview_copy.get('new_compounds', []):
-                    compound, _ = Compound.objects.get_or_create(compound_id=c['compound_id'])
+                    compound, _ = Compound.objects.get_or_create(
+                        compound_id=canonicalize_compound_id(c['compound_id'], project_code)
+                    )
                     if project_code:
                         compound.project = project_code
                         compound.save(update_fields=['project'])
@@ -2362,6 +2364,7 @@ def smart_upload_confirm_view(request):
                 id_remap = preview_copy.get('id_format_mismatch', {})
                 for cid, seq_data in preview_copy.get('strand_map', {}).items():
                     resolved = id_remap.get(cid, cid)
+                    resolved = canonicalize_compound_id(resolved, project_code)
                     compound, _ = Compound.objects.get_or_create(compound_id=resolved)
                     if seq_data.get('ss_seq'):
                         _, created = Strand.objects.get_or_create(
@@ -2379,7 +2382,7 @@ def smart_upload_confirm_view(request):
                             n_strands += 1
 
                 for exp_data in preview_copy.get('experiments', []):
-                    cid = exp_data['compound_id']
+                    cid = canonicalize_compound_id(exp_data['compound_id'], project_code)
                     compound, _ = Compound.objects.get_or_create(compound_id=cid)
                     if project_code:
                         compound.project = project_code
@@ -2494,7 +2497,9 @@ def smart_upload_confirm_view(request):
         try:
             with transaction.atomic():
                 for g in group['groups']:
-                    compound, _ = Compound.objects.get_or_create(compound_id=g['compound_id'])
+                    compound, _ = Compound.objects.get_or_create(
+                        compound_id=canonicalize_compound_id(g['compound_id'], project_code)
+                    )
                     if project_code:
                         compound.project = project_code
                         compound.save(update_fields=['project'])
