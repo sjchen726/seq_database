@@ -1925,3 +1925,56 @@ class SmartPreviewUniqueCompoundIdsTest(TestCase):
         from app01.views import _collect_unique_compound_ids
         result = _collect_unique_compound_ids(None, [])
         self.assertEqual(result, [])
+
+
+class BuildUserCidRemapTest(TestCase):
+    def test_basic_remap(self):
+        from app01.views import _build_user_cid_remap
+        post = {
+            'cid_orig_0': 'BPR_3M03FN01',
+            'cid_new_0': 'BPR3M03-FN01',
+            'cid_orig_1': 'Saline',
+            'cid_new_1': 'Saline',
+        }
+        remap, errors = _build_user_cid_remap(post)
+        self.assertEqual(remap, {'BPR_3M03FN01': 'BPR3M03-FN01'})
+        self.assertEqual(errors, [])
+
+    def test_unchanged_ids_excluded(self):
+        from app01.views import _build_user_cid_remap
+        post = {
+            'cid_orig_0': 'BPR3M03-FN01',
+            'cid_new_0': 'BPR3M03-FN01',
+        }
+        remap, errors = _build_user_cid_remap(post)
+        self.assertEqual(remap, {})
+        self.assertEqual(errors, [])
+
+    def test_empty_new_id_returns_error(self):
+        from app01.views import _build_user_cid_remap
+        post = {
+            'cid_orig_0': 'BPR3M03-FN01',
+            'cid_new_0': '   ',
+        }
+        remap, errors = _build_user_cid_remap(post)
+        self.assertEqual(remap, {})
+        self.assertIn('化合物 ID 不能为空', errors[0])
+
+    def test_no_remap_keys_returns_empty(self):
+        from app01.views import _build_user_cid_remap
+        post = {'batch_label': '2026-001', 'assay_name': 'KD'}
+        remap, errors = _build_user_cid_remap(post)
+        self.assertEqual(remap, {})
+        self.assertEqual(errors, [])
+
+    def test_multiple_remaps(self):
+        from app01.views import _build_user_cid_remap
+        post = {
+            'cid_orig_0': 'old-A',
+            'cid_new_0': 'new-A',
+            'cid_orig_1': 'old-B',
+            'cid_new_1': 'new-B',
+        }
+        remap, errors = _build_user_cid_remap(post)
+        self.assertEqual(remap, {'old-A': 'new-A', 'old-B': 'new-B'})
+        self.assertEqual(errors, [])

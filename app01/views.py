@@ -1810,6 +1810,25 @@ def smart_upload_view(request):
     })
 
 
+def _build_user_cid_remap(post_data: dict):
+    """Parse cid_orig_N / cid_new_N POST pairs into a remap dict.
+
+    Returns (remap, errors).  remap only contains pairs where new != orig.
+    """
+    errors = []
+    remap = {}
+    i = 0
+    while f'cid_orig_{i}' in post_data:
+        orig = post_data[f'cid_orig_{i}']
+        new = post_data.get(f'cid_new_{i}', '').strip()
+        if not new:
+            errors.append(f'化合物 ID 不能为空（原值：{orig}）')
+        elif new != orig:
+            remap[orig] = new
+        i += 1
+    return remap, errors
+
+
 @login_required
 def smart_upload_confirm_view(request):
     if request.method != 'POST':
@@ -1834,7 +1853,12 @@ def smart_upload_confirm_view(request):
 
     is_source_only = smart_preview.get('is_source_only', False)
 
-    errors = []
+    user_cid_remap, remap_errors = _build_user_cid_remap(request.POST)
+    errors = list(remap_errors)
+
+    def _resolve_cid(raw: str) -> str:
+        remapped = user_cid_remap.get(raw, raw)
+        return canonicalize_compound_id(remapped, project_code)
 
     if not target_name_input:
         errors.append('靶点必填,不能为空')
@@ -1972,7 +1996,7 @@ def smart_upload_confirm_view(request):
             with transaction.atomic():
                 for c in preview_copy.get('new_compounds', []):
                     compound, _ = Compound.objects.get_or_create(
-                        compound_id=canonicalize_compound_id(c['compound_id'], project_code)
+                        compound_id=_resolve_cid(c['compound_id'])
                     )
                     if project_code:
                         compound.project = project_code
@@ -1980,8 +2004,8 @@ def smart_upload_confirm_view(request):
 
                 id_remap = preview_copy.get('id_format_mismatch', {})
                 for cid, seq_data in preview_copy.get('strand_map', {}).items():
-                    resolved = id_remap.get(cid, cid)
-                    resolved = canonicalize_compound_id(resolved, project_code)
+                    resolved = id_remap.get(cid, cid)   # cross-format DB remap
+                    resolved = _resolve_cid(resolved)   # applies user remap + canonicalize
                     compound, _ = Compound.objects.get_or_create(compound_id=resolved)
                     if seq_data.get('ss_seq'):
                         _, created = Strand.objects.get_or_create(
@@ -1999,7 +2023,7 @@ def smart_upload_confirm_view(request):
                             n_strands += 1
 
                 for exp_data in preview_copy.get('experiments', []):
-                    cid = canonicalize_compound_id(exp_data['compound_id'], project_code)
+                    cid = _resolve_cid(exp_data['compound_id'])
                     compound, _ = Compound.objects.get_or_create(compound_id=cid)
                     if project_code:
                         compound.project = project_code
@@ -2115,7 +2139,7 @@ def smart_upload_confirm_view(request):
             with transaction.atomic():
                 for g in group['groups']:
                     compound, _ = Compound.objects.get_or_create(
-                        compound_id=canonicalize_compound_id(g['compound_id'], project_code)
+                        compound_id=_resolve_cid(g['compound_id'])
                     )
                     if project_code:
                         compound.project = project_code
