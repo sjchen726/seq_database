@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block page_title %} — 用户管理{% endblock %}
+
+{% block topbar_content %}
+  <span class="ds-topbar-title">用户管理</span>
+  {% if pending_requests.count %}
+  <span class="ds-count-badge" style="background:#f59e0b;color:#fff;">{{ pending_requests.count }} 待审批</span>
+  {% endif %}
+  <span class="ds-topbar-spacer"></span>
+{% endblock %}
+
+{% block content %}
+
+{# ── Pending Access Requests ── #}
+{% if pending_requests %}
+<div style="background:#fffbeb;border:1px solid #fbbf24;border-radius:10px;padding:20px 24px;margin-bottom:24px;">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+    <i class="bi bi-bell-fill" style="color:#f59e0b;font-size:18px;"></i>
+    <h3 style="margin:0;font-size:15px;font-weight:600;color:#92400e;">
+      待审批的项目权限申请
+      <span class="ds-count-badge" style="background:#f59e0b;color:#fff;margin-left:6px;">{{ pending_requests.count }}</span>
+    </h3>
+  </div>
+  <table style="width:100%;border-collapse:collapse;font-size:13px;">
+    <thead>
+      <tr style="border-bottom:1px solid #fbbf24;color:#92400e;font-weight:600;">
+        <th style="padding:6px 10px;text-align:left;">用户</th>
+        <th style="padding:6px 10px;text-align:left;">申请项目</th>
+        <th style="padding:6px 10px;text-align:left;">申请时间</th>
+        <th style="padding:6px 10px;text-align:left;">备注</th>
+        <th style="padding:6px 10px;text-align:left;">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for req in pending_requests %}
+      <tr style="border-bottom:1px solid #fef3c7;">
+        <td style="padding:7px 10px;">
+          <span style="font-weight:500;">{{ req.user.username }}</span>
+          <span style="color:#a16207;font-size:12px;margin-left:4px;">({{ req.user.user_type }})</span>
+        </td>
+        <td style="padding:7px 10px;font-family:monospace;font-weight:600;color:#b45309;">{{ req.project_code }}</td>
+        <td style="padding:7px 10px;color:#78716c;font-size:12px;">{{ req.created_at|date:"Y-m-d H:i" }}</td>
+        <td style="padding:7px 10px;color:#57534e;font-size:12px;">{{ req.note|default:"—" }}</td>
+        <td style="padding:7px 10px;">
+          <div style="display:flex;gap:6px;">
+            <form method="POST" action="/users/requests/{{ req.id }}/approve/" style="margin:0;">
+              {% csrf_token %}
+              <button type="submit" class="ds-btn ds-btn-green" style="padding:4px 10px;font-size:12px;">批准</button>
+            </form>
+            <form method="POST" action="/users/requests/{{ req.id }}/reject/" style="margin:0;">
+              {% csrf_token %}
+              <button type="submit" class="ds-btn ds-btn-danger" style="padding:4px 10px;font-size:12px;">拒绝</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{# ── User List ── #}
+<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:20px 24px;margin-bottom:24px;">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+    <i class="bi bi-people-fill" style="color:#6366f1;font-size:18px;"></i>
+    <h3 style="margin:0;font-size:15px;font-weight:600;color:#1e293b;">
+      全部用户
+      <span class="ds-count-badge" style="background:#6366f1;color:#fff;margin-left:6px;">{{ all_users.count }}</span>
+    </h3>
+  </div>
+  <table style="width:100%;border-collapse:collapse;font-size:13px;">
+    <thead>
+      <tr style="border-bottom:2px solid #e2e8f0;color:#64748b;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em;">
+        <th style="padding:8px 10px;text-align:left;">用户名</th>
+        <th style="padding:8px 10px;text-align:left;">角色</th>
+        <th style="padding:8px 10px;text-align:left;">模块权限</th>
+        <th style="padding:8px 10px;text-align:left;">项目权限</th>
+        <th style="padding:8px 10px;text-align:left;">注册时间</th>
+        <th style="padding:8px 10px;text-align:left;">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in all_users %}
+      <tr style="border-bottom:1px solid #f1f5f9;{% if u == request.user %}background:#f8fafc;{% endif %}">
+        <td style="padding:8px 10px;">
+          <span style="font-weight:500;color:#1e293b;">{{ u.username }}</span>
+          {% if u == request.user %}
+          <span style="font-size:11px;color:#94a3b8;margin-left:4px;">(你)</span>
+          {% endif %}
+          {% if u.is_superuser %}
+          <span style="font-size:11px;color:#94a3b8;margin-left:2px;" title="Django superuser"><i class="bi bi-shield-check"></i></span>
+          {% endif %}
+        </td>
+        <td style="padding:8px 10px;">
+          {% if u.user_type == 'superadmin' %}
+          <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#fee2e2;color:#dc2626;">超级管理员</span>
+          {% elif u.user_type == 'sub_admin' %}
+          <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#fef3c7;color:#d97706;">模块管理员</span>
+          {% else %}
+          <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#f1f5f9;color:#64748b;">普通用户</span>
+          {% endif %}
+        </td>
+        <td style="padding:8px 10px;color:#475569;font-size:12px;">
+          {% if u.module_permissions %}
+            {{ u.module_permissions }}
+          {% else %}
+            <span style="color:#cbd5e1;">—</span>
+          {% endif %}
+        </td>
+        <td style="padding:8px 10px;color:#475569;font-size:12px;">
+          {% if u.permissions_project %}
+            {{ u.permissions_project }}
+          {% else %}
+            <span style="color:#cbd5e1;">—</span>
+          {% endif %}
+        </td>
+        <td style="padding:8px 10px;color:#94a3b8;font-size:12px;">{{ u.date_joined|date:"Y-m-d" }}</td>
+        <td style="padding:8px 10px;">
+          <div style="display:flex;gap:6px;">
+            <a href="/users/{{ u.id }}/edit/" class="ds-btn ds-btn-ghost" style="padding:4px 10px;font-size:12px;text-decoration:none;">
+              <i class="bi bi-pencil"></i> 编辑
+            </a>
+            {% if u.user_type != 'superadmin' and not u.is_superuser %}
+            <a href="/users/{{ u.id }}/delete/" class="ds-btn ds-btn-danger" style="padding:4px 10px;font-size:12px;text-decoration:none;"
+               onclick="return confirm('确定要删除用户 {{ u.username }} 吗？')">
+              <i class="bi bi-trash"></i> 删除
+            </a>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# ── Audit Log ── #}
+<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:20px 24px;">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+    <i class="bi bi-journal-text" style="color:#8b5cf6;font-size:18px;"></i>
+    <h3 style="margin:0;font-size:15px;font-weight:600;color:#1e293b;">操作审计日志 <span style="font-size:12px;color:#94a3b8;font-weight:400;">（最近 30 条）</span></h3>
+  </div>
+  {% if audit_logs %}
+  <table style="width:100%;border-collapse:collapse;font-size:13px;">
+    <thead>
+      <tr style="border-bottom:2px solid #e2e8f0;color:#64748b;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em;">
+        <th style="padding:7px 10px;text-align:left;">时间</th>
+        <th style="padding:7px 10px;text-align:left;">操作人</th>
+        <th style="padding:7px 10px;text-align:left;">动作</th>
+        <th style="padding:7px 10px;text-align:left;">对象用户</th>
+        <th style="padding:7px 10px;text-align:left;">详情</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in audit_logs %}
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:7px 10px;font-family:monospace;color:#64748b;font-size:12px;white-space:nowrap;">
+          {{ log.created_at|date:"Y-m-d H:i" }}
+        </td>
+        <td style="padding:7px 10px;font-weight:500;color:#1e293b;">
+          {{ log.actor.username|default:"—" }}
+        </td>
+        <td style="padding:7px 10px;">
+          {% if log.action == 'register' %}
+          <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#dcfce7;color:#16a34a;">注册</span>
+          {% elif log.action == 'project_request' %}
+          <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#dbeafe;color:#2563eb;">申请项目</span>
+          {% elif log.action == 'project_approved' %}
+          <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#d1fae5;color:#059669;">项目批准</span>
+          {% elif log.action == 'project_rejected' %}
+          <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#fee2e2;color:#dc2626;">项目拒绝</span>
+          {% elif log.action == 'user_role_changed' %}
+          <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#fef3c7;color:#d97706;">角色变更</span>
+          {% elif log.action == 'user_deleted' %}
+          <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#f3e8ff;color:#7c3aed;">用户删除</span>
+          {% else %}
+          <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#f1f5f9;color:#64748b;">{{ log.action }}</span>
+          {% endif %}
+        </td>
+        <td style="padding:7px 10px;color:#475569;">
+          {{ log.target_user.username|default:"—" }}
+        </td>
+        <td style="padding:7px 10px;color:#64748b;font-size:12px;">{{ log.detail|truncatechars:80 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:#94a3b8;font-size:13px;margin:0;">暂无审计记录。</p>
+  {% endif %}
+</div>
+
+{% endblock %}

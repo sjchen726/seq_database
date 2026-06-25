@@ -2314,3 +2314,39 @@ class RegisterViewTest(TestCase):
         log = AuditLog.objects.filter(actor=u, action='register').first()
         self.assertIsNotNone(log)
         self.assertIn('BPR3M03', log.detail)
+
+
+class UserManagementViewTest(TestCase):
+    def setUp(self):
+        self.superadmin = LmsUser.objects.create_user(
+            username='sadmin', password='pass', user_type='superadmin'
+        )
+        self.superadmin.is_superuser = True
+        self.superadmin.save()
+        self.regular = LmsUser.objects.create_user(
+            username='regular', password='pass', user_type='sub_admin',
+            module_permissions='data'
+        )
+
+    def test_superadmin_can_access(self):
+        self.client.login(username='sadmin', password='pass')
+        r = self.client.get('/users/')
+        self.assertEqual(r.status_code, 200)
+
+    def test_regular_user_gets_403(self):
+        self.client.login(username='regular', password='pass')
+        r = self.client.get('/users/')
+        self.assertEqual(r.status_code, 403)
+
+    def test_anonymous_redirected(self):
+        r = self.client.get('/users/')
+        self.assertIn(r.status_code, [302, 403])
+
+    def test_pending_requests_in_context(self):
+        ProjectAccessRequest.objects.create(
+            user=self.regular, project_code='BPR350', status='pending'
+        )
+        self.client.login(username='sadmin', password='pass')
+        r = self.client.get('/users/')
+        self.assertIn('pending_requests', r.context)
+        self.assertEqual(r.context['pending_requests'].count(), 1)

@@ -25,4 +25,5 @@ urlpatterns = [
     path('attachments/<int:pk>/preview/', views.attachment_preview, name='attachment_preview'),
     path('api/experiments/bulk-delete/', views.experiments_bulk_delete, name='experiments_bulk_delete'),
     path('api/experiments/export-csv/', views.experiments_export_csv, name='experiments_export_csv'),
+    path('users/', views.user_management_view, name='user_management'),
 ]

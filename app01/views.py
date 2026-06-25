@@ -17,7 +17,7 @@ import logging
 from app01.models import (
     LmsUser, SeqModule, LinkerModule, DeliveryModule,
     Compound, Strand, Experiment, DataPoint, ExperimentSummary,
-    ExperimentAttachment,
+    ExperimentAttachment, ProjectAccessRequest, AuditLog,
 )
 
 logger = logging.getLogger("bprdb_log")
@@ -2429,3 +2429,18 @@ def attachment_preview(request, pk):
         return JsonResponse({'headers': raw_headers, 'rows': data_rows})
     except Exception:
         return JsonResponse({'headers': [], 'rows': []})
+
+
+@login_required
+def user_management_view(request):
+    if not (request.user.is_superuser or request.user.user_type == 'superadmin'):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden('此页面仅 superadmin 可访问')
+    pending_requests = ProjectAccessRequest.objects.filter(status='pending').select_related('user')
+    all_users = LmsUser.objects.all().order_by('date_joined')
+    audit_logs = AuditLog.objects.select_related('actor', 'target_user')[:30]
+    return render(request, 'user_management.html', {
+        'pending_requests': pending_requests,
+        'all_users': all_users,
+        'audit_logs': audit_logs,
+    })

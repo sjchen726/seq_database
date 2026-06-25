@@ -55,7 +55,7 @@
     {% if request.user.user_type == 'superadmin' or request.user.is_superuser %}
     <div class="ds-nav-divider"></div>
     <div class="ds-nav-section">系统</div>
-    <a href="/admin/" class="ds-nav-item">
+    <a href="/users/" class="ds-nav-item {% if request.resolver_match.url_name == 'user_management' %}active{% endif %}">
       <i class="bi bi-people ds-nav-icon"></i> 用户管理
     </a>
     {% endif %}
