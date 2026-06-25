@@ -2247,3 +2247,33 @@ class CompoundListProjectFilterTest(TestCase):
         projects = r.context['all_projects']
         self.assertIn('BPR350', projects)
         self.assertIn('BPR3M03', projects)
+
+
+class UploadModulePermissionTest(TestCase):
+    def test_user_without_upload_module_is_redirected(self):
+        LmsUser.objects.create_user(
+            username='u_noup', password='pass', user_type='sub_admin',
+            module_permissions='data'
+        )
+        self.client.login(username='u_noup', password='pass')
+        r = self.client.get('/upload/smart/')
+        self.assertRedirects(r, '/compounds/', fetch_redirect_response=False)
+
+    def test_sub_admin_with_upload_can_access(self):
+        LmsUser.objects.create_user(
+            username='u_up', password='pass', user_type='sub_admin',
+            module_permissions='upload'
+        )
+        self.client.login(username='u_up', password='pass')
+        r = self.client.get('/upload/smart/')
+        self.assertEqual(r.status_code, 200)
+
+    def test_superadmin_can_access(self):
+        u = LmsUser.objects.create_user(
+            username='u_sa', password='pass', user_type='superadmin'
+        )
+        u.is_superuser = True
+        u.save()
+        self.client.login(username='u_sa', password='pass')
+        r = self.client.get('/upload/smart/')
+        self.assertEqual(r.status_code, 200)

@@ -1748,6 +1748,9 @@ def _build_smart_preview(file_detections: list, project_code: str) -> dict:
 
 @login_required
 def smart_upload_view(request):
+    if not _has_module(request.user, 'upload'):
+        messages.error(request, '权限不足，无法访问上传页面')
+        return redirect('compound_list')
     if request.method == 'POST':
         # ── Phase 2: re-parse with user-selected types ──
         if request.POST.get('reparse'):
@@ -1904,6 +1907,9 @@ def _build_user_cid_remap(post_data: dict):
 
 @login_required
 def smart_upload_confirm_view(request):
+    if not _has_module(request.user, 'upload'):
+        messages.error(request, '权限不足，无法访问上传页面')
+        return redirect('compound_list')
     if request.method != 'POST':
         return redirect('smart_upload')
 
