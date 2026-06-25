@@ -5,19 +5,62 @@ from django.contrib.auth.models import AbstractUser
 
 class LmsUser(AbstractUser):
     USER_TYPE_CHOICES = [
-        ('guest', 'guest'),
-        ('delivery', 'delivery'),
-        ('modify', 'modify'),
-        ('project', 'project'),
-        ('data_admin', 'data_admin'),
-        ('admin', 'admin'),
-        ('superadmin', 'superadmin'),
+        ('user',       '普通用户'),
+        ('sub_admin',  '模块管理员'),
+        ('superadmin', '超级管理员'),
     ]
-    user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default='guest')
+    user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default='user')
     permissions_project = models.TextField(blank=True, default='')
+    module_permissions = models.CharField(
+        max_length=64, blank=True, default='',
+        help_text="逗号分隔，可选值: upload,data,compound,batch",
+    )
 
     class Meta:
         db_table = 'lms_user'
+
+
+class ProjectAccessRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending',  '待审批'),
+        ('approved', '已批准'),
+        ('rejected', '已拒绝'),
+    ]
+    user         = models.ForeignKey(LmsUser, on_delete=models.CASCADE,
+                                     related_name='project_requests')
+    project_code = models.CharField(max_length=64)
+    status       = models.CharField(max_length=16, choices=STATUS_CHOICES, default='pending')
+    note         = models.TextField(blank=True, default='')
+    created_at   = models.DateTimeField(auto_now_add=True)
+    reviewed_at  = models.DateTimeField(null=True, blank=True)
+    reviewed_by  = models.ForeignKey(LmsUser, null=True, blank=True,
+                                     on_delete=models.SET_NULL,
+                                     related_name='reviewed_requests')
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class AuditLog(models.Model):
+    ACTION_CHOICES = [
+        ('register',          '注册'),
+        ('project_request',   '申请项目'),
+        ('project_approved',  '项目批准'),
+        ('project_rejected',  '项目拒绝'),
+        ('user_role_changed', '角色变更'),
+        ('user_deleted',      '用户删除'),
+    ]
+    actor       = models.ForeignKey(LmsUser, on_delete=models.SET_NULL,
+                                    null=True, related_name='audit_actions')
+    action      = models.CharField(max_length=32, choices=ACTION_CHOICES)
+    target_user = models.ForeignKey(LmsUser, on_delete=models.SET_NULL,
+                                    null=True, blank=True,
+                                    related_name='audit_events')
+    detail      = models.TextField(default='')
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
 
 
 class SeqModule(models.Model):
