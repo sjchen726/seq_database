@@ -238,18 +238,24 @@ function clToggleCmpCheck(chk) {
   if (chk.checked) {
     if (!_clCmpSelected.find(s => s.panelId === panelId)) {
       const entry = {cid, expType, panelId, expIds};
-      if (expType === 'vitro') {
-        const src = document.querySelector(`#${panelId} canvas[data-chart="vitro"]`);
-        entry.mrnaData = src ? JSON.parse(src.dataset.mrna || '[]') : [];
-        entry.kdData   = src ? JSON.parse(src.dataset.kd   || '[]') : [];
-      } else {
-        entry.vivoData = [...document.querySelectorAll(`#${panelId} canvas[data-chart="vivo"]`)]
-          .map(c => ({
-            readout: c.dataset.readout,
-            days:    JSON.parse(c.dataset.days    || '[]'),
-            groups:  JSON.parse(c.dataset.groups  || '[]'),
-            control: JSON.parse(c.dataset.control || 'null'),
-          }));
+      try {
+        if (expType === 'vitro') {
+          const src = document.getElementById(panelId)?.querySelector('canvas[data-chart="vitro"]');
+          entry.mrnaData = src ? JSON.parse(src.dataset.mrna || '[]') : [];
+          entry.kdData   = src ? JSON.parse(src.dataset.kd   || '[]') : [];
+        } else {
+          entry.vivoData = [...(document.getElementById(panelId)?.querySelectorAll('canvas[data-chart="vivo"]') || [])]
+            .map(c => ({
+              readout: c.dataset.readout,
+              days:    JSON.parse(c.dataset.days    || '[]'),
+              groups:  JSON.parse(c.dataset.groups  || '[]'),
+              control: JSON.parse(c.dataset.control || 'null'),
+            }));
+        }
+      } catch(e) {
+        entry.mrnaData = [];
+        entry.kdData = [];
+        entry.vivoData = [];
       }
       _clCmpSelected.push(entry);
     }
