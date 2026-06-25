@@ -2350,3 +2350,61 @@ class UserManagementViewTest(TestCase):
         r = self.client.get('/users/')
         self.assertIn('pending_requests', r.context)
         self.assertEqual(r.context['pending_requests'].count(), 1)
+
+
+class UserEditDeleteTest(TestCase):
+    def setUp(self):
+        self.sadmin = LmsUser.objects.create_user(
+            username='sa2', password='pass', user_type='superadmin'
+        )
+        self.sadmin.is_superuser = True
+        self.sadmin.save()
+        self.target = LmsUser.objects.create_user(
+            username='target', password='pass', user_type='sub_admin',
+            module_permissions='data', permissions_project='BPR350'
+        )
+
+    def test_edit_changes_role_and_modules(self):
+        self.client.login(username='sa2', password='pass')
+        r = self.client.post(f'/users/{self.target.id}/edit/', {
+            'user_type': 'user',
+            'module_permissions': '',
+            'permissions_project': 'BPR3M03',
+        })
+        self.assertRedirects(r, '/users/', fetch_redirect_response=False)
+        self.target.refresh_from_db()
+        self.assertEqual(self.target.user_type, 'user')
+        self.assertEqual(self.target.permissions_project, 'BPR3M03')
+
+    def test_edit_writes_audit_log(self):
+        self.client.login(username='sa2', password='pass')
+        self.client.post(f'/users/{self.target.id}/edit/', {
+            'user_type': 'user',
+            'module_permissions': '',
+            'permissions_project': '',
+        })
+        log = AuditLog.objects.filter(action='user_role_changed', target_user=self.target).first()
+        self.assertIsNotNone(log)
+
+    def test_non_superadmin_cannot_edit(self):
+        u = LmsUser.objects.create_user(username='plain', password='pass', user_type='sub_admin')
+        self.client.login(username='plain', password='pass')
+        r = self.client.post(f'/users/{self.target.id}/edit/', {
+            'user_type': 'user', 'module_permissions': '', 'permissions_project': ''
+        })
+        self.assertEqual(r.status_code, 403)
+
+    def test_delete_removes_user(self):
+        self.client.login(username='sa2', password='pass')
+        target_id = self.target.id
+        r = self.client.post(f'/users/{target_id}/delete/')
+        self.assertRedirects(r, '/users/', fetch_redirect_response=False)
+        self.assertFalse(LmsUser.objects.filter(id=target_id).exists())
+
+    def test_delete_writes_audit_log(self):
+        self.client.login(username='sa2', password='pass')
+        username = self.target.username
+        self.client.post(f'/users/{self.target.id}/delete/')
+        log = AuditLog.objects.filter(action='user_deleted').first()
+        self.assertIsNotNone(log)
+        self.assertIn(username, log.detail)

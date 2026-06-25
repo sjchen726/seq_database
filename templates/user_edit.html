@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+{% block page_title %} — 编辑用户{% endblock %}
+
+{% block topbar_content %}
+  <span class="ds-topbar-title">编辑用户：{{ target.username }}</span>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:480px;">
+  <div style="background:#fff;border:1px solid #eef2f7;border-radius:12px;padding:24px;box-shadow:0 1px 4px rgba(15,23,42,0.05);">
+    <form method="post">
+      {% csrf_token %}
+
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:5px;">角色</label>
+        <select name="user_type" class="ds-form-control" style="width:100%;">
+          <option value="user" {% if target.user_type == 'user' %}selected{% endif %}>user — 普通用户</option>
+          <option value="sub_admin" {% if target.user_type == 'sub_admin' %}selected{% endif %}>sub_admin — 模块管理员</option>
+          <option value="superadmin" {% if target.user_type == 'superadmin' %}selected{% endif %}>superadmin — 超级管理员</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:6px;">模块权限（sub_admin 时生效）</label>
+        {% for mod in 'upload,data,compound,batch'|split:',' %}
+        <label style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;font-size:12px;cursor:pointer;">
+          <input type="checkbox" name="module_permissions" value="{{ mod }}"
+                 {% if mod in target.module_permissions %}checked{% endif %}>
+          {{ mod }}
+        </label>
+        {% endfor %}
+      </div>
+
+      <div style="margin-bottom:20px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:5px;">可访问项目（逗号分隔）</label>
+        <input type="text" name="permissions_project" class="ds-form-control"
+               value="{{ target.permissions_project }}" style="width:100%;"
+               placeholder="如 BPR350,BPR3M03">
+      </div>
+
+      <div style="display:flex;gap:8px;">
+        <button type="submit" class="ds-btn ds-btn-primary">保存</button>
+        <a href="{% url 'user_management' %}" class="ds-btn ds-btn-ghost">取消</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

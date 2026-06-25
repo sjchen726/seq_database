@@ -2444,3 +2444,55 @@ def user_management_view(request):
         'all_users': all_users,
         'audit_logs': audit_logs,
     })
+
+
+@login_required
+def user_edit_view(request, user_id):
+    if not (request.user.is_superuser or request.user.user_type == 'superadmin'):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden('此操作仅 superadmin 可执行')
+    target = get_object_or_404(LmsUser, id=user_id)
+    if request.method == 'POST':
+        old_type = target.user_type
+        old_mods = target.module_permissions
+        old_proj = target.permissions_project
+        new_type = request.POST.get('user_type', target.user_type)
+        new_mods = ','.join(m.strip() for m in request.POST.getlist('module_permissions') if m.strip())
+        new_proj = request.POST.get('permissions_project', '').strip()
+        target.user_type = new_type
+        target.module_permissions = new_mods
+        target.permissions_project = new_proj
+        target.save()
+        import json as _json_mod
+        AuditLog.objects.create(
+            actor=request.user,
+            action='user_role_changed',
+            target_user=target,
+            detail=_json_mod.dumps({
+                'before': {'user_type': old_type, 'module_permissions': old_mods, 'permissions_project': old_proj},
+                'after':  {'user_type': new_type, 'module_permissions': new_mods, 'permissions_project': new_proj},
+            }),
+        )
+        messages.success(request, f'用户 {target.username} 已更新')
+        return redirect('user_management')
+    return render(request, 'user_edit.html', {'target': target})
+
+
+@login_required
+def user_delete_view(request, user_id):
+    if not (request.user.is_superuser or request.user.user_type == 'superadmin'):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden('此操作仅 superadmin 可执行')
+    if request.method != 'POST':
+        return redirect('user_management')
+    target = get_object_or_404(LmsUser, id=user_id)
+    import json as _json_mod
+    username = target.username
+    AuditLog.objects.create(
+        actor=request.user,
+        action='user_deleted',
+        detail=_json_mod.dumps({'username': username}),
+    )
+    target.delete()
+    messages.success(request, f'用户 {username} 已删除')
+    return redirect('user_management')

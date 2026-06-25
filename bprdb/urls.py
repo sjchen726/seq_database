@@ -26,4 +26,6 @@ urlpatterns = [
     path('api/experiments/bulk-delete/', views.experiments_bulk_delete, name='experiments_bulk_delete'),
     path('api/experiments/export-csv/', views.experiments_export_csv, name='experiments_export_csv'),
     path('users/', views.user_management_view, name='user_management'),
+    path('users/<int:user_id>/edit/', views.user_edit_view, name='user_edit'),
+    path('users/<int:user_id>/delete/', views.user_delete_view, name='user_delete'),
 ]

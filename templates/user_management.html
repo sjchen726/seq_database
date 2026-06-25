@@ -119,11 +119,11 @@
         <td style="padding:8px 10px;color:#94a3b8;font-size:12px;">{{ u.date_joined|date:"Y-m-d" }}</td>
         <td style="padding:8px 10px;">
           <div style="display:flex;gap:6px;">
-            <a href="/users/{{ u.id }}/edit/" class="ds-btn ds-btn-ghost" style="padding:4px 10px;font-size:12px;text-decoration:none;">
+            <a href="{% url 'user_edit' u.id %}" class="ds-btn ds-btn-ghost" style="padding:4px 10px;font-size:12px;text-decoration:none;">
               <i class="bi bi-pencil"></i> 编辑
             </a>
             {% if u.user_type != 'superadmin' and not u.is_superuser %}
-            <a href="/users/{{ u.id }}/delete/" class="ds-btn ds-btn-danger" style="padding:4px 10px;font-size:12px;text-decoration:none;"
+            <a href="{% url 'user_delete' u.id %}" class="ds-btn ds-btn-danger" style="padding:4px 10px;font-size:12px;text-decoration:none;"
                onclick="return confirm('确定要删除用户 {{ u.username }} 吗？')">
               <i class="bi bi-trash"></i> 删除
             </a>
