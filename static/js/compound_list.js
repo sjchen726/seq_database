@@ -532,8 +532,8 @@ function _clCsrfToken() {
 
 // ── Delete selected experiments ───────────────────────────────
 function clDeleteSelected() {
-  if (!confirm(`确认删除选中的 ${_clCmpSelected.length} 条实验记录？此操作不可撤销。`)) return;
   const expIds = _clCmpSelected.flatMap(s => s.expIds);
+  if (!confirm(`确认删除选中的 ${expIds.length} 条实验记录？此操作不可撤销。`)) return;
   fetch('/api/experiments/bulk-delete/', {
     method: 'POST',
     headers: {'Content-Type': 'application/json', 'X-CSRFToken': _clCsrfToken()},
