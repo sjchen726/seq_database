@@ -204,6 +204,12 @@ body {
 }
 .ds-btn-green:hover { background: #15803d; color: #fff; text-decoration: none; }
 
+.ds-btn-danger {
+  background: #dc2626; color: #fff; font-weight: 600;
+  box-shadow: 0 2px 8px rgba(220,38,38,0.28);
+}
+.ds-btn-danger:hover { background: #b91c1c; color: #fff; text-decoration: none; }
+
 /* ── Search box ── */
 .ds-search-wrap {
   display: flex; align-items: center; gap: 6px;

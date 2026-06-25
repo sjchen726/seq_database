@@ -523,3 +523,27 @@ function clToggleBatchSelectAll(chkEl) {
     }
   });
 }
+
+// ── CSRF helper ───────────────────────────────────────────────
+function _clCsrfToken() {
+  const m = document.cookie.match(/csrftoken=([^;]+)/);
+  return m ? m[1] : '';
+}
+
+// ── Delete selected experiments ───────────────────────────────
+function clDeleteSelected() {
+  if (!confirm(`确认删除选中的 ${_clCmpSelected.length} 条实验记录？此操作不可撤销。`)) return;
+  const expIds = _clCmpSelected.flatMap(s => s.expIds);
+  fetch('/api/experiments/bulk-delete/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': _clCsrfToken()},
+    body: JSON.stringify({exp_ids: expIds}),
+  })
+    .then(r => r.json().then(data => ({ok: r.ok, data})))
+    .then(({ok, data}) => {
+      if (!ok) { alert(data.error || '删除失败'); return; }
+      alert(`已删除 ${data.deleted} 条实验记录`);
+      location.reload();
+    })
+    .catch(() => alert('删除失败，请重试'));
+}
