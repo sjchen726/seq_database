@@ -521,11 +521,6 @@ function clToggleBatchSelectAll(chkEl) {
     if (chk.checked !== targetChecked) {
       chk.checked = targetChecked;
       clToggleCmpCheck(chk);
-      if (targetChecked) {
-        const row = chk.closest('tr.cmp-row');
-        if (row && !row.classList.contains('open'))
-          clToggleRow(row.id, row.dataset.panelId);
-      }
     }
   });
 }
