@@ -511,3 +511,15 @@ function _clSyncBatchSelectAll(row) {
     selectAll.indeterminate = true;
   }
 }
+
+// ── Batch select-all header checkbox ─────────────────────────
+function clToggleBatchSelectAll(chkEl) {
+  const table = chkEl.closest('table');
+  if (!table) return;
+  table.querySelectorAll('.cl-cmp-chk').forEach(chk => {
+    if (chk.checked !== chkEl.checked) {
+      chk.checked = chkEl.checked;
+      clToggleCmpCheck(chk);
+    }
+  });
+}
