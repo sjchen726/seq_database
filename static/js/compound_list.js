@@ -236,8 +236,23 @@ function clToggleCmpCheck(chk) {
   const expIds = expId ? expId.split(',').map(Number).filter(n => n > 0) : [];
   row.classList.toggle('cmp-selected', chk.checked);
   if (chk.checked) {
-    if (!_clCmpSelected.find(s => s.panelId === panelId))
-      _clCmpSelected.push({cid, expType, panelId, expIds});
+    if (!_clCmpSelected.find(s => s.panelId === panelId)) {
+      const entry = {cid, expType, panelId, expIds};
+      if (expType === 'vitro') {
+        const src = document.querySelector(`#${panelId} canvas[data-chart="vitro"]`);
+        entry.mrnaData = src ? JSON.parse(src.dataset.mrna || '[]') : [];
+        entry.kdData   = src ? JSON.parse(src.dataset.kd   || '[]') : [];
+      } else {
+        entry.vivoData = [...document.querySelectorAll(`#${panelId} canvas[data-chart="vivo"]`)]
+          .map(c => ({
+            readout: c.dataset.readout,
+            days:    JSON.parse(c.dataset.days    || '[]'),
+            groups:  JSON.parse(c.dataset.groups  || '[]'),
+            control: JSON.parse(c.dataset.control || 'null'),
+          }));
+      }
+      _clCmpSelected.push(entry);
+    }
   } else {
     const idx = _clCmpSelected.findIndex(s => s.panelId === panelId);
     if (idx >= 0) _clCmpSelected.splice(idx, 1);
@@ -301,9 +316,8 @@ function _clBuildVitroCompare(readout) {
   const canvas = document.getElementById('cl-cmp-vitro-canvas');
   const vitros = _clCmpSelected.filter(s => s.expType === 'vitro');
   const datasets = vitros.flatMap((s, i) => {
-    const src = document.querySelector(`#${s.panelId} canvas[data-chart="vitro"]`);
-    if (!src) return [];
-    const pts = JSON.parse(readout === 'kd' ? src.dataset.kd : src.dataset.mrna);
+    const pts = readout === 'kd' ? (s.kdData || []) : (s.mrnaData || []);
+    if (!pts.length) return [];
     return [{
       label: s.cid,
       data: pts.map(([x, y]) => ({x, y})),
@@ -336,8 +350,7 @@ function clCmpVitroReadout(btn, readout) {
 function _clBuildVivoCompare() {
   const vivos = _clCmpSelected.filter(s => s.expType === 'vivo');
   const readouts = [...new Set(vivos.flatMap(s =>
-    [...document.querySelectorAll(`#${s.panelId} canvas[data-chart="vivo"]`)]
-      .map(c => c.dataset.readout).filter(Boolean)
+    (s.vivoData || []).map(d => d.readout).filter(Boolean)
   ))];
 
   const tabsEl   = document.getElementById('cl-cmp-vivo-rt-tabs');
@@ -385,13 +398,9 @@ function _clBuildVivoReadoutChart(canvas, vivos, readout) {
   let controlAdded = false;
 
   vivos.forEach((s, i) => {
-    const src = document.querySelector(
-      `#${s.panelId} canvas[data-chart="vivo"][data-readout="${readout}"]`
-    );
+    const src = (s.vivoData || []).find(d => d.readout === readout);
     if (!src) return;
-    const days    = JSON.parse(src.dataset.days    || '[]');
-    const groups  = JSON.parse(src.dataset.groups  || '[]');
-    const control = JSON.parse(src.dataset.control || 'null');
+    const {days, groups, control} = src;
     const color   = CMP_COLORS[i % CMP_COLORS.length];
 
     groups.forEach((g, gi) => {
