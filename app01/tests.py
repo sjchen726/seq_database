@@ -2210,3 +2210,40 @@ class GetPermittedProjectsTest(TestCase):
         from app01.views import _get_permitted_projects
         u = LmsUser(user_type='user', permissions_project='')
         self.assertEqual(_get_permitted_projects(u), [])
+
+
+class CompoundListProjectFilterTest(TestCase):
+    def setUp(self):
+        self.c_a = Compound.objects.create(compound_id='BPR350-FILT01', project='BPR350')
+        self.c_b = Compound.objects.create(compound_id='BPR3M03-FILT01', project='BPR3M03')
+        Experiment.objects.create(
+            compound=self.c_a, exp_type='in_vitro', assay_name='test', batch_label='B-FILT-A'
+        )
+        Experiment.objects.create(
+            compound=self.c_b, exp_type='in_vitro', assay_name='test', batch_label='B-FILT-B'
+        )
+
+    def test_user_sees_only_permitted_project(self):
+        u = LmsUser.objects.create_user(
+            username='u_filt', password='pass',
+            user_type='sub_admin', permissions_project='BPR350',
+            module_permissions='upload,data,compound,batch'
+        )
+        self.client.login(username='u_filt', password='pass')
+        r = self.client.get('/compounds/')
+        self.assertEqual(r.status_code, 200)
+        projects = r.context['all_projects']
+        self.assertIn('BPR350', projects)
+        self.assertNotIn('BPR3M03', projects)
+
+    def test_superadmin_sees_all_projects(self):
+        u = LmsUser.objects.create_user(
+            username='u_super', password='pass', user_type='superadmin'
+        )
+        u.is_superuser = True
+        u.save()
+        self.client.login(username='u_super', password='pass')
+        r = self.client.get('/compounds/')
+        projects = r.context['all_projects']
+        self.assertIn('BPR350', projects)
+        self.assertIn('BPR3M03', projects)

@@ -1202,6 +1202,9 @@ def compound_list(request):
     if order not in ('asc', 'desc'):
         order = 'desc'
 
+    # ── Project-level permission enforcement ──
+    _permitted = _get_permitted_projects(request.user)
+
     # ── Fetch and filter experiments ──
     exp_qs = (
         Experiment.objects
@@ -1209,6 +1212,8 @@ def compound_list(request):
         .prefetch_related('datapoints', 'attachments')
         .order_by('batch_label', 'compound__compound_id')
     )
+    if _permitted is not None:
+        exp_qs = exp_qs.filter(compound__project__in=_permitted)
     if q:
         exp_qs = exp_qs.filter(
             Q(compound__compound_id__icontains=q) |
@@ -1258,9 +1263,10 @@ def compound_list(request):
             for bl, exps in page_obj.object_list
         ]
 
-    all_projects = sorted(
-        Compound.objects.exclude(project='').order_by().values_list('project', flat=True).distinct()
-    )
+    _proj_qs = Compound.objects.exclude(project='').order_by()
+    if _permitted is not None:
+        _proj_qs = _proj_qs.filter(project__in=_permitted)
+    all_projects = sorted(_proj_qs.values_list('project', flat=True).distinct())
     all_targets = sorted(
         Compound.objects.exclude(target_name='').order_by().values_list('target_name', flat=True).distinct()
     )
