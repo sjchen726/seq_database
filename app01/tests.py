@@ -2097,3 +2097,49 @@ class ExperimentsExportCsvTest(TestCase):
         self.client.login(username='csv_u2', password='pass')
         r = self.client.get('/api/experiments/export-csv/')
         self.assertEqual(r.status_code, 405)
+
+
+class HasModuleTest(TestCase):
+    def _make_user(self, user_type, module_permissions=''):
+        return LmsUser(user_type=user_type, module_permissions=module_permissions)
+
+    def test_superadmin_has_all(self):
+        from app01.views import _has_module
+        u = self._make_user('superadmin')
+        self.assertTrue(_has_module(u, 'upload'))
+        self.assertTrue(_has_module(u, 'data'))
+
+    def test_sub_admin_with_module(self):
+        from app01.views import _has_module
+        u = self._make_user('sub_admin', 'upload,data')
+        self.assertTrue(_has_module(u, 'upload'))
+        self.assertTrue(_has_module(u, 'data'))
+        self.assertFalse(_has_module(u, 'compound'))
+
+    def test_user_has_none(self):
+        from app01.views import _has_module
+        u = self._make_user('user', 'upload,data')
+        self.assertFalse(_has_module(u, 'upload'))
+
+    def test_sub_admin_empty_perms(self):
+        from app01.views import _has_module
+        u = self._make_user('sub_admin', '')
+        self.assertFalse(_has_module(u, 'data'))
+
+
+class GetPermittedProjectsTest(TestCase):
+    def test_superadmin_returns_none(self):
+        from app01.views import _get_permitted_projects
+        u = LmsUser(user_type='superadmin', permissions_project='BPR350')
+        self.assertIsNone(_get_permitted_projects(u))
+
+    def test_regular_user_returns_list(self):
+        from app01.views import _get_permitted_projects
+        u = LmsUser(user_type='sub_admin', permissions_project='BPR350,BPR3M03')
+        result = _get_permitted_projects(u)
+        self.assertEqual(result, ['BPR350', 'BPR3M03'])
+
+    def test_empty_permissions_returns_empty_list(self):
+        from app01.views import _get_permitted_projects
+        u = LmsUser(user_type='user', permissions_project='')
+        self.assertEqual(_get_permitted_projects(u), [])

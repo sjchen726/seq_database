@@ -23,6 +23,20 @@ from app01.models import (
 logger = logging.getLogger("bprdb_log")
 
 
+def _has_module(user, module: str) -> bool:
+    if user.is_superuser or user.user_type == 'superadmin':
+        return True
+    if user.user_type == 'sub_admin':
+        return module in (user.module_permissions or '').split(',')
+    return False
+
+
+def _get_permitted_projects(user):
+    if user.is_superuser or user.user_type == 'superadmin':
+        return None
+    return [p.strip() for p in (user.permissions_project or '').split(',') if p.strip()]
+
+
 def login_view(request):
     if request.method == "POST":
         user = authenticate(request,
