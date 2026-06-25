@@ -570,6 +570,7 @@ function clDownloadCmpPng() {
 // ── Download selected experiments as CSV ─────────────────────
 function clDownloadCmpCsv() {
   const expIds = _clCmpSelected.flatMap(s => s.expIds);
+  if (expIds.length === 0) { alert('没有可导出的实验数据'); return; }
   fetch('/api/experiments/export-csv/', {
     method: 'POST',
     headers: {'Content-Type': 'application/json', 'X-CSRFToken': _clCsrfToken()},
@@ -585,7 +586,7 @@ function clDownloadCmpCsv() {
       a.href = url;
       a.download = 'compound_export.csv';
       a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
     })
     .catch(() => alert('导出失败，请重试'));
 }
