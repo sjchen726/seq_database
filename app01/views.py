@@ -868,6 +868,7 @@ def _build_vitro_compound_entry(compound, vitro_exps):
     return {
         'compound': compound,
         'experiment': exp,
+        'exp_ids': [e.id for e in vitro_exps],
         'ic50_str': f"{summary.ic50_nm:.2f}" if summary and summary.ic50_nm is not None else '',
         'ic50_nm': summary.ic50_nm if summary else None,
         'max_kd_pct': summary.max_kd_pct if summary else None,
@@ -907,6 +908,7 @@ def _build_vivo_compound_entry(compound, vivo_exps):
 
     return {
         'compound': compound,
+        'exp_ids': [e.id for e in vivo_exps],
         'readout_data': readout_data,
         'readouts': readouts,
         'summary': summary,

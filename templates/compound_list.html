@@ -110,7 +110,7 @@
     <tbody>
     {% for vc in bg.vitro_compounds %}
     {% with vrid="vr-"|add:bg.batch_label|add:"-"|add:vc.compound.compound_id vpid="vp-"|add:bg.batch_label|add:"-"|add:vc.compound.compound_id %}
-    <tr class="cmp-row" id="{{ vrid }}" data-cid="{{ vc.compound.compound_id }}" data-exp-type="vitro" data-panel-id="{{ vpid }}" onclick="clToggleRow('{{ vrid }}','{{ vpid }}')">
+    <tr class="cmp-row" id="{{ vrid }}" data-cid="{{ vc.compound.compound_id }}" data-exp-type="vitro" data-panel-id="{{ vpid }}" data-exp-id="{{ vc.exp_ids|join:',' }}" onclick="clToggleRow('{{ vrid }}','{{ vpid }}')">
       <td onclick="event.stopPropagation()" class="cl-cmp-chk-cell"><input type="checkbox" class="cl-cmp-chk" onchange="clToggleCmpCheck(this)"></td>
       <td><a href="{% url 'compound_detail' vc.compound.compound_id %}" class="cl-cid v" onclick="event.stopPropagation()">{{ vc.compound.compound_id }}</a></td>
       <td>
@@ -214,7 +214,7 @@
     <tbody>
     {% for vc in bg.vivo_compounds %}
     {% with irid="ir-"|add:bg.batch_label|add:"-"|add:vc.compound.compound_id ipid="ip-"|add:bg.batch_label|add:"-"|add:vc.compound.compound_id tgid="it-"|add:bg.batch_label|add:"-"|add:vc.compound.compound_id %}
-    <tr class="cmp-row" id="{{ irid }}" data-cid="{{ vc.compound.compound_id }}" data-exp-type="vivo" data-panel-id="{{ ipid }}" onclick="clToggleRow('{{ irid }}','{{ ipid }}')">
+    <tr class="cmp-row" id="{{ irid }}" data-cid="{{ vc.compound.compound_id }}" data-exp-type="vivo" data-panel-id="{{ ipid }}" data-exp-id="{{ vc.exp_ids|join:',' }}" onclick="clToggleRow('{{ irid }}','{{ ipid }}')">
       <td onclick="event.stopPropagation()" class="cl-cmp-chk-cell"><input type="checkbox" class="cl-cmp-chk" onchange="clToggleCmpCheck(this)"></td>
       <td><a href="{% url 'compound_detail' vc.compound.compound_id %}" class="cl-cid i" onclick="event.stopPropagation()">{{ vc.compound.compound_id }}</a></td>
       <td>

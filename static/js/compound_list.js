@@ -232,16 +232,18 @@ const CMP_COLORS = [
 
 function clToggleCmpCheck(chk) {
   const row = chk.closest('tr.cmp-row');
-  const {cid, expType, panelId} = row.dataset;
+  const {cid, expType, panelId, expId} = row.dataset;
+  const expIds = expId ? expId.split(',').map(Number).filter(n => n > 0) : [];
   row.classList.toggle('cmp-selected', chk.checked);
   if (chk.checked) {
     if (!_clCmpSelected.find(s => s.panelId === panelId))
-      _clCmpSelected.push({cid, expType, panelId});
+      _clCmpSelected.push({cid, expType, panelId, expIds});
   } else {
     const idx = _clCmpSelected.findIndex(s => s.panelId === panelId);
     if (idx >= 0) _clCmpSelected.splice(idx, 1);
   }
   _clUpdateCmpBar();
+  _clSyncBatchSelectAll(row);
 }
 
 function _clUpdateCmpBar() {
@@ -489,4 +491,23 @@ function clCloseBatchDrawer(event, drawerId) {
   if (!drawer) return;
   drawer.classList.remove('show');
   document.querySelectorAll(`[data-drawer="${drawerId}"]`).forEach(c => c.classList.remove('selected'));
+}
+
+function _clSyncBatchSelectAll(row) {
+  const table = row.closest('table');
+  if (!table) return;
+  const selectAll = table.querySelector('.cl-batch-select-all');
+  if (!selectAll) return;
+  const all = [...table.querySelectorAll('.cl-cmp-chk')];
+  const checkedCount = all.filter(c => c.checked).length;
+  if (checkedCount === 0) {
+    selectAll.checked = false;
+    selectAll.indeterminate = false;
+  } else if (checkedCount === all.length) {
+    selectAll.checked = true;
+    selectAll.indeterminate = false;
+  } else {
+    selectAll.checked = false;
+    selectAll.indeterminate = true;
+  }
 }
