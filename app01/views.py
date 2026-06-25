@@ -68,9 +68,22 @@ def register_view(request):
         from app01.models import LmsUser
         if LmsUser.objects.filter(username=username).exists():
             return render(request, 'register.html', {'error': '用户名已存在', 'username': username})
-        LmsUser.objects.create_user(username=username, password=password, user_type='guest')
+        project_code = request.POST.get('project_code', '').strip()
+        new_user = LmsUser.objects.create_user(
+            username=username, password=password,
+            user_type='sub_admin',
+            module_permissions='upload,data,compound,batch',
+            permissions_project=project_code,
+        )
+        from app01.models import AuditLog as _AuditLog
+        import json as _json_reg
+        _AuditLog.objects.create(
+            actor=new_user,
+            action='register',
+            detail=_json_reg.dumps({'project': project_code}),
+        )
         from django.contrib import messages
-        messages.success(request, f'账号 {username} 注册成功，请登录（初始权限为 guest，联系管理员升级）')
+        messages.success(request, f'账号 {username} 注册成功，请登录')
         return redirect('login')
     return render(request, 'register.html')
 

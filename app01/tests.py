@@ -2,7 +2,7 @@ from django.test import TestCase
 from app01.models import (
     Compound, Strand, Experiment, DataPoint,
     ExperimentSummary, _parse_compound_id, LmsUser,
-    ExperimentAttachment,
+    ExperimentAttachment, ProjectAccessRequest, AuditLog,
 )
 
 
@@ -2277,3 +2277,40 @@ class UploadModulePermissionTest(TestCase):
         self.client.login(username='u_sa', password='pass')
         r = self.client.get('/upload/smart/')
         self.assertEqual(r.status_code, 200)
+
+
+class RegisterViewTest(TestCase):
+    def test_register_creates_sub_admin(self):
+        r = self.client.post('/register/', {
+            'username': 'newuser',
+            'password': 'pass123',
+            'confirm_password': 'pass123',
+            'project_code': 'BPR350',
+        })
+        self.assertRedirects(r, '/login/', fetch_redirect_response=False)
+        u = LmsUser.objects.get(username='newuser')
+        self.assertEqual(u.user_type, 'sub_admin')
+        self.assertEqual(u.module_permissions, 'upload,data,compound,batch')
+        self.assertEqual(u.permissions_project, 'BPR350')
+
+    def test_register_without_project(self):
+        self.client.post('/register/', {
+            'username': 'newuser2',
+            'password': 'pass123',
+            'confirm_password': 'pass123',
+            'project_code': '',
+        })
+        u = LmsUser.objects.get(username='newuser2')
+        self.assertEqual(u.permissions_project, '')
+
+    def test_register_writes_audit_log(self):
+        self.client.post('/register/', {
+            'username': 'newuser3',
+            'password': 'pass123',
+            'confirm_password': 'pass123',
+            'project_code': 'BPR3M03',
+        })
+        u = LmsUser.objects.get(username='newuser3')
+        log = AuditLog.objects.filter(actor=u, action='register').first()
+        self.assertIsNotNone(log)
+        self.assertIn('BPR3M03', log.detail)

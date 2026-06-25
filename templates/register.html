@@ -17,7 +17,7 @@
     </div>
   </div>
   <div class="ds-standalone-title">注册账号</div>
-  <div class="ds-standalone-sub">注册后初始权限为 guest，联系管理员升级</div>
+  <div class="ds-standalone-sub">注册即可开始使用，填写项目代码自动获得权限</div>
 
   {% if error %}
   <div class="ds-alert ds-alert-error" style="margin-bottom:14px;">{{ error }}</div>
@@ -40,12 +40,20 @@
       <input type="password" class="ds-form-control" id="password" name="password"
              placeholder="请输入密码" required minlength="6" style="width:100%;box-sizing:border-box;">
     </div>
-    <div style="margin-bottom:20px;">
+    <div style="margin-bottom:14px;">
       <label style="display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:5px;" for="confirm_password">
         <i class="bi bi-lock-fill"></i> 确认密码
       </label>
       <input type="password" class="ds-form-control" id="confirm_password" name="confirm_password"
              placeholder="再次输入密码" required style="width:100%;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:20px;">
+      <label style="display:block;font-size:13px;font-weight:500;color:#374151;margin-bottom:5px;" for="project_code">
+        <i class="bi bi-folder2"></i> 项目代码 <span style="color:#94a3b8;font-weight:400;">（可选）</span>
+      </label>
+      <input type="text" class="ds-form-control" id="project_code" name="project_code"
+             placeholder="如 BPR350、BPR3T05" style="width:100%;box-sizing:border-box;">
+      <div style="font-size:11px;color:#94a3b8;margin-top:4px;">填写后自动获得该项目的完整操作权限，无需等待审批</div>
     </div>
     <button type="submit" class="ds-btn ds-btn-primary" style="width:100%;justify-content:center;">注册</button>
   </form>
