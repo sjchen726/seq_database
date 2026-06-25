@@ -1058,7 +1058,9 @@ class BatchDeleteViewTest(TestCase):
         self.assertEqual(Experiment.objects.filter(batch_label='batch-del').count(), 1)
 
     def test_data_admin_can_delete(self):
-        LmsUser.objects.create_user(username='da1', password='pass', user_type='data_admin')
+        LmsUser.objects.create_user(
+            username='da1', password='pass', user_type='sub_admin', module_permissions='data'
+        )
         compound = self._make_data()
         self.client.login(username='da1', password='pass')
         r = self.client.post(reverse('batch_delete', args=['batch-del']))
@@ -1068,7 +1070,9 @@ class BatchDeleteViewTest(TestCase):
         self.assertTrue(Compound.objects.filter(compound_id='BPR_3M03FN99').exists())
 
     def test_datapoints_cascade_deleted(self):
-        LmsUser.objects.create_user(username='da2', password='pass', user_type='data_admin')
+        LmsUser.objects.create_user(
+            username='da2', password='pass', user_type='sub_admin', module_permissions='data'
+        )
         self._make_data()
         self.client.login(username='da2', password='pass')
         self.client.post(reverse('batch_delete', args=['batch-del']))
@@ -2010,7 +2014,9 @@ class ExperimentsBulkDeleteTest(TestCase):
 
     def test_data_admin_can_delete(self):
         self._make_data()
-        LmsUser.objects.create_user(username='bdt_da1', password='pass', user_type='data_admin')
+        LmsUser.objects.create_user(
+            username='bdt_da1', password='pass', user_type='sub_admin', module_permissions='data'
+        )
         self.client.login(username='bdt_da1', password='pass')
         r = self.client.post(
             '/api/experiments/bulk-delete/',
@@ -2023,7 +2029,9 @@ class ExperimentsBulkDeleteTest(TestCase):
 
     def test_datapoints_cascade(self):
         self._make_data()
-        LmsUser.objects.create_user(username='bdt_da2', password='pass', user_type='data_admin')
+        LmsUser.objects.create_user(
+            username='bdt_da2', password='pass', user_type='sub_admin', module_permissions='data'
+        )
         self.client.login(username='bdt_da2', password='pass')
         self.client.post(
             '/api/experiments/bulk-delete/',
@@ -2125,6 +2133,65 @@ class HasModuleTest(TestCase):
         from app01.views import _has_module
         u = self._make_user('sub_admin', '')
         self.assertFalse(_has_module(u, 'data'))
+
+
+import json as _json
+
+
+class HasModulePermissionCheckTest(TestCase):
+    def _make_experiment(self):
+        from app01.models import Compound, Experiment, DataPoint
+        c = Compound.objects.create(compound_id='BPR350-PERM01')
+        exp = Experiment.objects.create(
+            compound=c, exp_type='in_vitro', assay_name='perm test', batch_label='2099-PM'
+        )
+        DataPoint.objects.create(
+            experiment=exp, x_value=1.0, x_type='concentration',
+            replicate='Mean', value=0.5, readout_type='mRNA_remaining'
+        )
+        return exp
+
+    def test_user_cannot_bulk_delete(self):
+        self._make_experiment()
+        exp = Experiment.objects.first()
+        LmsUser.objects.create_user(username='u_plain', password='pass', user_type='user')
+        self.client.login(username='u_plain', password='pass')
+        r = self.client.post(
+            '/api/experiments/bulk-delete/',
+            data=_json.dumps({'exp_ids': [exp.id]}),
+            content_type='application/json',
+        )
+        self.assertEqual(r.status_code, 403)
+
+    def test_sub_admin_with_data_can_bulk_delete(self):
+        self._make_experiment()
+        exp = Experiment.objects.first()
+        LmsUser.objects.create_user(
+            username='u_data', password='pass', user_type='sub_admin',
+            module_permissions='data'
+        )
+        self.client.login(username='u_data', password='pass')
+        r = self.client.post(
+            '/api/experiments/bulk-delete/',
+            data=_json.dumps({'exp_ids': [exp.id]}),
+            content_type='application/json',
+        )
+        self.assertEqual(r.status_code, 200)
+
+    def test_sub_admin_without_data_cannot_bulk_delete(self):
+        self._make_experiment()
+        exp = Experiment.objects.first()
+        LmsUser.objects.create_user(
+            username='u_upload', password='pass', user_type='sub_admin',
+            module_permissions='upload'
+        )
+        self.client.login(username='u_upload', password='pass')
+        r = self.client.post(
+            '/api/experiments/bulk-delete/',
+            data=_json.dumps({'exp_ids': [exp.id]}),
+            content_type='application/json',
+        )
+        self.assertEqual(r.status_code, 403)
 
 
 class GetPermittedProjectsTest(TestCase):

@@ -1474,13 +1474,9 @@ def batch_delete(request, batch_label):
     if request.method != 'POST':
         return redirect('batch_list')
     user = request.user
-    allowed = (
-        user.is_superuser
-        or getattr(user, 'user_type', '') in ('data_admin', 'admin', 'superadmin')
-    )
-    if not allowed:
+    if not _has_module(user, 'data'):
         from django.http import HttpResponseForbidden
-        return HttpResponseForbidden('权限不足，需要 data_admin 或以上角色')
+        return HttpResponseForbidden('权限不足')
     if not Experiment.objects.filter(batch_label=batch_label).exists():
         from django.http import Http404
         raise Http404
@@ -1493,11 +1489,7 @@ def batch_delete(request, batch_label):
 def experiments_bulk_delete(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'method not allowed'}, status=405)
-    allowed = (
-        request.user.is_superuser
-        or getattr(request.user, 'user_type', '') in ('data_admin', 'admin', 'superadmin')
-    )
-    if not allowed:
+    if not _has_module(request.user, 'data'):
         return JsonResponse({'error': '权限不足'}, status=403)
     try:
         data = json.loads(request.body)
