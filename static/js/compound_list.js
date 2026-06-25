@@ -547,3 +547,45 @@ function clDeleteSelected() {
     })
     .catch(() => alert('删除失败，请重试'));
 }
+
+// ── Download comparison chart as PNG ─────────────────────────
+function clDownloadCmpPng() {
+  const isVitro = document.getElementById('cl-cmp-tab-vitro').classList.contains('active');
+  let canvas;
+  if (isVitro) {
+    canvas = document.getElementById('cl-cmp-vitro-canvas');
+  } else {
+    const panes = document.querySelectorAll('#cl-cmp-vivo-charts .cl-cmp-vivo-pane');
+    for (const p of panes) {
+      if (p.style.display !== 'none') { canvas = p.querySelector('canvas'); break; }
+    }
+  }
+  if (!canvas) return;
+  const a = document.createElement('a');
+  a.download = isVitro ? 'comparison_vitro.png' : 'comparison_vivo.png';
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+}
+
+// ── Download selected experiments as CSV ─────────────────────
+function clDownloadCmpCsv() {
+  const expIds = _clCmpSelected.flatMap(s => s.expIds);
+  fetch('/api/experiments/export-csv/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': _clCsrfToken()},
+    body: JSON.stringify({exp_ids: expIds}),
+  })
+    .then(r => {
+      if (!r.ok) throw new Error('export failed');
+      return r.blob();
+    })
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'compound_export.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    })
+    .catch(() => alert('导出失败，请重试'));
+}
