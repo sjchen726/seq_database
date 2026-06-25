@@ -516,11 +516,12 @@ function _clSyncBatchSelectAll(row) {
 function clToggleBatchSelectAll(chkEl) {
   const table = chkEl.closest('table');
   if (!table) return;
+  const targetChecked = chkEl.checked;
   table.querySelectorAll('.cl-cmp-chk').forEach(chk => {
-    if (chk.checked !== chkEl.checked) {
-      chk.checked = chkEl.checked;
+    if (chk.checked !== targetChecked) {
+      chk.checked = targetChecked;
       clToggleCmpCheck(chk);
-      if (chkEl.checked) {
+      if (targetChecked) {
         const row = chk.closest('tr.cmp-row');
         if (row && !row.classList.contains('open'))
           clToggleRow(row.id, row.dataset.panelId);
