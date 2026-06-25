@@ -38,6 +38,7 @@ class ProjectAccessRequest(models.Model):
                                      related_name='reviewed_requests')
 
     class Meta:
+        db_table = 'project_access_request'
         ordering = ['-created_at']
 
 
@@ -60,6 +61,7 @@ class AuditLog(models.Model):
     created_at  = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        db_table = 'audit_log'
         ordering = ['-created_at']
 
 
