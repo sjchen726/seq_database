@@ -2352,7 +2352,7 @@ def smart_upload_confirm_view(request):
                 pass
 
     # Update target_name for all compounds touched in this upload (required; validated above)
-    if not (invitro_errors and invivo_errors):
+    if not (invitro_errors or invivo_errors):
         touched_cids = set()
         if invitro:
             for cid in invitro.get('strand_map', {}):

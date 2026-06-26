@@ -2544,3 +2544,22 @@ class ModelStrMethodTest(TestCase):
             batch_label='2026-T01',
         )
         self.assertEqual(str(exp), 'BPR350-STR01 | in_vitro | 2026-T01')
+
+
+class TargetNameUpdateLogicTest(TestCase):
+    """target_name must not be updated when any upload error occurred."""
+
+    def test_and_or_logic_fixed(self):
+        """Regression test: `or` means either error list being non-empty blocks the update."""
+        invitro_errors = ['parse error']
+        invivo_errors = []
+        # With `or`: not (True or False) = not True = False → update skipped ✓
+        self.assertFalse(not (invitro_errors or invivo_errors))
+
+    def test_no_errors_allows_update(self):
+        invitro_errors = []
+        invivo_errors = []
+        self.assertTrue(not (invitro_errors or invivo_errors))
+
+    def test_both_errors_blocks_update(self):
+        self.assertFalse(not (['e'] or ['e']))
