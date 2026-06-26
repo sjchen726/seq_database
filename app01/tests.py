@@ -2524,3 +2524,23 @@ class ResetUsersCommandTest(TestCase):
         call_command('reset_users', stdout=StringIO())
         sa = LmsUser.objects.get(username='theadmin')
         self.assertEqual(sa.user_type, 'superadmin')
+
+
+class ModelStrMethodTest(TestCase):
+    def setUp(self):
+        self.compound = Compound.objects.create(compound_id='BPR350-STR01')
+
+    def test_strand_str_uses_compound_id_string(self):
+        strand = Strand.objects.create(
+            compound=self.compound, strand_type='AS'
+        )
+        self.assertEqual(str(strand), 'BPR350-STR01_AS')
+
+    def test_experiment_str_uses_compound_id_string(self):
+        exp = Experiment.objects.create(
+            compound=self.compound,
+            exp_type='in_vitro',
+            assay_name='test assay',
+            batch_label='2026-T01',
+        )
+        self.assertEqual(str(exp), 'BPR350-STR01 | in_vitro | 2026-T01')

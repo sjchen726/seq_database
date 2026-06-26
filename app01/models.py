@@ -156,7 +156,7 @@ class Strand(models.Model):
         unique_together = [('compound', 'strand_type')]
 
     def __str__(self):
-        return f"{self.compound_id}_{self.strand_type}"
+        return f"{self.compound.compound_id}_{self.strand_type}"
 
 
 class Experiment(models.Model):
@@ -184,7 +184,7 @@ class Experiment(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.compound_id} | {self.exp_type} | {self.batch_label}"
+        return f"{self.compound.compound_id} | {self.exp_type} | {self.batch_label}"
 
 
 class DataPoint(models.Model):
