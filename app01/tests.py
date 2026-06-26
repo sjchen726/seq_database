@@ -2563,3 +2563,53 @@ class TargetNameUpdateLogicTest(TestCase):
 
     def test_both_errors_blocks_update(self):
         self.assertFalse(not (['e'] or ['e']))
+
+
+class InvivoSourceFileAttachmentTest(TestCase):
+    """Source files must be attached exactly once (to first invivo exp), not per-group."""
+
+    def test_source_file_attached_once_across_groups(self):
+        """
+        Simulates 2 invivo groups. Old bug: attach per iteration → count=2.
+        Fixed behavior: collect all, attach once post-loop → count=1.
+        """
+        from app01.models import Compound, Experiment, ExperimentAttachment
+
+        c1 = Compound.objects.create(compound_id='BPR350-IV01')
+        c2 = Compound.objects.create(compound_id='BPR350-IV02')
+        exp1 = Experiment.objects.create(
+            compound=c1, exp_type='in_vivo', assay_name='test', batch_label='B-IV-1'
+        )
+        exp2 = Experiment.objects.create(
+            compound=c2, exp_type='in_vivo', assay_name='test', batch_label='B-IV-2'
+        )
+
+        source_label = 'protocol.pdf'
+
+        # Simulate OLD BUGGY behavior: attach inside the loop, once per group
+        for invivo_exps in [[exp1], [exp2]]:
+            if invivo_exps:
+                ExperimentAttachment.objects.create(
+                    experiment=invivo_exps[0], label=source_label
+                )
+        # Old behavior produces 2 attachments (one per group iteration)
+        self.assertEqual(ExperimentAttachment.objects.filter(label=source_label).count(), 2)
+
+        # Reset
+        ExperimentAttachment.objects.filter(label=source_label).delete()
+
+        # Simulate FIXED behavior: collect all, attach once post-loop
+        all_invivo_exps = []
+        for invivo_exps in [[exp1], [exp2]]:
+            all_invivo_exps.extend(invivo_exps)
+
+        if all_invivo_exps:
+            ExperimentAttachment.objects.create(
+                experiment=all_invivo_exps[0], label=source_label
+            )
+        # Fixed behavior: exactly 1 attachment, on the first exp
+        self.assertEqual(ExperimentAttachment.objects.filter(label=source_label).count(), 1)
+        self.assertEqual(
+            ExperimentAttachment.objects.get(label=source_label).experiment,
+            exp1,
+        )

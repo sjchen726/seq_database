@@ -2250,6 +2250,7 @@ def smart_upload_confirm_view(request):
                     logger.error(f'smart_upload source-only attachment error: {e}')
 
     # Write each in-vivo group in its own atomic transaction (independent)
+    all_invivo_exps = []
     for i, group in enumerate(invivo_groups):
         meta = invivo_meta[i]
         batch_label_iv = batch_label
@@ -2310,29 +2311,31 @@ def smart_upload_confirm_view(request):
                     n_attachments += 1
                     default_storage.delete(saved_path)
 
-                # Auto-attach source files to the first new in-vivo experiment
-                if invivo_exps and source_files and not vitro_experiments:
-                    from django.core.files.base import ContentFile as CF
-                    for sf in source_files:
-                        sf_path = sf.get('saved_path', '')
-                        if not sf_path or not default_storage.exists(sf_path):
-                            continue
-                        if ExperimentAttachment.objects.filter(
-                                experiment=invivo_exps[0], label=sf['filename']).exists():
-                            dup_warnings.append(sf['filename'])
-                            continue
-                        try:
-                            with default_storage.open(sf_path, 'rb') as fh:
-                                sf_content = fh.read()
-                            att = ExperimentAttachment(
-                                experiment=invivo_exps[0], label=sf['filename'])
-                            att.file.save(sf['filename'], CF(sf_content), save=True)
-                            n_attachments += 1
-                        except Exception as e:
-                            logger.error(f'smart_upload source vivo attachment error: {e}')
+                all_invivo_exps.extend(invivo_exps)
         except Exception as e:
             logger.error(f'smart_upload_confirm invivo error: {e}')
             invivo_errors.append(f'文件 {group["filename"]}: {e}')
+
+    # Auto-attach source files to the first new in-vivo experiment (once, post-loop)
+    if all_invivo_exps and source_files and not vitro_experiments and not invivo_errors:
+        from django.core.files.base import ContentFile as CF
+        for sf in source_files:
+            sf_path = sf.get('saved_path', '')
+            if not sf_path or not default_storage.exists(sf_path):
+                continue
+            if ExperimentAttachment.objects.filter(
+                    experiment=all_invivo_exps[0], label=sf['filename']).exists():
+                dup_warnings.append(sf['filename'])
+                continue
+            try:
+                with default_storage.open(sf_path, 'rb') as fh:
+                    sf_content = fh.read()
+                att = ExperimentAttachment(
+                    experiment=all_invivo_exps[0], label=sf['filename'])
+                att.file.save(sf['filename'], CF(sf_content), save=True)
+                n_attachments += 1
+            except Exception as e:
+                logger.error(f'smart_upload source vivo attachment error: {e}')
 
     # Clean up any remaining temp files.
     # invivo_groups saved_paths are deleted inside their transaction block — skip them.
