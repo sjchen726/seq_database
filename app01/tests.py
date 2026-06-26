@@ -2456,3 +2456,39 @@ class ProjectRequestApproveRejectTest(TestCase):
         self.assertEqual(r.status_code, 403)
         self.req.refresh_from_db()
         self.assertEqual(self.req.status, 'pending')
+
+
+class ProfileRequestProjectTest(TestCase):
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='prof1', password='pass', user_type='sub_admin',
+            permissions_project='BPR350', module_permissions='upload,data,compound,batch'
+        )
+        self.client.login(username='prof1', password='pass')
+
+    def test_submit_creates_request(self):
+        r = self.client.post('/profile/request-project/', {'project_code': 'BPR3M03'})
+        self.assertRedirects(r, '/profile/', fetch_redirect_response=False)
+        self.assertEqual(ProjectAccessRequest.objects.filter(
+            user=self.user, project_code='BPR3M03', status='pending'
+        ).count(), 1)
+
+    def test_submit_writes_audit_log(self):
+        self.client.post('/profile/request-project/', {'project_code': 'BPR3M03'})
+        log = AuditLog.objects.filter(actor=self.user, action='project_request').first()
+        self.assertIsNotNone(log)
+
+    def test_duplicate_pending_request_rejected(self):
+        ProjectAccessRequest.objects.create(
+            user=self.user, project_code='BPR3M03', status='pending'
+        )
+        self.client.post('/profile/request-project/', {'project_code': 'BPR3M03'})
+        self.assertEqual(ProjectAccessRequest.objects.filter(
+            user=self.user, project_code='BPR3M03', status='pending'
+        ).count(), 1)
+
+    def test_already_has_project_rejected(self):
+        self.client.post('/profile/request-project/', {'project_code': 'BPR350'})
+        self.assertEqual(ProjectAccessRequest.objects.filter(
+            user=self.user, project_code='BPR350'
+        ).count(), 0)

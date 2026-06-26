@@ -598,8 +598,39 @@ def user_profile(request):
             user.save()
             login(request, user)
             msg = ('success', '密码已修改')
-    projects = [p.strip() for p in user.permissions_project.split(',') if p.strip()]
-    return render(request, 'profile.html', {'msg': msg, 'projects': projects})
+    projects = [p.strip() for p in (user.permissions_project or '').split(',') if p.strip()]
+    access_requests = ProjectAccessRequest.objects.filter(user=user)
+    return render(request, 'profile.html', {
+        'msg': msg,
+        'projects': projects,
+        'access_requests': access_requests,
+    })
+
+
+@login_required
+def profile_request_project(request):
+    if request.method != 'POST':
+        return redirect('user_profile')
+    project_code = request.POST.get('project_code', '').strip()
+    if not project_code:
+        messages.error(request, '项目代码不能为空')
+        return redirect('user_profile')
+    user = request.user
+    existing = [p.strip() for p in (user.permissions_project or '').split(',') if p.strip()]
+    if project_code in existing:
+        messages.warning(request, f'你已拥有项目 {project_code} 的访问权限')
+        return redirect('user_profile')
+    if ProjectAccessRequest.objects.filter(user=user, project_code=project_code, status='pending').exists():
+        messages.warning(request, f'项目 {project_code} 的申请已在审批中')
+        return redirect('user_profile')
+    ProjectAccessRequest.objects.create(user=user, project_code=project_code)
+    AuditLog.objects.create(
+        actor=user,
+        action='project_request',
+        detail=json.dumps({'project': project_code}),
+    )
+    messages.success(request, f'已提交项目 {project_code} 的访问申请，等待 superadmin 审批')
+    return redirect('user_profile')
 
 
 def _build_vitro_rows(datapoints):
