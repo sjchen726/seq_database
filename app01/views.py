@@ -655,10 +655,12 @@ def _build_vitro_rows(datapoints):
 
 
 def _build_invivo_rows(datapoints, time_unit):
-    """One row per timepoint with mean/SD/CV. Shows all timepoints, not just 7-multiples."""
+    """One row per timepoint with mean/SD/CV. For 'day' unit, shows only multiples of 7."""
     grouped = defaultdict(list)
     for dp in datapoints:
         if not dp.is_control and dp.replicate not in ('Mean', 'SD') and dp.x_type == 'timepoint':
+            if time_unit == 'day' and dp.x_value % 7 != 0:
+                continue
             grouped[dp.x_value].append(dp.value)
 
     def _make_label(timepoint):
@@ -673,6 +675,8 @@ def _build_invivo_rows(datapoints, time_unit):
         mean_map, sd_map = {}, {}
         for dp in datapoints:
             if dp.x_type == 'timepoint' and not dp.is_control:
+                if time_unit == 'day' and dp.x_value % 7 != 0:
+                    continue
                 if dp.replicate == 'Mean':
                     mean_map[dp.x_value] = dp.value
                 elif dp.replicate == 'SD':

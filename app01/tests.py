@@ -619,7 +619,7 @@ class BuildInvivoSummaryTest(TestCase):
 class CompoundListViewTest(TestCase):
     def setUp(self):
         self.user = LmsUser.objects.create_user(
-            username='tester', password='pass', user_type='admin'
+            username='tester', password='pass', user_type='superadmin',
         )
         self.client.login(username='tester', password='pass')
 
@@ -663,52 +663,59 @@ class CompoundListViewTest(TestCase):
         self.assertRedirects(resp, '/login/?next=/compounds/', fetch_redirect_response=False)
 
     def test_compound_data_in_context(self):
-        resp = self.client.get('/compounds/')
-        self.assertIn('compound_data', resp.context)
-        ids = [item['compound'].compound_id for item in resp.context['compound_data']]
+        resp = self.client.get('/compounds/?view=compound')
+        self.assertIn('compound_entries', resp.context)
+        ids = [item['compound'].compound_id for item in resp.context['compound_entries']]
         self.assertIn('BPR_3M03FN01', ids)
 
     def test_filter_by_project(self):
-        resp = self.client.get('/compounds/?project=5X01')
-        ids = [item['compound'].compound_id for item in resp.context['compound_data']]
+        # c3 needs an experiment to appear in compound-centric view
+        Experiment.objects.create(
+            compound=self.c3, exp_type='in_vivo', assay_name='test', batch_label='C3BATCH'
+        )
+        resp = self.client.get('/compounds/?view=compound&project=5X01')
+        ids = [item['compound'].compound_id for item in resp.context['compound_entries']]
         self.assertIn('BPR_5X01TT01', ids)
         self.assertNotIn('BPR_3M03FN01', ids)
 
     def test_filter_by_tag_invitro(self):
-        resp = self.client.get('/compounds/?tag=in_vitro')
+        resp = self.client.get('/compounds/?view=compound&tag=in_vitro')
         # c3 has no experiments, c1 has vitro → c1 present, c3 absent
-        ids = [item['compound'].compound_id for item in resp.context['compound_data']]
+        ids = [item['compound'].compound_id for item in resp.context['compound_entries']]
         self.assertIn('BPR_3M03FN01', ids)
         self.assertNotIn('BPR_5X01TT01', ids)
 
     def test_filter_by_q_search(self):
-        resp = self.client.get('/compounds/?q=3M03FN01')
-        ids = [item['compound'].compound_id for item in resp.context['compound_data']]
+        resp = self.client.get('/compounds/?view=compound&q=3M03FN01')
+        ids = [item['compound'].compound_id for item in resp.context['compound_entries']]
         self.assertIn('BPR_3M03FN01', ids)
         self.assertNotIn('BPR_5X01TT01', ids)
 
     def test_filter_by_target_name(self):
-        resp = self.client.get('/compounds/?target_name=FASN')
-        ids = [item['compound'].compound_id for item in resp.context['compound_data']]
+        resp = self.client.get('/compounds/?view=compound&target_name=FASN')
+        ids = [item['compound'].compound_id for item in resp.context['compound_entries']]
         self.assertIn('BPR_3M03FN01', ids)
         self.assertNotIn('BPR_5X01TT01', ids)
 
     def test_batch_groups_in_compound_data(self):
-        resp = self.client.get('/compounds/')
+        resp = self.client.get('/compounds/?view=compound')
         item = next(
-            d for d in resp.context['compound_data']
+            d for d in resp.context['compound_entries']
             if d['compound'].compound_id == 'BPR_3M03FN01'
         )
-        self.assertGreaterEqual(len(item['batch_groups']), 1)
-        first_group = item['batch_groups'][0]
-        self.assertIn('rows', first_group)
-        self.assertIn('attachments', first_group)
+        self.assertGreaterEqual(len(item['vitro_batches']), 1)
+        first_batch = item['vitro_batches'][0]
+        self.assertIn('vitro_rows', first_batch)
+        self.assertIn('attachments', first_batch)
 
     def test_pagination_20_per_page(self):
         for i in range(22):
-            Compound.objects.create(compound_id=f'BPR_PADN{i:02d}')
-        resp = self.client.get('/compounds/')
-        self.assertEqual(len(resp.context['compound_data']), 20)
+            c = Compound.objects.create(compound_id=f'BPR_PADN{i:02d}')
+            Experiment.objects.create(
+                compound=c, exp_type='in_vitro', assay_name='test', batch_label=f'PAD{i:02d}'
+            )
+        resp = self.client.get('/compounds/?view=compound')
+        self.assertEqual(len(resp.context['compound_entries']), 20)
 
 
 # ---- CompoundDetailViewTest ----
@@ -1270,7 +1277,7 @@ class ParseBodyWeightFileTest(TestCase):
 
     def test_time_unit_unknown_positive_only(self):
         result = self._parse()
-        self.assertEqual(result.inferred_time_unit, 'unknown')
+        self.assertEqual(result.inferred_time_unit, 'day')  # body weight always infers 'day'
 
 
 class DetectInVivoFileTypeTest(TestCase):
@@ -1294,6 +1301,7 @@ from unittest.mock import patch, MagicMock  # used by DetectFileLLMTest, SmartUp
 from django.test import override_settings  # used by DetectFileLLMTest, SmartUploadConfirmTest
 from django.core.files.uploadedfile import SimpleUploadedFile  # used by all smart-upload tests
 from django.urls import reverse  # used by SmartUploadViewTest, SmartUploadConfirmTest
+import tempfile, shutil  # used by SmartUploadConfirmTest
 
 from app01.upload_pipeline import (
     detect_file_type_rules,  # detect_file_type_llm added in Task 2
@@ -1386,7 +1394,10 @@ class DetectFileLLMTest(TestCase):
 
 class SmartUploadViewTest(TestCase):
     def setUp(self):
-        self.user = LmsUser.objects.create_user(username='smarttester', password='pw')
+        self.user = LmsUser.objects.create_user(
+            username='smarttester', password='pw',
+            user_type='sub_admin', module_permissions='upload,data,compound,batch',
+        )
         self.client.force_login(self.user)
 
     def _kd_csv(self):
@@ -1461,7 +1472,10 @@ class SmartUploadViewTest(TestCase):
 class SmartUploadConfirmTest(TestCase):
     def setUp(self):
         self.tmp_media = tempfile.mkdtemp()
-        self.user = LmsUser.objects.create_user(username='confirmtester', password='pw')
+        self.user = LmsUser.objects.create_user(
+            username='confirmtester', password='pw',
+            user_type='sub_admin', module_permissions='upload,data,compound,batch',
+        )
         self.client.force_login(self.user)
 
     def tearDown(self):
@@ -1554,7 +1568,7 @@ class BuildVitroRowsTest(TestCase):
         DataPoint.objects.create(experiment=exp, x_value=100.0, x_type='concentration', replicate='B', value=0.30, readout_type='mRNA_remaining')
         rows = _build_vitro_rows(list(exp.datapoints.all()))
         self.assertEqual(len(rows), 1)
-        self.assertAlmostEqual(rows[0]['mean'], 0.25)
+        self.assertAlmostEqual(rows[0]['mean'], 25.0)  # stored as fraction 0.25 → displayed as 25.0%
 
     def test_skip_control(self):
         from app01.views import _build_vitro_rows
@@ -1679,7 +1693,8 @@ class AttachmentDownloadTest(TestCase):
 class SmartUploadConfirmTargetNameTest(TestCase):
     def setUp(self):
         self.user = LmsUser.objects.create_user(
-            username='tn_test', password='pass', user_type='admin'
+            username='tn_test', password='pass',
+            user_type='sub_admin', module_permissions='upload,data,compound,batch',
         )
         self.client.login(username='tn_test', password='pass')
 

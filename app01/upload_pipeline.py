@@ -67,6 +67,10 @@ class ParsedInVivoGroup:
     schedule: str   # e.g. "Q2W*3"; from body-weight header 3rd token
     timepoints: list  # List[ParsedInVivoTimepoint]
 
+    @property
+    def dose_info(self):
+        return ' '.join(p for p in [self.dose, self.schedule] if p)
+
 
 @dataclass
 class ParsedInVivoFile:
