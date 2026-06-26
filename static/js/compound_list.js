@@ -606,3 +606,21 @@ function clDownloadCmpCsv() {
     })
     .catch(() => alert('导出失败，请重试'));
 }
+
+// ── Per-row delete button ─────────────────────────────────────
+function clDeleteRow(...expIds) {
+  const ids = expIds.filter(id => id > 0);
+  if (!ids.length) return;
+  if (!confirm(`确认删除该化合物的 ${ids.length} 条实验记录？此操作不可撤销。`)) return;
+  fetch('/api/experiments/bulk-delete/', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': _clCsrfToken()},
+    body: JSON.stringify({exp_ids: ids}),
+  })
+    .then(r => r.json().then(data => ({ok: r.ok, data})))
+    .then(({ok, data}) => {
+      if (!ok) { alert(data.error || '删除失败'); return; }
+      location.reload();
+    })
+    .catch(() => alert('删除失败，请重试'));
+}
