@@ -2408,3 +2408,51 @@ class UserEditDeleteTest(TestCase):
         log = AuditLog.objects.filter(action='user_deleted').first()
         self.assertIsNotNone(log)
         self.assertIn(username, log.detail)
+
+
+class ProjectRequestApproveRejectTest(TestCase):
+    def setUp(self):
+        self.sadmin = LmsUser.objects.create_user(
+            username='sa3', password='pass', user_type='superadmin'
+        )
+        self.sadmin.is_superuser = True
+        self.sadmin.save()
+        self.requester = LmsUser.objects.create_user(
+            username='req1', password='pass', user_type='sub_admin',
+            permissions_project='BPR350', module_permissions='upload,data,compound,batch'
+        )
+        self.req = ProjectAccessRequest.objects.create(
+            user=self.requester, project_code='BPR3M03', status='pending'
+        )
+
+    def test_approve_adds_project_to_user(self):
+        self.client.login(username='sa3', password='pass')
+        self.client.post(f'/users/requests/{self.req.id}/approve/')
+        self.requester.refresh_from_db()
+        self.assertIn('BPR3M03', self.requester.permissions_project)
+
+    def test_approve_sets_status_approved(self):
+        self.client.login(username='sa3', password='pass')
+        self.client.post(f'/users/requests/{self.req.id}/approve/')
+        self.req.refresh_from_db()
+        self.assertEqual(self.req.status, 'approved')
+
+    def test_approve_writes_audit_log(self):
+        self.client.login(username='sa3', password='pass')
+        self.client.post(f'/users/requests/{self.req.id}/approve/')
+        log = AuditLog.objects.filter(action='project_approved').first()
+        self.assertIsNotNone(log)
+
+    def test_reject_sets_status_rejected(self):
+        self.client.login(username='sa3', password='pass')
+        self.client.post(f'/users/requests/{self.req.id}/reject/')
+        self.req.refresh_from_db()
+        self.assertEqual(self.req.status, 'rejected')
+
+    def test_non_superadmin_cannot_approve(self):
+        u = LmsUser.objects.create_user(username='plain2', password='pass', user_type='sub_admin')
+        self.client.login(username='plain2', password='pass')
+        r = self.client.post(f'/users/requests/{self.req.id}/approve/')
+        self.assertEqual(r.status_code, 403)
+        self.req.refresh_from_db()
+        self.assertEqual(self.req.status, 'pending')

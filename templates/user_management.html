@@ -44,11 +44,11 @@
         <td style="padding:7px 10px;color:#57534e;font-size:12px;">{{ req.note|default:"—" }}</td>
         <td style="padding:7px 10px;">
           <div style="display:flex;gap:6px;">
-            <form method="POST" action="/users/requests/{{ req.id }}/approve/" style="margin:0;">
+            <form method="POST" action="{% url 'project_request_approve' req.id %}" style="margin:0;">
               {% csrf_token %}
               <button type="submit" class="ds-btn ds-btn-green" style="padding:4px 10px;font-size:12px;">批准</button>
             </form>
-            <form method="POST" action="/users/requests/{{ req.id }}/reject/" style="margin:0;">
+            <form method="POST" action="{% url 'project_request_reject' req.id %}" style="margin:0;">
               {% csrf_token %}
               <button type="submit" class="ds-btn ds-btn-danger" style="padding:4px 10px;font-size:12px;">拒绝</button>
             </form>

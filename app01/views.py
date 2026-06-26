@@ -2496,3 +2496,57 @@ def user_delete_view(request, user_id):
     target.delete()
     messages.success(request, f'用户 {username} 已删除')
     return redirect('user_management')
+
+
+@login_required
+def project_request_approve(request, req_id):
+    if not (request.user.is_superuser or request.user.user_type == 'superadmin'):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden('此操作仅 superadmin 可执行')
+    if request.method != 'POST':
+        return redirect('user_management')
+    import json as _json_mod
+    import datetime
+    req = get_object_or_404(ProjectAccessRequest, id=req_id)
+    req.status = 'approved'
+    req.reviewed_by = request.user
+    req.reviewed_at = datetime.datetime.now()
+    req.save()
+    user = req.user
+    existing = [p.strip() for p in (user.permissions_project or '').split(',') if p.strip()]
+    if req.project_code not in existing:
+        existing.append(req.project_code)
+    user.permissions_project = ','.join(existing)
+    user.save()
+    AuditLog.objects.create(
+        actor=request.user,
+        action='project_approved',
+        target_user=user,
+        detail=_json_mod.dumps({'project': req.project_code}),
+    )
+    messages.success(request, f'已批准 {user.username} 访问 {req.project_code}')
+    return redirect('user_management')
+
+
+@login_required
+def project_request_reject(request, req_id):
+    if not (request.user.is_superuser or request.user.user_type == 'superadmin'):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden('此操作仅 superadmin 可执行')
+    if request.method != 'POST':
+        return redirect('user_management')
+    import json as _json_mod
+    import datetime
+    req = get_object_or_404(ProjectAccessRequest, id=req_id)
+    req.status = 'rejected'
+    req.reviewed_by = request.user
+    req.reviewed_at = datetime.datetime.now()
+    req.save()
+    AuditLog.objects.create(
+        actor=request.user,
+        action='project_rejected',
+        target_user=req.user,
+        detail=_json_mod.dumps({'project': req.project_code}),
+    )
+    messages.success(request, f'已拒绝 {req.user.username} 访问 {req.project_code}')
+    return redirect('user_management')
