@@ -1,4 +1,6 @@
 from django.test import TestCase
+from django.core.management import call_command
+from io import StringIO
 from app01.models import (
     Compound, Strand, Experiment, DataPoint,
     ExperimentSummary, _parse_compound_id, LmsUser,
@@ -2492,3 +2494,33 @@ class ProfileRequestProjectTest(TestCase):
         self.assertEqual(ProjectAccessRequest.objects.filter(
             user=self.user, project_code='BPR350'
         ).count(), 0)
+
+
+class ResetUsersCommandTest(TestCase):
+    def setUp(self):
+        self.sa = LmsUser.objects.create_user(
+            username='theadmin', password='oldpass', user_type='superadmin'
+        )
+        self.sa.is_superuser = True
+        self.sa.save()
+        LmsUser.objects.create_user(username='user1', password='pass', user_type='sub_admin')
+        LmsUser.objects.create_user(username='user2', password='pass', user_type='user')
+
+    def test_deletes_non_superadmin_users(self):
+        call_command('reset_users', stdout=StringIO())
+        self.assertFalse(LmsUser.objects.filter(username='user1').exists())
+        self.assertFalse(LmsUser.objects.filter(username='user2').exists())
+
+    def test_keeps_superadmin(self):
+        call_command('reset_users', stdout=StringIO())
+        self.assertTrue(LmsUser.objects.filter(username='theadmin').exists())
+
+    def test_resets_password_to_123456(self):
+        call_command('reset_users', stdout=StringIO())
+        sa = LmsUser.objects.get(username='theadmin')
+        self.assertTrue(sa.check_password('123456'))
+
+    def test_sets_superadmin_type(self):
+        call_command('reset_users', stdout=StringIO())
+        sa = LmsUser.objects.get(username='theadmin')
+        self.assertEqual(sa.user_type, 'superadmin')
