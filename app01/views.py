@@ -2097,13 +2097,17 @@ def smart_upload_confirm_view(request):
     source_files = smart_preview.get('source_files', [])
     project_code = smart_preview.get('project_code', '')
 
-    batch_label = request.POST.get('batch_label', '').strip()
-    assay_name = request.POST.get('assay_name', '').strip()
-    exp_date = request.POST.get('exp_date', '').strip() or None
-    target_name_input = request.POST.get('target_name', '').strip()
-    source_batch = request.POST.get('source_batch', '').strip()
-    attach_vitro = request.POST.get('source_exp_vitro') == '1'
-    attach_vivo  = request.POST.get('source_exp_vivo')  == '1'
+    pipeline_result = request.session.get('pipeline_result', {})
+    upload_meta = request.session.get('upload_meta', {})
+    _normalize_id_map = request.session.get('normalize_id_map', {})
+
+    batch_label = upload_meta.get('batch_label', '')
+    assay_name = upload_meta.get('assay_name', '')
+    exp_date = upload_meta.get('exp_date') or None
+    target_name_input = upload_meta.get('target_name', '')
+    source_batch = upload_meta.get('source_batch', '')
+    attach_vitro = upload_meta.get('attach_vitro', False)
+    attach_vivo = upload_meta.get('attach_vivo', False)
 
     is_source_only = smart_preview.get('is_source_only', False)
 
@@ -2111,6 +2115,9 @@ def smart_upload_confirm_view(request):
     errors = list(remap_errors)
 
     def _resolve_cid(raw: str) -> str:
+        # Check normalize_id_map first (from Phase 2 of pipeline)
+        if raw in _normalize_id_map:
+            return _normalize_id_map[raw]
         remapped = user_cid_remap.get(raw, raw)
         return canonicalize_compound_id(remapped, project_code)
 
@@ -2129,39 +2136,16 @@ def smart_upload_confirm_view(request):
     if is_source_only and source_batch and not (attach_vitro or attach_vivo):
         errors.append('请至少选择一种实验类型（体外或体内）')
 
-    if has_exp_data:
-        # Content-based duplicate check: ID + data values identical to any existing batch
-        def _dp_fingerprint(dp_list):
-            return frozenset(
-                (round(float(dp.get('x_value', 0) or 0), 4),
-                 dp.get('replicate', ''),
-                 round(float(dp.get('value', 0) or 0), 4) if dp.get('value') is not None else None,
-                 dp.get('readout_type', ''))
-                for dp in dp_list if not dp.get('is_control')
-            )
+    # Read conflict choices from POST (only these are in the new confirm form)
+    strand_diffs = pipeline_result.get('strand_diffs', [])
+    for diff in strand_diffs:
+        choice_key = f'strand_choice_{diff["compound_id"]}_{diff["strand_type"]}'
+        diff['user_choice'] = request.POST.get(choice_key, 'keep')
 
-        content_dup_msgs = []
-        for exp_data in (invitro.get('experiments', []) if invitro else []):
-            cid = exp_data['compound_id']
-            upload_fp = _dp_fingerprint(exp_data.get('datapoints', []))
-            if not upload_fp:
-                continue
-            for existing_exp in Experiment.objects.filter(compound__compound_id=cid):
-                db_dps = DataPoint.objects.filter(experiment=existing_exp, is_control=False)
-                if not db_dps.exists():
-                    continue
-                existing_fp = frozenset(
-                    (round(float(dp.x_value or 0), 4), dp.replicate,
-                     round(float(dp.value or 0), 4) if dp.value is not None else None,
-                     dp.readout_type)
-                    for dp in db_dps
-                )
-                if existing_fp == upload_fp:
-                    content_dup_msgs.append(f'{cid}（与批次 {existing_exp.batch_label} 数据完全相同）')
-                    break
-        if content_dup_msgs:
-            preview = ','.join(content_dup_msgs[:5])
-            errors.append(f'以下化合物数据与已有批次完全相同，无需重复上传：{preview}')
+    dp_conflicts = pipeline_result.get('dedup_report', {}).get('dp_conflicts', [])
+    for dpc in dp_conflicts:
+        choice_key = f'dp_choice_{dpc["compound_id"]}_{dpc["batch_label"]}'
+        dpc['skip'] = request.POST.get(choice_key, 'skip') == 'skip'
 
     invivo_meta = []
     for i, group in enumerate(invivo_groups):
@@ -2169,12 +2153,12 @@ def smart_upload_confirm_view(request):
         if group.get('readout_code') == 'body_weight':
             time_unit = 'day'
         else:
-            time_unit = request.POST.get(f'time_unit_{i}', '').strip()
-        dose_override = request.POST.get(f'dose_override_{i}', '').strip()
-        animal_species = request.POST.get(f'animal_species_{i}', '').strip()
-        animal_strain = request.POST.get(f'animal_strain_{i}', '').strip()
-        route = request.POST.get(f'route_{i}', '').strip()
-        gender = request.POST.get(f'gender_{i}', '').strip()
+            time_unit = upload_meta.get(f'time_unit_{i}', '')
+        dose_override = upload_meta.get(f'dose_override_{i}', '')
+        animal_species = upload_meta.get(f'animal_species_{i}', '')
+        animal_strain = upload_meta.get(f'animal_strain_{i}', '')
+        route = upload_meta.get(f'route_{i}', '')
+        gender = upload_meta.get(f'gender_{i}', '')
 
         if not time_unit:
             errors.append(f'文件 {group["filename"]}: 请填写时间单位')
@@ -2214,14 +2198,14 @@ def smart_upload_confirm_view(request):
             batch_exp_err[bl].append({'exp_type': exp.exp_type, 'label': exp.assay_name or bl, 'pk': exp.pk})
         return render(request, 'smart_upload.html', {
             'preview': smart_preview,
+            'upload_meta': upload_meta,
+            'pipeline_result': pipeline_result,
+            'show_conflict_panels': True,
             'errors': errors,
             'vocab_file_types': list(UploadVocabulary.objects.filter(category='file_type').order_by('-is_builtin', 'label')),
             'vocab_readouts': list(UploadVocabulary.objects.filter(category='invivo_readout').order_by('-is_builtin', 'label')),
             'suggested_batch_label': _generate_batch_label(),
-            'available_batches': list(
-                qs_err.order_by().values_list('batch_label', flat=True)
-                .distinct().order_by('-batch_label')
-            ),
+            'available_batches': list(qs_err.order_by().values_list('batch_label', flat=True).distinct().order_by('-batch_label')),
             'batch_experiments_json': _json.dumps(batch_exp_err),
         })
 
@@ -2258,22 +2242,36 @@ def smart_upload_confirm_view(request):
 
                 id_remap = preview_copy.get('id_format_mismatch', {})
                 for cid, seq_data in preview_copy.get('strand_map', {}).items():
-                    resolved = id_remap.get(cid, cid)   # cross-format DB remap
-                    resolved = _resolve_cid(resolved)   # applies user remap + canonicalize
+                    resolved = id_remap.get(cid, cid)
+                    resolved = _resolve_cid(resolved)
                     compound, _ = Compound.objects.get_or_create(compound_id=resolved)
-                    if seq_data.get('ss_seq'):
-                        _, created = Strand.objects.get_or_create(
-                            compound=compound, strand_type='SS',
-                            defaults={'sequence_id': f'{resolved}_SS', 'modify_seq': seq_data['ss_seq']},
+                    for strand_type, seq_key, seq_id_sfx in [
+                        ('SS', 'ss_seq', 'SS'), ('AS', 'as_seq', 'AS')
+                    ]:
+                        new_seq = seq_data.get(seq_key, '')
+                        if not new_seq:
+                            continue
+                        diff_choice = next(
+                            (d['user_choice'] for d in strand_diffs
+                             if d['compound_id'] == resolved and d['strand_type'] == strand_type),
+                            None,
                         )
-                        if created:
-                            n_strands += 1
-                    if seq_data.get('as_seq'):
-                        _, created = Strand.objects.get_or_create(
-                            compound=compound, strand_type='AS',
-                            defaults={'sequence_id': f'{resolved}_AS', 'modify_seq': seq_data['as_seq']},
-                        )
-                        if created:
+                        existing = Strand.objects.filter(
+                            compound=compound, strand_type=strand_type
+                        ).first()
+                        if existing:
+                            if diff_choice == 'overwrite':
+                                existing.modify_seq = new_seq
+                                existing.save(update_fields=['modify_seq'])
+                                n_strands += 1
+                            # else keep: do nothing
+                        else:
+                            Strand.objects.create(
+                                compound=compound,
+                                strand_type=strand_type,
+                                sequence_id=f'{resolved}_{seq_id_sfx}',
+                                modify_seq=new_seq,
+                            )
                             n_strands += 1
 
                 for exp_data in preview_copy.get('experiments', []):
@@ -2282,43 +2280,84 @@ def smart_upload_confirm_view(request):
                     if project_code:
                         compound.project = project_code
                         compound.save(update_fields=['project'])
-                    exp, exp_created = Experiment.objects.get_or_create(
+
+                    # Determine version: check if this experiment is in exp_conflicts
+                    is_new_version = any(
+                        c['compound_id'] == cid
+                        and c['batch_label'] == preview_copy['batch_label']
+                        and c['assay_name'] == preview_copy['assay_name']
+                        for c in pipeline_result.get('dedup_report', {}).get('exp_conflicts', [])
+                    )
+                    if is_new_version:
+                        latest = Experiment.objects.filter(
+                            compound=compound,
+                            batch_label=preview_copy['batch_label'],
+                            assay_name=preview_copy['assay_name'],
+                        ).order_by('-version').first()
+                        next_version = (latest.version + 1) if latest else 1
+                    else:
+                        next_version = 1
+
+                    exp = Experiment.objects.create(
                         compound=compound,
-                        batch_label=preview_copy['batch_label'],
+                        exp_type=exp_data.get('exp_type', 'in_vitro'),
                         assay_name=preview_copy['assay_name'],
-                        defaults={
-                            'exp_type': exp_data.get('exp_type', 'in_vitro'),
-                            'cell_line': preview_copy.get('cell_line', ''),
-                            'notes': preview_copy.get('notes', ''),
-                            'date': exp_date_obj,
-                        },
+                        batch_label=preview_copy['batch_label'],
+                        cell_line=preview_copy.get('cell_line', ''),
+                        notes=preview_copy.get('notes', ''),
+                        date=exp_date_obj,
+                        version=next_version,
                     )
                     vitro_experiments.append(exp)
-                    if exp_created:
-                        n_experiments += 1
-                        dp_objs = [
-                            DataPoint(
-                                experiment=exp,
-                                x_value=dp['x_value'],
-                                x_type=dp['x_type'],
-                                replicate=dp['replicate'],
-                                value=dp['value'],
-                                readout_type=dp['readout_type'],
-                                is_control=dp.get('is_control', False),
-                                raw_cp=dp.get('raw_cp'),
-                            )
-                            for dp in exp_data.get('datapoints', [])
-                        ]
-                        DataPoint.objects.bulk_create(dp_objs)
+                    n_experiments += 1
 
-                        if exp_data.get('summary'):
-                            s = exp_data['summary']
-                            ExperimentSummary.objects.create(
-                                experiment=exp,
-                                max_kd_pct=s.get('max_kd_pct'),
-                                ic50_nm=s.get('ic50_nm'),
-                                rank=s.get('rank'),
-                            )
+                    # Build skip set from dp_conflicts
+                    skip_fps = set()
+                    for dpc in dp_conflicts:
+                        if (dpc['compound_id'] == cid
+                                and dpc['batch_label'] == preview_copy['batch_label']
+                                and dpc['assay_name'] == preview_copy['assay_name']
+                                and dpc.get('skip', True)):
+                            for dp in dpc['datapoints']:
+                                skip_fps.add((
+                                    round(float(dp.get('x_value') or 0), 4),
+                                    dp.get('replicate', ''),
+                                    round(float(dp.get('value') or 0), 4) if dp.get('value') is not None else None,
+                                    dp.get('readout_type', ''),
+                                    bool(dp.get('is_control', False)),
+                                ))
+
+                    dp_objs = []
+                    for dp in exp_data.get('datapoints', []):
+                        fp = (
+                            round(float(dp.get('x_value') or 0), 4),
+                            dp.get('replicate', ''),
+                            round(float(dp.get('value') or 0), 4) if dp.get('value') is not None else None,
+                            dp.get('readout_type', ''),
+                            bool(dp.get('is_control', False)),
+                        )
+                        if fp in skip_fps:
+                            continue
+                        dp_objs.append(DataPoint(
+                            experiment=exp,
+                            x_value=dp['x_value'],
+                            x_type=dp['x_type'],
+                            replicate=dp['replicate'],
+                            value=dp['value'],
+                            readout_type=dp['readout_type'],
+                            is_control=dp.get('is_control', False),
+                            raw_cp=dp.get('raw_cp'),
+                        ))
+                    DataPoint.objects.bulk_create(dp_objs)
+
+                    if exp_data.get('summary'):
+                        s = exp_data['summary']
+                        ExperimentSummary.objects.create(
+                            experiment=exp,
+                            max_kd_pct=s.get('max_kd_pct'),
+                            ic50_nm=s.get('ic50_nm'),
+                            rank=s.get('rank'),
+                        )
         except Exception as e:
             logger.error(f'smart_upload_confirm invitro error: {e}')
             invitro_errors.append(str(e))
@@ -2502,6 +2541,9 @@ def smart_upload_confirm_view(request):
             )
 
     del request.session['smart_preview']
+    request.session.pop('pipeline_result', None)
+    request.session.pop('upload_meta', None)
+    request.session.pop('normalize_id_map', None)
 
     parts = []
     if n_experiments:
