@@ -2695,3 +2695,38 @@ class ParseTransfectionFileWarningTests(TestCase):
         f = _BytesFile(data)
         result = parse_transfection_file(f)
         self.assertEqual(result.warnings, [])
+
+
+class DiffStrandsTests(TestCase):
+    def setUp(self):
+        self.compound = Compound.objects.create(compound_id='BPR3M03-FN01')
+
+    def test_no_existing_strand_returns_empty(self):
+        from app01.upload_pipeline import diff_strands
+        result = diff_strands([{'compound_id': 'BPR3M03-FN01', 'strand_type': 'AS', 'new_seq': 'GAUG'}])
+        self.assertEqual(result, [])
+
+    def test_same_sequence_returns_empty(self):
+        from app01.upload_pipeline import diff_strands
+        Strand.objects.create(compound=self.compound, strand_type='AS', modify_seq='GAUG')
+        result = diff_strands([{'compound_id': 'BPR3M03-FN01', 'strand_type': 'AS', 'new_seq': 'GAUG'}])
+        self.assertEqual(result, [])
+
+    def test_different_sequence_returns_diff(self):
+        from app01.upload_pipeline import diff_strands, StrandDiff
+        Strand.objects.create(compound=self.compound, strand_type='AS', modify_seq='GAUG')
+        result = diff_strands([{'compound_id': 'BPR3M03-FN01', 'strand_type': 'AS', 'new_seq': 'GCUG'}])
+        self.assertEqual(len(result), 1)
+        diff = result[0]
+        self.assertEqual(diff.compound_id, 'BPR3M03-FN01')
+        self.assertEqual(diff.old_seq, 'GAUG')
+        self.assertEqual(diff.new_seq, 'GCUG')
+        self.assertEqual(diff.diff_positions, [1])  # position 1: A→C
+        self.assertIsNone(diff.user_choice)
+
+    def test_length_mismatch_marks_all_positions(self):
+        from app01.upload_pipeline import diff_strands
+        Strand.objects.create(compound=self.compound, strand_type='AS', modify_seq='GAUG')
+        result = diff_strands([{'compound_id': 'BPR3M03-FN01', 'strand_type': 'AS', 'new_seq': 'GAUGG'}])
+        self.assertEqual(len(result), 1)
+        self.assertGreater(len(result[0].diff_positions), 0)

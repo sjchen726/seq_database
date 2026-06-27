@@ -90,6 +90,16 @@ class ParsedInVivoFile:
     needs_dose: bool
 
 
+@dataclass
+class StrandDiff:
+    compound_id: str
+    strand_type: str
+    old_seq: str
+    new_seq: str
+    diff_positions: list  # 0-indexed positions where bases differ
+    user_choice: str = None  # 'keep' | 'overwrite' — set by preview page
+
+
 # ── Internal helpers ─────────────────────────────────────────────────────────
 
 def _read_csv_text(file) -> str:
@@ -448,6 +458,39 @@ def detect_cross_format_match(new_ids: list) -> dict:
         existing3 = set(Compound.objects.filter(compound_id__in=norm3).values_list('compound_id', flat=True))
         result.update({o: n for o, n in zip(two_digit, norm3) if n in existing3})
     return result
+
+
+def diff_strands(upload_strands: list) -> list:
+    """Compare upload sequences against existing Strand records.
+
+    upload_strands: [{'compound_id': str, 'strand_type': str, 'new_seq': str}]
+    Returns list of StrandDiff for every case where the existing record differs.
+    """
+    from app01.models import Strand
+    diffs = []
+    for item in upload_strands:
+        existing = Strand.objects.filter(
+            compound__compound_id=item['compound_id'],
+            strand_type=item['strand_type'],
+        ).first()
+        if existing is None:
+            continue
+        old_seq = existing.modify_seq or ''
+        new_seq = item['new_seq'] or ''
+        if old_seq == new_seq:
+            continue
+        if len(old_seq) == len(new_seq):
+            positions = [i for i, (a, b) in enumerate(zip(old_seq, new_seq)) if a != b]
+        else:
+            positions = list(range(min(len(old_seq), len(new_seq))))
+        diffs.append(StrandDiff(
+            compound_id=item['compound_id'],
+            strand_type=item['strand_type'],
+            old_seq=old_seq,
+            new_seq=new_seq,
+            diff_positions=positions,
+        ))
+    return diffs
 
 
 def build_preview(seq_parsed, summary_parsed, cp_parsed_list,
