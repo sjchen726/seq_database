@@ -2200,6 +2200,7 @@ def smart_upload_confirm_view(request):
         })
 
     if errors:
+        # Clean up session now so repeated validation failures don't accumulate stale state.
         _cleanup_upload_session(request, smart_preview)
         import json as _json
         from app01.models import UploadVocabulary

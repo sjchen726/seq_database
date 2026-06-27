@@ -1321,6 +1321,7 @@ from django.test import override_settings  # used by DetectFileLLMTest, SmartUpl
 from django.core.files.uploadedfile import SimpleUploadedFile  # used by all smart-upload tests
 from django.urls import reverse  # used by SmartUploadViewTest, SmartUploadConfirmTest
 import tempfile, shutil  # used by SmartUploadConfirmTest
+from django.core.files.storage import default_storage  # used by SmartUploadConfirmCleanupTest
 
 from app01.upload_pipeline import (
     detect_file_type_rules,  # detect_file_type_llm added in Task 2
@@ -1866,6 +1867,44 @@ class SmartUploadConfirmCleanupTest(TestCase):
         self.assertNotIn('pipeline_result', self.client.session)
         self.assertNotIn('upload_meta', self.client.session)
         self.assertNotIn('normalize_id_map', self.client.session)
+
+    def test_temp_file_deleted_after_validation_error(self):
+        """Temp file referenced in file_detections is deleted when confirm validation fails."""
+        saved_path = '_tmp_smart/test_cleanup_file.txt'
+        with override_settings(MEDIA_ROOT=self.tmp_media):
+            default_storage.save(saved_path, __import__('io').BytesIO(b'test content'))
+            self.assertTrue(default_storage.exists(saved_path))
+
+            session = self.client.session
+            session['smart_preview'] = {
+                'project_code': 'TEST',
+                'file_detections': [{'saved_path': saved_path, 'filename': 'test.csv'}],
+                'invitro': None,
+                'invivo_groups': [],
+                'source_files': [],
+                'attachment_files': [],
+                'errors': [],
+            }
+            session['upload_meta'] = {
+                'batch_label': '',
+                'assay_name': '',
+                'exp_date': None,
+                'target_name': '',
+                'source_batch': '',
+                'attach_vitro': False,
+                'attach_vivo': False,
+            }
+            session['pipeline_result'] = {
+                'errors': [], 'warnings': [], 'remap_log': [],
+                'strand_diffs': [],
+                'dedup_report': {'exp_conflicts': [], 'dp_conflicts': []},
+            }
+            session['normalize_id_map'] = {}
+            session.save()
+
+            resp = self.client.post('/upload/smart/confirm/', {})
+            self.assertEqual(resp.status_code, 200)
+            self.assertFalse(default_storage.exists(saved_path))
 
 
 # ---- BuildInvivoChartDataTest ----
