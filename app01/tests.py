@@ -3182,3 +3182,46 @@ class SmartUploadConfirmDiffChoiceTest(TestCase):
             'the overwrite choice was selected, but the ID remap caused the lookup '
             'to miss without the _resolve_cid fix.',
         )
+
+
+class IsControlArmTest(TestCase):
+    def _check(self, s):
+        from app01.views import _is_control_arm
+        return _is_control_arm(s)
+
+    def test_exact_saline(self):
+        self.assertTrue(self._check('saline'))
+
+    def test_exact_pbs(self):
+        self.assertTrue(self._check('PBS'))
+
+    def test_exact_control(self):
+        self.assertTrue(self._check('control'))
+
+    def test_exact_sal(self):
+        self.assertTrue(self._check('sal'))
+
+    def test_exact_ctrl(self):
+        self.assertTrue(self._check('ctrl'))
+
+    def test_substring_control_group(self):
+        self.assertTrue(self._check('Control Group'))
+
+    def test_substring_saline_group(self):
+        self.assertTrue(self._check('Saline group'))
+
+    def test_substring_negative_control(self):
+        self.assertTrue(self._check('Negative Control'))
+
+    def test_substring_pbs_vehicle(self):
+        self.assertTrue(self._check('PBS vehicle'))
+
+    def test_treatment_arm(self):
+        self.assertFalse(self._check('BPR123'))
+
+    def test_dose_string(self):
+        self.assertFalse(self._check('1mg/kg'))
+
+    def test_neg_substring_not_match(self):
+        # 'neg' is exact-only; 'BPR-neg123' should NOT match
+        self.assertFalse(self._check('BPR-neg123'))

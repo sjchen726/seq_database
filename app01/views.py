@@ -777,11 +777,18 @@ def _build_batch_groups(experiments):
 # Batch-grouping helpers for the redesigned compound list
 # ---------------------------------------------------------------------------
 
-_CONTROL_KEYWORDS = {'saline', 'pbs', 'vehicle', 'control', 'nc', 'neg'}
+_CONTROL_KEYWORDS_EXACT = {
+    'saline', 'pbs', 'vehicle', 'control', 'nc', 'neg',
+    'sal', 'blank', 'mock', 'ctrl', 'placebo',
+}
+_CONTROL_KEYWORDS_SUBSTR = {'control', 'saline', 'vehicle', 'negative', 'placebo'}
 
 
 def _is_control_arm(dose_info: str) -> bool:
-    return dose_info.lower().strip() in _CONTROL_KEYWORDS
+    s = dose_info.lower().strip()
+    if s in _CONTROL_KEYWORDS_EXACT:
+        return True
+    return any(kw in s for kw in _CONTROL_KEYWORDS_SUBSTR)
 
 
 def _get_strand_seqs(compound):
