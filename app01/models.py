@@ -167,7 +167,7 @@ class Experiment(models.Model):
     exp_type = models.CharField(max_length=16, choices=EXP_TYPE_CHOICES)
     assay_name = models.CharField(max_length=128)
     cell_line = models.CharField(max_length=64, blank=True)
-    batch_label = models.CharField(max_length=64, blank=True)
+    batch_label = models.CharField(max_length=64, blank=True, db_index=True)
     notes = models.TextField(blank=True)
     animal_species = models.CharField(max_length=32, blank=True, default='')
     animal_strain = models.CharField(max_length=64, blank=True, default='')

@@ -3319,3 +3319,10 @@ class SkippedDpCountTest(TestCase):
         )
         # Success message must mention the skip count
         self.assertContains(resp, '跳过 1 个重复数据点')
+
+
+class BatchLabelIndexTest(TestCase):
+    def test_batch_label_has_db_index(self):
+        from app01.models import Experiment
+        field = Experiment._meta.get_field('batch_label')
+        self.assertTrue(field.db_index, "Experiment.batch_label must have db_index=True")
