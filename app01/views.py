@@ -2624,7 +2624,13 @@ def smart_upload_confirm_view(request):
 
 @login_required
 def attachment_download(request, pk):
-    att = get_object_or_404(ExperimentAttachment, pk=pk)
+    att = get_object_or_404(
+        ExperimentAttachment.objects.select_related('experiment__compound'), pk=pk
+    )
+    permitted = _get_permitted_projects(request.user)
+    compound_project = att.experiment.compound.project
+    if permitted is not None and compound_project and compound_project not in permitted:
+        raise Http404
     if not att.file:
         raise Http404
     filename = os.path.basename(att.file.name)
@@ -2641,7 +2647,13 @@ def attachment_preview(request, pk):
     import itertools
     import csv
     from io import StringIO
-    att = get_object_or_404(ExperimentAttachment, pk=pk)
+    att = get_object_or_404(
+        ExperimentAttachment.objects.select_related('experiment__compound'), pk=pk
+    )
+    permitted = _get_permitted_projects(request.user)
+    compound_project = att.experiment.compound.project
+    if permitted is not None and compound_project and compound_project not in permitted:
+        return JsonResponse({'error': 'forbidden'}, status=403)
     if not att.file:
         return JsonResponse({'headers': [], 'rows': []}, status=404)
     try:

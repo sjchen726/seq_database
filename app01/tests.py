@@ -1698,6 +1698,9 @@ class AttachmentDownloadTest(TestCase):
         )
         self.client.login(username='dltest', password='pass')
         c = Compound.objects.create(compound_id='BPR_ATTEST01')
+        # Force project='' so the permission check's "no project" bypass applies.
+        Compound.objects.filter(pk=c.pk).update(project='')
+        c.refresh_from_db()
         exp = Experiment.objects.create(
             compound=c, exp_type='in_vitro', assay_name='test', batch_label='AT1'
         )
@@ -3326,3 +3329,53 @@ class BatchLabelIndexTest(TestCase):
         from app01.models import Experiment
         field = Experiment._meta.get_field('batch_label')
         self.assertTrue(field.db_index, "Experiment.batch_label must have db_index=True")
+
+
+class AttachmentProjectPermissionTest(TestCase):
+    def setUp(self):
+        from django.core.files.base import ContentFile
+        # Compound in project P1
+        self.compound = Compound.objects.create(compound_id='BPR_PERMTEST01', project='P1')
+        exp = Experiment.objects.create(
+            compound=self.compound, exp_type='in_vitro',
+            assay_name='perm_test', batch_label='PERM1',
+        )
+        self.att = ExperimentAttachment(experiment=exp, label='perm_test.csv')
+        self.att.file.save('perm_test.csv', ContentFile(b'a,b\n1,2\n'), save=True)
+
+        # User with access to P1
+        self.user_p1 = LmsUser.objects.create_user(
+            username='perm_p1', password='pass',
+            user_type='sub_admin', permissions_project='P1',
+            module_permissions='data',
+        )
+        # User with access to P2 only (not P1)
+        self.user_p2 = LmsUser.objects.create_user(
+            username='perm_p2', password='pass',
+            user_type='sub_admin', permissions_project='P2',
+            module_permissions='data',
+        )
+
+    def tearDown(self):
+        if self.att.file:
+            self.att.file.delete(save=False)
+
+    def test_download_forbidden_for_wrong_project(self):
+        self.client.login(username='perm_p2', password='pass')
+        resp = self.client.get(f'/attachments/{self.att.pk}/download/')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_download_allowed_for_correct_project(self):
+        self.client.login(username='perm_p1', password='pass')
+        resp = self.client.get(f'/attachments/{self.att.pk}/download/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_preview_forbidden_for_wrong_project(self):
+        self.client.login(username='perm_p2', password='pass')
+        resp = self.client.get(f'/attachments/{self.att.pk}/preview/')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_preview_allowed_for_correct_project(self):
+        self.client.login(username='perm_p1', password='pass')
+        resp = self.client.get(f'/attachments/{self.att.pk}/preview/')
+        self.assertEqual(resp.status_code, 200)
