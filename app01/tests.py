@@ -1517,7 +1517,7 @@ class SmartUploadConfirmTest(TestCase):
             })
 
     def _confirm_post(self, extra=None):
-        data = {
+        meta = {
             'batch_label': 'TESTBATCH',
             'time_unit_0': 'day',
             'dose_override_0': '10mpk SC',
@@ -1528,9 +1528,12 @@ class SmartUploadConfirmTest(TestCase):
             'target_name': 'TARGET',
         }
         if extra:
-            data.update(extra)
+            meta.update(extra)
         with override_settings(MEDIA_ROOT=self.tmp_media):
-            return self.client.post(reverse('smart_upload_confirm'), data)
+            # Phase 3: POST to preview to save upload_meta + run pipeline phases 1-4
+            self.client.post(reverse('smart_upload_preview'), meta)
+            # Phase 4: POST to confirm with only conflict choices (data is in session)
+            return self.client.post(reverse('smart_upload_confirm'), {})
 
     def test_missing_time_unit_returns_error(self):
         self._upload_kd()
@@ -1717,8 +1720,8 @@ class SmartUploadConfirmTargetNameTest(TestCase):
         )
         self.client.login(username='tn_test', password='pass')
 
-    def _make_session(self, compound_ids):
-        """Store minimal smart_preview in session with given compound IDs."""
+    def _make_session(self, compound_ids, target_name='FASN', batch_label='T1'):
+        """Store minimal smart_preview + upload_meta in session with given compound IDs."""
         experiments = [{'compound_id': cid, 'datapoints': [], 'summary': None} for cid in compound_ids]
         preview = {
             'project_code': 'TEST',
@@ -1738,35 +1741,35 @@ class SmartUploadConfirmTargetNameTest(TestCase):
         }
         session = self.client.session
         session['smart_preview'] = preview
+        session['upload_meta'] = {
+            'batch_label': batch_label,
+            'assay_name': 'TestAssay',
+            'exp_date': None,
+            'target_name': target_name,
+            'source_batch': '',
+            'attach_vitro': False,
+            'attach_vivo': False,
+        }
         session.save()
 
     def test_target_name_saved_to_blank_compounds(self):
         Compound.objects.create(compound_id='BPR_TNTEST01', target_name='')
         Compound.objects.create(compound_id='BPR_TNTEST02', target_name='')
-        self._make_session(['BPR_TNTEST01', 'BPR_TNTEST02'])
-        self.client.post('/upload/smart/confirm/', {
-            'batch_label': 'T1',
-            'target_name': 'FASN',
-        })
+        self._make_session(['BPR_TNTEST01', 'BPR_TNTEST02'], target_name='FASN')
+        self.client.post('/upload/smart/confirm/', {})
         self.assertEqual(Compound.objects.get(compound_id='BPR_TNTEST01').target_name, 'FASN')
         self.assertEqual(Compound.objects.get(compound_id='BPR_TNTEST02').target_name, 'FASN')
 
     def test_existing_target_name_not_overwritten(self):
         Compound.objects.create(compound_id='BPR_TNTEST03', target_name='PCSK9')
-        self._make_session(['BPR_TNTEST03'])
-        self.client.post('/upload/smart/confirm/', {
-            'batch_label': 'T1',
-            'target_name': 'FASN',
-        })
+        self._make_session(['BPR_TNTEST03'], target_name='FASN')
+        self.client.post('/upload/smart/confirm/', {})
         self.assertEqual(Compound.objects.get(compound_id='BPR_TNTEST03').target_name, 'PCSK9')
 
     def test_empty_target_name_rejected(self):
         Compound.objects.create(compound_id='BPR_TNTEST04', target_name='')
-        self._make_session(['BPR_TNTEST04'])
-        resp = self.client.post('/upload/smart/confirm/', {
-            'batch_label': 'T1',
-            'target_name': '',
-        })
+        self._make_session(['BPR_TNTEST04'], target_name='')
+        resp = self.client.post('/upload/smart/confirm/', {})
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, '靶点必填')
         # No DB write happened

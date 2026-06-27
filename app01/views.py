@@ -571,9 +571,9 @@ def build_duplex_groups(delivery_qs, selected_seq_type):
 
 
 from app01.upload_pipeline import (
-    parse_seq_file, parse_summary_csv, parse_cp_file,
-    build_preview, normalize_compound_ids, parse_transfection_file,
-    parse_invivo_kd_file, parse_body_weight_file, detect_invivo_file_type,
+    parse_seq_file, parse_summary_csv,
+    build_preview,
+    parse_invivo_kd_file, parse_body_weight_file,
     _BytesFile, canonicalize_compound_id,
     normalize_phase, diff_strands, dedup_phase,
 )
