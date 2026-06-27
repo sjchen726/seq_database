@@ -2259,6 +2259,7 @@ def smart_upload_confirm_view(request):
     n_invivo = 0
     n_attachments = 0
     invitro_errors = []
+    n_skipped_dps = 0
     invivo_errors = []
     dup_warnings = []  # filenames skipped because already attached to that experiment
 
@@ -2382,6 +2383,7 @@ def smart_upload_confirm_view(request):
                             bool(dp.get('is_control', False)),
                         )
                         if fp in skip_fps:
+                            n_skipped_dps += 1
                             continue
                         dp_objs.append(DataPoint(
                             experiment=exp,
@@ -2604,6 +2606,8 @@ def smart_upload_confirm_view(request):
         parts.append(f'{n_invivo} 条体内实验')
     if n_attachments:
         parts.append(f'{n_attachments} 个附件')
+    if n_skipped_dps:
+        parts.append(f'跳过 {n_skipped_dps} 个重复数据点（已存在于数据库）')
 
     all_err = invitro_errors + invivo_errors
     if all_err:

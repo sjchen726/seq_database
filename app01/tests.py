@@ -3231,3 +3231,91 @@ class IsControlArmTest(TestCase):
     def test_neg_substring_not_match(self):
         # 'neg' uses word-boundary matching; 'BPR-neg123' (no word boundary after neg) should NOT match
         self.assertFalse(self._check('BPR-neg123'))
+
+
+class SkippedDpCountTest(TestCase):
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='skip_test', password='pass',
+            user_type='sub_admin',
+            module_permissions='upload,data,compound,batch',
+        )
+        self.client.login(username='skip_test', password='pass')
+        Compound.objects.create(compound_id='BPR_SKIP01', target_name='')
+
+    def _make_session(self):
+        """Session with 2 datapoints where 1 has a matching skip=True dp_conflict."""
+        dp_skip = {'x_value': 1.0, 'x_type': 'concentration', 'replicate': '1',
+                   'value': 50.0, 'readout_type': 'IC50', 'is_control': False}
+        dp_keep = {'x_value': 10.0, 'x_type': 'concentration', 'replicate': '1',
+                   'value': 80.0, 'readout_type': 'IC50', 'is_control': False}
+        preview = {
+            'project_code': '',
+            'file_detections': [],
+            'invitro': {
+                'batch_label': 'SKIP_BATCH',
+                'assay_name': 'IC50_Assay',
+                'cell_line': '',
+                'notes': '',
+                'experiments': [
+                    {
+                        'compound_id': 'BPR_SKIP01',
+                        'exp_type': 'in_vitro',
+                        'datapoints': [dp_skip, dp_keep],
+                        'summary': None,
+                    }
+                ],
+                'strand_map': {},
+                'new_compounds': [],
+            },
+            'invivo_groups': [],
+            'source_files': [],
+            'attachment_files': [],
+            'errors': [],
+            'has_no_seq': True,
+        }
+        pipeline_result = {
+            'errors': [], 'warnings': [], 'remap_log': [],
+            'strand_diffs': [],
+            'dedup_report': {
+                'exp_conflicts': [],
+                'dp_conflicts': [
+                    {
+                        'compound_id': 'BPR_SKIP01',
+                        'batch_label': 'SKIP_BATCH',
+                        'assay_name': 'IC50_Assay',
+                        'skip': True,
+                        'datapoints': [
+                            {'x_value': 1.0, 'replicate': '1', 'value': 50.0,
+                             'readout_type': 'IC50', 'is_control': False},
+                        ],
+                    }
+                ],
+            },
+        }
+        session = self.client.session
+        session['smart_preview'] = preview
+        session['pipeline_result'] = pipeline_result
+        session['upload_meta'] = {
+            'batch_label': 'SKIP_BATCH',
+            'assay_name': 'IC50_Assay',
+            'exp_date': None,
+            'target_name': 'FASN',
+            'source_batch': '',
+            'attach_vitro': False,
+            'attach_vivo': False,
+        }
+        session.save()
+
+    def test_skipped_dp_count_in_success_message(self):
+        """One of two datapoints is skipped; message must say '跳过 1 个重复数据点'."""
+        self._make_session()
+        resp = self.client.post('/upload/smart/confirm/', {}, follow=True)
+        self.assertEqual(resp.status_code, 200)
+        # Only the non-skipped datapoint should be written
+        from app01.models import DataPoint
+        self.assertEqual(
+            DataPoint.objects.filter(experiment__batch_label='SKIP_BATCH').count(), 1
+        )
+        # Success message must mention the skip count
+        self.assertContains(resp, '跳过 1 个重复数据点')
