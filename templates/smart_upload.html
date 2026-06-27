@@ -205,7 +205,7 @@
   </script>
 
   {# Confirm form #}
-  <form method="POST" action="{% url 'smart_upload_confirm' %}">
+  <form method="POST" action="{% url 'smart_upload_preview' %}">
     {% csrf_token %}
 
     {# Shared batch label — only needed when uploading experiment data, not sequences-only #}
@@ -470,7 +470,11 @@
       </div>
     </div>
     <div style="display:flex;gap:10px;align-items:center;margin-top:8px;">
-      <button type="submit" class="ds-btn ds-btn-primary">确认上传 →</button>
+      {% if not show_conflict_panels %}
+      <button type="submit" class="ds-btn ds-btn-primary">预览并验证 →</button>
+      {% else %}
+      <button type="submit" class="ds-btn ds-btn-ghost" style="font-size:12px;color:#64748b;">↻ 重新验证</button>
+      {% endif %}
     </div>
     {% else %}
     <div style="color:#64748b;font-size:12px;margin-top:8px;">
@@ -478,6 +482,178 @@
     </div>
     {% endif %}
   </form>
+
+  {# Pipeline conflict panels — shown after smart_upload_preview_view runs #}
+  {% if show_conflict_panels and pipeline_result %}
+
+  {# Wrap all panels + confirm button in a single form posting to smart_upload_confirm #}
+  <form method="POST" action="{% url 'smart_upload_confirm' %}" style="margin-top:16px;">
+    {% csrf_token %}
+
+    {# Panel 1: Parse summary — always shown #}
+    <div class="ds-card" style="margin-bottom:16px;">
+      <div class="ds-card-header">
+        <span class="ds-card-title">解析摘要</span>
+      </div>
+      <div class="ds-card-body">
+        {% if pipeline_result.errors %}
+          <div style="color:#ef4444;font-weight:600;margin-bottom:8px;">
+            ⛔ {{ pipeline_result.errors|length }} 个错误需要修正后才能上传
+          </div>
+          <ul style="margin:0;padding-left:20px;">
+            {% for err in pipeline_result.errors %}
+              <li style="color:#ef4444;">{{ err }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        {% if pipeline_result.warnings %}
+          <div style="color:#f59e0b;margin-top:8px;">
+            ⚠ {{ pipeline_result.warnings|length }} 条提示（不影响上传）
+          </div>
+          <ul style="margin:0;padding-left:20px;margin-top:4px;">
+            {% for w in pipeline_result.warnings %}
+              <li style="color:#f59e0b;font-size:13px;">{{ w }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        {% if not pipeline_result.errors and not pipeline_result.warnings %}
+          <span style="color:#22c55e;">✓ 解析通过，无问题</span>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Panel 2: ID remap log #}
+    {% if pipeline_result.remap_log %}
+    <div class="ds-card" style="margin-bottom:16px;">
+      <div class="ds-card-header">
+        <span class="ds-card-title">ID 重映射日志</span>
+        <span style="font-size:12px;color:#64748b;margin-left:8px;">以下 ID 已自动映射，仅供确认</span>
+      </div>
+      <div class="ds-card-body">
+        <table style="width:100%;font-size:13px;border-collapse:collapse;">
+          <thead>
+            <tr style="color:#64748b;">
+              <th style="text-align:left;padding:4px 8px;">原始 ID</th>
+              <th style="text-align:left;padding:4px 8px;">映射至</th>
+              <th style="text-align:left;padding:4px 8px;">原因</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entry in pipeline_result.remap_log %}
+            <tr>
+              <td style="padding:4px 8px;font-family:monospace;">{{ entry.original }}</td>
+              <td style="padding:4px 8px;font-family:monospace;color:#22c55e;">{{ entry.canonical }}</td>
+              <td style="padding:4px 8px;color:#94a3b8;">{{ entry.reason }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    {# Panel 3: Strand conflicts — radio buttons inside the confirm form #}
+    {% if pipeline_result.strand_diffs %}
+    <div class="ds-card" style="margin-bottom:16px;border-color:#7c3aed;">
+      <div class="ds-card-header" style="background:rgba(124,58,237,0.08);">
+        <span class="ds-card-title" style="color:#7c3aed;">序列冲突 — 需要逐条决策</span>
+      </div>
+      <div class="ds-card-body">
+        {% for diff in pipeline_result.strand_diffs %}
+        <div style="margin-bottom:16px;padding:12px;background:#1e293b;border-radius:8px;">
+          <div style="font-size:13px;color:#94a3b8;margin-bottom:8px;">
+            <strong style="color:#f1f5f9;">{{ diff.compound_id }}</strong> · {{ diff.strand_type }} strand
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+            <div>
+              <div style="font-size:11px;color:#64748b;margin-bottom:4px;">旧序列</div>
+              <div style="font-family:monospace;font-size:12px;word-break:break-all;color:#94a3b8;">{{ diff.old_seq }}</div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:#64748b;margin-bottom:4px;">新序列</div>
+              <div style="font-family:monospace;font-size:12px;word-break:break-all;color:#f1f5f9;">{{ diff.new_seq }}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="radio" name="strand_choice_{{ diff.compound_id }}_{{ diff.strand_type }}"
+                     value="keep" checked>
+              <span style="font-size:13px;">保留旧序列</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="radio" name="strand_choice_{{ diff.compound_id }}_{{ diff.strand_type }}"
+                     value="overwrite">
+              <span style="font-size:13px;color:#f59e0b;">用新序列覆盖</span>
+            </label>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# Panel 4: Duplicate detection report — radio buttons inside the confirm form #}
+    {% with dedup=pipeline_result.dedup_report %}
+    {% if dedup.exp_conflicts or dedup.dp_conflicts %}
+    <div class="ds-card" style="margin-bottom:16px;border-color:#0369a1;">
+      <div class="ds-card-header" style="background:rgba(3,105,161,0.08);">
+        <span class="ds-card-title" style="color:#38bdf8;">重复检测报告</span>
+      </div>
+      <div class="ds-card-body">
+        {% if dedup.exp_conflicts %}
+          <div style="margin-bottom:10px;">
+            <div style="font-size:12px;color:#64748b;margin-bottom:6px;">实验级重复（将自动创建新版本）</div>
+            {% for ec in dedup.exp_conflicts %}
+            <div style="font-size:13px;padding:6px 10px;background:#0f172a;border-radius:6px;margin-bottom:4px;">
+              ℹ {{ ec.compound_id }} · {{ ec.batch_label }} · {{ ec.assay_name }}
+              <span style="color:#64748b;"> → 将创建 v{{ ec.existing_version|add:1 }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% if dedup.dp_conflicts %}
+          <div>
+            <div style="font-size:12px;color:#f59e0b;margin-bottom:6px;">数据点级重复</div>
+            {% for dpc in dedup.dp_conflicts %}
+            <div style="font-size:13px;padding:8px 10px;background:#0f172a;border-radius:6px;margin-bottom:6px;">
+              <div style="margin-bottom:6px;">{{ dpc.compound_id }} · {{ dpc.batch_label }} — {{ dpc.datapoints|length }} 个重复数据点</div>
+              <div style="display:flex;gap:12px;">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                  <input type="radio" name="dp_choice_{{ dpc.compound_id }}_{{ dpc.batch_label }}"
+                         value="skip" checked>
+                  <span style="font-size:12px;">跳过这些数据点</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                  <input type="radio" name="dp_choice_{{ dpc.compound_id }}_{{ dpc.batch_label }}"
+                         value="keep">
+                  <span style="font-size:12px;color:#f59e0b;">仍然上传</span>
+                </label>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    {# Final confirm button or error message #}
+    {% if pipeline_result.errors %}
+    <div style="text-align:center;color:#ef4444;padding:12px;font-size:13px;">
+      ⛔ 请修正上方错误后重新上传文件（点击上方"↻ 重新验证"）
+    </div>
+    {% else %}
+    <div style="text-align:center;margin-top:8px;">
+      <button type="submit" class="ds-btn ds-btn-primary" style="padding:10px 32px;font-size:15px;">
+        确认上传 →
+      </button>
+    </div>
+    {% endif %}
+
+  </form>
+
+  {% endif %}
 
   {% endif %}
 
