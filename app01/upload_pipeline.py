@@ -222,12 +222,20 @@ def parse_summary_csv(file) -> 'ParsedSummary':
     # Detect column positions from header row
     dose_col = next(j for j, c in enumerate(header) if c.strip() == 'Dose (nM)')
     id_col = dose_col - 1
+    if id_col < 0:
+        raise ValueError(
+            "汇总表格式错误：'Dose (nM)' 列前缺少 siRNA 标识列"
+        )
     a_col = dose_col + 1
     b_col = dose_col + 2
     mean_col = dose_col + 3
 
     ic50_col = next(j for j, c in enumerate(header) if 'IC50' in c)
     r_id_col = ic50_col - 3    # siRNA label column in right table
+    if r_id_col < 0:
+        raise ValueError(
+            "汇总表格式错误：'IC50' 列前缺少足够的映射列（需要至少 3 列）"
+        )
     r_name_col = ic50_col - 2  # BPR compound ID
     r_maxkd_col = ic50_col - 1
     r_rank_col = ic50_col + 1

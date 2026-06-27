@@ -3379,3 +3379,34 @@ class AttachmentProjectPermissionTest(TestCase):
         self.client.login(username='perm_p1', password='pass')
         resp = self.client.get(f'/attachments/{self.att.pk}/preview/')
         self.assertEqual(resp.status_code, 200)
+
+
+class ParseSummaryCsvBoundsTest(TestCase):
+    def _make_file(self, content: str):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        return SimpleUploadedFile('summary.csv', content.encode('utf-8'))
+
+    def test_dose_col_first_raises_valueerror(self):
+        """Dose (nM) as first column → id_col would be -1 → must raise ValueError."""
+        from app01.upload_pipeline import parse_summary_csv
+        # Dose (nM) is column 0 — no room for the siRNA ID column to the left
+        content = (
+            'Dose (nM),A,B,Mean,,siRNA,BPR_ID,MaxKD,IC50 (nM),Rank\n'
+            '0.1,50,52,51,,siRNA-1,BPR_X01,0.8,0.5,1\n'
+        )
+        f = self._make_file(content)
+        with self.assertRaises(ValueError) as cm:
+            parse_summary_csv(f)
+        self.assertIn('Dose (nM)', str(cm.exception))
+
+    def test_ic50_col_too_early_raises_valueerror(self):
+        """IC50 in column 1 → r_id_col would be -2 → must raise ValueError."""
+        from app01.upload_pipeline import parse_summary_csv
+        content = (
+            'siRNA,IC50 (nM),Dose (nM),A,B,Mean\n'
+            'siRNA-1,0.5,0.1,50,52,51\n'
+        )
+        f = self._make_file(content)
+        with self.assertRaises(ValueError) as cm:
+            parse_summary_csv(f)
+        self.assertIn('IC50', str(cm.exception))
