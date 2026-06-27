@@ -21,6 +21,7 @@ urlpatterns = [
     path('upload/invivo/', RedirectView.as_view(url='/upload/smart/', permanent=True), name='invivo_upload'),
     path('upload/invivo/confirm/', RedirectView.as_view(url='/upload/smart/', permanent=True), name='invivo_upload_confirm'),
     path('upload/smart/', views.smart_upload_view, name='smart_upload'),
+    path('upload/smart/preview/', views.smart_upload_preview_view, name='smart_upload_preview'),
     path('upload/smart/confirm/', views.smart_upload_confirm_view, name='smart_upload_confirm'),
     path('attachments/<int:pk>/download/', views.attachment_download, name='attachment_download'),
     path('attachments/<int:pk>/preview/', views.attachment_preview, name='attachment_preview'),

@@ -575,6 +575,7 @@ from app01.upload_pipeline import (
     build_preview, normalize_compound_ids, parse_transfection_file,
     parse_invivo_kd_file, parse_body_weight_file, detect_invivo_file_type,
     _BytesFile, canonicalize_compound_id,
+    normalize_phase, diff_strands, dedup_phase,
 )
 
 
@@ -1936,6 +1937,127 @@ def smart_upload_view(request):
     return render(request, 'smart_upload.html', {
         'vocab_file_types': vocab_file_types,
         'vocab_readouts': vocab_readouts,
+    })
+
+
+@login_required
+def smart_upload_preview_view(request):
+    if not _has_module(request.user, 'upload'):
+        messages.error(request, '权限不足，无法访问上传页面')
+        return redirect('compound_list')
+    if request.method != 'POST':
+        return redirect('smart_upload')
+
+    smart_preview = request.session.get('smart_preview')
+    if not smart_preview:
+        return redirect('smart_upload')
+
+    project_code = smart_preview.get('project_code', '')
+    invitro = smart_preview.get('invitro') or {}
+    invivo_groups = smart_preview.get('invivo_groups', [])
+
+    # Preserve form values in session so confirm view can read them without re-POST
+    upload_meta = {
+        'batch_label':   request.POST.get('batch_label', '').strip(),
+        'assay_name':    request.POST.get('assay_name', '').strip(),
+        'exp_date':      request.POST.get('exp_date', '').strip() or None,
+        'target_name':   request.POST.get('target_name', '').strip(),
+        'source_batch':  request.POST.get('source_batch', '').strip(),
+        'attach_vitro':  request.POST.get('source_exp_vitro') == '1',
+        'attach_vivo':   request.POST.get('source_exp_vivo') == '1',
+    }
+    # Capture per-group invivo metadata so confirm view can read from session
+    for i in range(len(invivo_groups)):
+        for fname in ['time_unit', 'dose_override', 'animal_species', 'animal_strain', 'route', 'gender']:
+            key = f'{fname}_{i}'
+            upload_meta[key] = request.POST.get(key, '').strip()
+    request.session['upload_meta'] = upload_meta
+
+    pipeline_result = {
+        'errors': [],
+        'warnings': [],
+        'remap_log': [],
+        'strand_diffs': [],
+        'dedup_report': {'exp_conflicts': [], 'dp_conflicts': []},
+    }
+
+    # Phase 1: collect warnings from build_preview (already parsed in smart_upload_view)
+    pipeline_result['warnings'].extend(invitro.get('warnings', []))
+    pipeline_result['warnings'].extend(smart_preview.get('parse_warnings', []))
+
+    # Phase 2: normalize all compound IDs
+    all_cids = list(set(
+        list(invitro.get('strand_map', {}).keys())
+        + [e['compound_id'] for e in invitro.get('experiments', [])]
+        + [g['compound_id'] for grp in invivo_groups for g in grp.get('groups', [])]
+    ))
+    if all_cids:
+        norm_result = normalize_phase(all_cids, project_code)
+        pipeline_result['errors'].extend(norm_result.errors)
+        pipeline_result['warnings'].extend(norm_result.warnings)
+        pipeline_result['remap_log'].extend(norm_result.remap_log)
+        request.session['normalize_id_map'] = norm_result.id_map
+    else:
+        request.session['normalize_id_map'] = {}
+
+    # Phase 3: strand conflict detection
+    id_map = request.session.get('normalize_id_map', {})
+    upload_strands = []
+    for cid, seq_data in invitro.get('strand_map', {}).items():
+        resolved = id_map.get(cid, cid)
+        if seq_data.get('ss_seq'):
+            upload_strands.append({'compound_id': resolved, 'strand_type': 'SS', 'new_seq': seq_data['ss_seq']})
+        if seq_data.get('as_seq'):
+            upload_strands.append({'compound_id': resolved, 'strand_type': 'AS', 'new_seq': seq_data['as_seq']})
+    if upload_strands:
+        diffs = diff_strands(upload_strands)
+        pipeline_result['strand_diffs'] = [
+            {'compound_id': d.compound_id, 'strand_type': d.strand_type,
+             'old_seq': d.old_seq, 'new_seq': d.new_seq,
+             'diff_positions': d.diff_positions, 'user_choice': None}
+            for d in diffs
+        ]
+
+    # Phase 4: dedup detection (only if batch_label and assay_name provided)
+    batch_label = upload_meta['batch_label']
+    assay_name = upload_meta['assay_name']
+    if batch_label and assay_name and invitro.get('experiments'):
+        upload_records = [
+            {
+                'compound_id': id_map.get(e['compound_id'], e['compound_id']),
+                'batch_label': batch_label,
+                'assay_name': assay_name,
+                'datapoints': e.get('datapoints', []),
+            }
+            for e in invitro.get('experiments', [])
+        ]
+        pipeline_result['dedup_report'] = dedup_phase(upload_records)
+
+    request.session['pipeline_result'] = pipeline_result
+
+    import json as _json
+    from app01.models import UploadVocabulary
+    qs = Experiment.objects.filter(compound__project=project_code) if project_code else Experiment.objects
+    available_batches = list(qs.order_by().values_list('batch_label', flat=True).distinct().order_by('-batch_label'))
+    batch_experiments = {}
+    for exp in qs.order_by('-batch_label'):
+        bl = exp.batch_label
+        if not bl:
+            continue
+        if bl not in batch_experiments:
+            batch_experiments[bl] = []
+        batch_experiments[bl].append({'exp_type': exp.exp_type, 'label': exp.assay_name or bl, 'pk': exp.pk})
+
+    return render(request, 'smart_upload.html', {
+        'preview': smart_preview,
+        'upload_meta': upload_meta,
+        'pipeline_result': pipeline_result,
+        'show_conflict_panels': True,
+        'vocab_file_types': list(UploadVocabulary.objects.filter(category='file_type').order_by('-is_builtin', 'label')),
+        'vocab_readouts': list(UploadVocabulary.objects.filter(category='invivo_readout').order_by('-is_builtin', 'label')),
+        'suggested_batch_label': _generate_batch_label(),
+        'available_batches': available_batches,
+        'batch_experiments_json': _json.dumps(batch_experiments),
     })
 
 
