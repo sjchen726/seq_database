@@ -177,6 +177,7 @@ class Experiment(models.Model):
     dose_info = models.CharField(max_length=64, blank=True, default='')
     schedule = models.CharField(max_length=64, blank=True, default='')
     date = models.DateField(null=True, blank=True)
+    version = models.PositiveSmallIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

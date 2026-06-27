@@ -147,6 +147,25 @@ class ExperimentAndDataPointTest(TestCase):
         self.assertEqual(self.exp.summary.rank, 9)
 
 
+class ExperimentVersionTests(TestCase):
+    def setUp(self):
+        self.compound = Compound.objects.create(compound_id='BPR3M03-FN01')
+
+    def test_default_version_is_1(self):
+        exp = Experiment.objects.create(
+            compound=self.compound, exp_type='in_vitro',
+            assay_name='test', batch_label='20260627-001',
+        )
+        self.assertEqual(exp.version, 1)
+
+    def test_version_field_can_be_set(self):
+        exp = Experiment.objects.create(
+            compound=self.compound, exp_type='in_vitro',
+            assay_name='test', batch_label='20260627-001', version=2,
+        )
+        self.assertEqual(exp.version, 2)
+
+
 from io import BytesIO
 from app01.upload_pipeline import (
     detect_id_format, normalize_compound_ids, parse_seq_file,
