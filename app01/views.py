@@ -1607,21 +1607,26 @@ def _read_from_storage(path: str):
 
 
 def _generate_batch_label() -> str:
-    """Return today's rolling batch label, e.g. 20260617-001."""
+    """Return today's rolling batch label, e.g. 20260617-001. Atomic under concurrent uploads."""
     from datetime import date
+    from django.db import transaction
     prefix = date.today().strftime('%Y%m%d')
-    existing = Experiment.objects.filter(
-        batch_label__startswith=prefix + '-'
-    ).values_list('batch_label', flat=True)
-    used_nums = set()
-    for bl in existing:
-        tail = bl[len(prefix) + 1:]
-        if tail.isdigit():
-            used_nums.add(int(tail))
-    n = 1
-    while n in used_nums:
-        n += 1
-    return f'{prefix}-{n:03d}'
+    with transaction.atomic():
+        existing = list(
+            Experiment.objects
+            .select_for_update()
+            .filter(batch_label__startswith=prefix + '-')
+            .values_list('batch_label', flat=True)
+        )
+        used = set()
+        for bl in existing:
+            tail = bl[len(prefix) + 1:]
+            if tail.isdigit():
+                used.add(int(tail))
+        n = 1
+        while n in used:
+            n += 1
+        return f'{prefix}-{n:03d}'
 
 
 def _slugify_custom_code(label: str) -> str:

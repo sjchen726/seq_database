@@ -2820,3 +2820,27 @@ class DedupPhaseTests(TestCase):
         report = dedup_phase(upload_records)
         self.assertEqual(len(report['dp_conflicts']), 1)
         self.assertEqual(report['dp_conflicts'][0]['compound_id'], 'BPR3M03-FN01')
+
+
+class GenerateBatchLabelTests(TestCase):
+    def test_returns_todays_label_format(self):
+        from datetime import date
+        from app01.views import _generate_batch_label
+        label = _generate_batch_label()
+        today = date.today().strftime('%Y%m%d')
+        self.assertTrue(label.startswith(today + '-'))
+        suffix = label[len(today) + 1:]
+        self.assertTrue(suffix.isdigit())
+        self.assertEqual(len(suffix), 3)
+
+    def test_increments_when_label_exists(self):
+        from datetime import date
+        from app01.views import _generate_batch_label
+        compound = Compound.objects.create(compound_id='BPR3M03-FN01')
+        today = date.today().strftime('%Y%m%d')
+        Experiment.objects.create(
+            compound=compound, exp_type='in_vitro',
+            assay_name='test', batch_label=f'{today}-001',
+        )
+        label = _generate_batch_label()
+        self.assertEqual(label, f'{today}-002')
