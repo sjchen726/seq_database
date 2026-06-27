@@ -1144,7 +1144,8 @@ class InVivoModelTest(TestCase):
         self.assertIn('body_weight', choices)
 
     def test_experiment_attachment_create(self):
-        import tempfile, shutil
+        import tempfile
+        import shutil
         from django.test import override_settings
         from app01.models import ExperimentAttachment
         from django.core.files.base import ContentFile
@@ -1320,7 +1321,8 @@ from unittest.mock import patch, MagicMock  # used by DetectFileLLMTest, SmartUp
 from django.test import override_settings  # used by DetectFileLLMTest, SmartUploadConfirmTest
 from django.core.files.uploadedfile import SimpleUploadedFile  # used by all smart-upload tests
 from django.urls import reverse  # used by SmartUploadViewTest, SmartUploadConfirmTest
-import tempfile, shutil  # used by SmartUploadConfirmTest
+import tempfile
+import shutil  # used by SmartUploadConfirmTest
 from django.core.files.storage import default_storage  # used by SmartUploadConfirmCleanupTest
 
 from app01.upload_pipeline import (

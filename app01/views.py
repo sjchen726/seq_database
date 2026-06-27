@@ -1,7 +1,11 @@
 from collections import defaultdict
 import statistics as _statistics
 import copy
-import re, json, os, csv, math
+import re
+import json
+import os
+import csv
+import math
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import FileResponse, HttpResponse, Http404, JsonResponse
 from django.contrib.auth import authenticate, login, logout as auth_logout
@@ -179,7 +183,7 @@ def get_delivery_colored(seq: str, selected_seq_type: str, seq_type: str,
     # --- 选择序列，反转组顺序并让 subs 组合到前一组 main ---
     if seq_type == 'AS':
         #print(f"111111")
-        
+
         groups = []
         current_group = None
 
@@ -193,7 +197,7 @@ def get_delivery_colored(seq: str, selected_seq_type: str, seq_type: str,
                 if current_group is not None:
                     groups.append(current_group)
                 current_group = {'main': item, 'subs': []}
-        
+
         if current_group is not None:
             groups.append(current_group)
 
@@ -215,7 +219,7 @@ def get_delivery_colored(seq: str, selected_seq_type: str, seq_type: str,
         result = new_result
 
     #print(result)
-    
+
     return result
 
 
