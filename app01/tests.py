@@ -3216,6 +3216,12 @@ class IsControlArmTest(TestCase):
     def test_substring_pbs_vehicle(self):
         self.assertTrue(self._check('PBS vehicle'))
 
+    def test_substring_neg_control(self):
+        self.assertTrue(self._check('Neg Control'))
+
+    def test_substring_nc_group(self):
+        self.assertTrue(self._check('NC group'))
+
     def test_treatment_arm(self):
         self.assertFalse(self._check('BPR123'))
 
@@ -3223,5 +3229,5 @@ class IsControlArmTest(TestCase):
         self.assertFalse(self._check('1mg/kg'))
 
     def test_neg_substring_not_match(self):
-        # 'neg' is exact-only; 'BPR-neg123' should NOT match
+        # 'neg' uses word-boundary matching; 'BPR-neg123' (no word boundary after neg) should NOT match
         self.assertFalse(self._check('BPR-neg123'))

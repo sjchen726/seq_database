@@ -782,13 +782,20 @@ _CONTROL_KEYWORDS_EXACT = {
     'sal', 'blank', 'mock', 'ctrl', 'placebo',
 }
 _CONTROL_KEYWORDS_SUBSTR = {'control', 'saline', 'vehicle', 'negative', 'placebo'}
+_CONTROL_KEYWORDS_WORD = {'neg', 'nc'}
+
+_CONTROL_WORD_RE = re.compile(
+    r'\b(?:' + '|'.join(re.escape(kw) for kw in _CONTROL_KEYWORDS_WORD) + r')\b'
+)
 
 
 def _is_control_arm(dose_info: str) -> bool:
     s = dose_info.lower().strip()
     if s in _CONTROL_KEYWORDS_EXACT:
         return True
-    return any(kw in s for kw in _CONTROL_KEYWORDS_SUBSTR)
+    if any(kw in s for kw in _CONTROL_KEYWORDS_SUBSTR):
+        return True
+    return bool(_CONTROL_WORD_RE.search(s))
 
 
 def _get_strand_seqs(compound):
