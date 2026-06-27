@@ -2647,3 +2647,51 @@ class InvivoSourceFileAttachmentTest(TestCase):
             ExperimentAttachment.objects.get(label=source_label).experiment,
             exp1,
         )
+
+
+class ParseCpFileWarningTests(TestCase):
+    def test_no_gene_detection_produces_warning(self):
+        from app01.upload_pipeline import parse_cp_file, _BytesFile
+        # File where col[3] and col[6] don't have valid gene names (e.g., numbers)
+        data = b'assay\nsiRNA Knockdown\n1,2,3,4,5,6,7,8,9\n'
+        f = _BytesFile(data)
+        result = parse_cp_file(f)
+        self.assertEqual(result.reference_gene, 'GAPDH')
+        self.assertEqual(len(result.warnings), 1)
+        self.assertIn('默认值', result.warnings[0])
+
+    def test_gene_detected_no_warning(self):
+        from app01.upload_pipeline import parse_cp_file, _BytesFile
+        # Row where col[3]=GAPDH, col[6]=FASN → detected
+        row_bytes = b',,,GAPDH,x,x,FASN\n'
+        data = b'assay\nsiRNA Knockdown\n' + row_bytes
+        f = _BytesFile(data)
+        result = parse_cp_file(f)
+        self.assertEqual(result.warnings, [])
+
+
+class ParseTransfectionFileWarningTests(TestCase):
+    def test_duplicate_sirna_mapping_produces_warning(self):
+        from app01.upload_pipeline import parse_transfection_file, _BytesFile
+        lines = ['Transfection in HepG2\n']
+        # Two rows with same siRNA key but different compound IDs
+        for sirna, cid in [('siRNA-01', 'BPR_3M03FN01'), ('siRNA-01', 'BPR_3M03FN02')]:
+            cols = [''] * 18
+            cols[16] = sirna
+            cols[17] = cid
+            lines.append(','.join(cols) + '\n')
+        f = _BytesFile(''.join(lines).encode())
+        result = parse_transfection_file(f)
+        self.assertEqual(result.mapping['siRNA-01'], 'BPR_3M03FN01')  # first kept
+        self.assertEqual(len(result.warnings), 1)
+        self.assertIn('siRNA-01', result.warnings[0])
+
+    def test_no_conflict_no_warning(self):
+        from app01.upload_pipeline import parse_transfection_file, _BytesFile
+        cols = [''] * 18
+        cols[16] = 'siRNA-01'
+        cols[17] = 'BPR_3M03FN01'
+        data = ('Transfection in HepG2\n' + ','.join(cols) + '\n').encode()
+        f = _BytesFile(data)
+        result = parse_transfection_file(f)
+        self.assertEqual(result.warnings, [])

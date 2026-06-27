@@ -43,6 +43,11 @@ class ParsedCpFile:
     reference_gene: str
     target_gene: str
     cp_data: dict  # {(siRNA_label, dose_float): {'rep_A': {gene: {A,B,C}}, 'rep_B': {...}}}
+    warnings: list = None  # populated post-init
+
+    def __post_init__(self):
+        if self.warnings is None:
+            self.warnings = []
 
 
 @dataclass
@@ -50,6 +55,11 @@ class ParsedTransfectionFile:
     cell_line: str
     notes: str
     mapping: dict  # {'siRNA-01': 'BPR_3M03FN01', ...}
+    warnings: list = None  # populated post-init
+
+    def __post_init__(self):
+        if self.warnings is None:
+            self.warnings = []
 
 
 @dataclass
@@ -326,6 +336,7 @@ def parse_cp_file(file) -> 'ParsedCpFile':
     # are uppercase alphabetic gene names (e.g. GAPDH, FASN)
     reference_gene = 'GAPDH'
     target_gene = 'FASN'
+    gene_detected = False
     for row in rows:
         if len(row) > 6:
             c3 = row[3].strip()
@@ -334,6 +345,7 @@ def parse_cp_file(file) -> 'ParsedCpFile':
                     c6 and re.match(r'^[A-Z][A-Z0-9]*$', c6) and c3 != c6):
                 reference_gene = c3
                 target_gene = c6
+                gene_detected = True
                 break
 
     # Parse data rows: col[1] = siRNA label, col[2] = dose, col[3:6] = ref Cp, col[6:9] = tgt Cp
@@ -368,11 +380,15 @@ def parse_cp_file(file) -> 'ParsedCpFile':
             target_gene: tgt_cp,
         }
 
+    cp_warnings = []
+    if not gene_detected:
+        cp_warnings.append('未检测到基因名，已使用默认值 GAPDH/FASN，请确认文件格式')
     return ParsedCpFile(
         assay_name=assay_name,
         reference_gene=reference_gene,
         target_gene=target_gene,
-        cp_data=cp_data,
+        cp_data=dict(cp_data),
+        warnings=cp_warnings,
     )
 
 
@@ -651,6 +667,7 @@ def parse_transfection_file(file) -> ParsedTransfectionFile:
     )
 
     # siRNA → compound mapping from scattered rows (col 16 = siRNA-XX, col 17 = BPR_...)
+    transfection_warnings = []
     for row in rows:
         if len(row) <= 17:
             continue
@@ -662,10 +679,13 @@ def parse_transfection_file(file) -> ParsedTransfectionFile:
                     'parse_transfection_file: duplicate siRNA key %s maps to %s and %s; keeping first',
                     sirna, mapping[sirna], cid,
                 )
+                transfection_warnings.append(
+                    f'检测到 siRNA {sirna} 对应多个 compound ID（{mapping[sirna]} 和 {cid}），已使用第一条映射，请核查源文件'
+                )
             else:
                 mapping[sirna] = cid
 
-    return ParsedTransfectionFile(cell_line=cell_line, notes=notes, mapping=mapping)
+    return ParsedTransfectionFile(cell_line=cell_line, notes=notes, mapping=mapping, warnings=transfection_warnings)
 
 
 # ── In vivo file parsers ─────────────────────────────────────────────────────
