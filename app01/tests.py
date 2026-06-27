@@ -2730,3 +2730,37 @@ class DiffStrandsTests(TestCase):
         result = diff_strands([{'compound_id': 'BPR3M03-FN01', 'strand_type': 'AS', 'new_seq': 'GAUGG'}])
         self.assertEqual(len(result), 1)
         self.assertGreater(len(result[0].diff_positions), 0)
+
+
+class NormalizePhaseTests(TestCase):
+    def test_already_canonical_no_remap(self):
+        from app01.upload_pipeline import normalize_phase, NormalizeResult
+        result = normalize_phase(['BPR3M03-FN01'], '3M03')
+        self.assertEqual(result.errors, [])
+        self.assertEqual(result.remap_log, [])
+
+    def test_underscore_format_gets_remapped(self):
+        from app01.upload_pipeline import normalize_phase
+        result = normalize_phase(['BPR_3M03FN01'], '3M03')
+        self.assertEqual(result.errors, [])
+        self.assertEqual(len(result.remap_log), 1)
+        self.assertEqual(result.remap_log[0]['reason'], 'canonicalize')
+        self.assertEqual(result.remap_log[0]['canonical'], 'BPR3M03-FN01')
+
+    def test_numeric_id_gets_prefix_warning(self):
+        from app01.upload_pipeline import normalize_phase
+        result = normalize_phase(['123456789'], '3M03')
+        self.assertEqual(len(result.warnings), 1)
+        self.assertIn('BPR_', result.warnings[0])
+
+    def test_unrecognizable_id_produces_error(self):
+        from app01.upload_pipeline import normalize_phase
+        result = normalize_phase(['TOTALLY_INVALID_!!!'], '3M03')
+        self.assertEqual(len(result.errors), 1)
+        self.assertIn('TOTALLY_INVALID_!!!', result.errors[0])
+
+    def test_empty_list(self):
+        from app01.upload_pipeline import normalize_phase
+        result = normalize_phase([], '3M03')
+        self.assertEqual(result.errors, [])
+        self.assertEqual(result.remap_log, [])

@@ -100,6 +100,14 @@ class StrandDiff:
     user_choice: str = None  # 'keep' | 'overwrite' — set by preview page
 
 
+@dataclass
+class NormalizeResult:
+    remap_log: list   # [{'original': str, 'canonical': str, 'reason': str}]
+    errors: list      # [str] — IDs that could not be recognized
+    warnings: list    # [str] — informational (e.g. numeric prefix auto-added)
+    id_map: dict      # {original_id: final_resolved_id}
+
+
 # ── Internal helpers ─────────────────────────────────────────────────────────
 
 def _read_csv_text(file) -> str:
@@ -491,6 +499,56 @@ def diff_strands(upload_strands: list) -> list:
             diff_positions=positions,
         ))
     return diffs
+
+
+_KNOWN_ID_PATTERNS = [
+    re.compile(r'^BPR[A-Z0-9]+-[A-Z]{2}\d{2,3}$'),   # canonical BPR3M03-FN01
+    re.compile(r'^BPR_[A-Z0-9]+[A-Z]{2}\d{2,3}$'),    # legacy BPR_3M03FN01
+    re.compile(r'^[A-Za-z][A-Za-z ]+$'),               # control group names (Saline, PBS...)
+]
+
+
+def normalize_phase(compound_ids: list, project_code: str) -> NormalizeResult:
+    """Normalize compound IDs through canonicalization and cross-format matching.
+
+    Steps:
+    1. Warn on numeric-only IDs (will get BPR_ prefix auto-added)
+    2. Canonicalize raw format to BPR<project_code>-<serial>
+    3. Check for cross-format DB matches (2-digit ↔ 3-digit)
+    4. Validate final form against known patterns
+    """
+    remap_log = []
+    errors = []
+    warnings = []
+    id_map = {}
+
+    for cid in compound_ids:
+        current = cid
+
+        # Numeric IDs get BPR_ prefix automatically — warn the user
+        if re.match(r'^\d', cid):
+            warnings.append(f'已自动为数字ID补充前缀 BPR_，请确认这是正确的序列号: {cid}')
+
+        # Step 1: canonicalize
+        canonical = canonicalize_compound_id(cid, project_code)
+        if canonical != cid:
+            remap_log.append({'original': cid, 'canonical': canonical, 'reason': 'canonicalize'})
+            current = canonical
+
+        # Step 2: cross-format DB match (2-digit ↔ 3-digit)
+        cross = detect_cross_format_match([current])
+        if cross and current in cross:
+            db_id = cross[current]
+            remap_log.append({'original': current, 'canonical': db_id, 'reason': 'format_mismatch'})
+            current = db_id
+
+        # Step 3: validate final form
+        if not any(p.match(current) for p in _KNOWN_ID_PATTERNS):
+            errors.append(f'无法识别的ID格式: {cid}')
+
+        id_map[cid] = current
+
+    return NormalizeResult(remap_log=remap_log, errors=errors, warnings=warnings, id_map=id_map)
 
 
 def build_preview(seq_parsed, summary_parsed, cp_parsed_list,
