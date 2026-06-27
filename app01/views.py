@@ -256,6 +256,16 @@ def _reverse_tokens(tokens):
     return new_result
 
 
+_SEP_TOKEN = {
+    'type': 'SEP',
+    'char': '',
+    'count': '',
+    'is_combo': False,
+    'delivery_label': None,
+    'delivery_color': None,
+}
+
+
 def get_modify_seq_colored(seq, selected_seq_type, seq_type, dm_modules=None, color_map=None, lk_modules=None):
     parts = detect_embedded_linker(seq or "")
     if parts is not None:

@@ -311,6 +311,17 @@ class ParseSeqFileTest(TestCase):
         self.assertEqual(len(result.rows), 1)
 
 
+class SepTokenTest(TestCase):
+    def test_get_modify_seq_colored_dual_segment_no_crash(self):
+        """Sequences with embedded 4+ dash linkers must not raise NameError."""
+        from app01.views import get_modify_seq_colored
+        # '----' triggers the embedded-linker path (4+ consecutive dashes)
+        tokens = get_modify_seq_colored('mAmG----mUmA', 'AS', 'AS')
+        types = [t['type'] for t in tokens]
+        self.assertIn('SEP', types)
+        self.assertEqual(types.count('SEP'), 2)
+
+
 from app01.upload_pipeline import parse_summary_csv
 
 
