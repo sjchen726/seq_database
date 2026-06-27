@@ -1775,6 +1775,46 @@ class SmartUploadConfirmTargetNameTest(TestCase):
         # No DB write happened
         self.assertEqual(Compound.objects.get(compound_id='BPR_TNTEST04').target_name, '')
 
+    def test_target_name_updated_after_id_normalization(self):
+        """Compound saved under canonical ID is updated even when preview stored the raw ID."""
+        Compound.objects.create(compound_id='BPR3M03-FN01', target_name='')
+        session = self.client.session
+        session['smart_preview'] = {
+            'project_code': '3M03',
+            'file_detections': [],
+            'invitro': {
+                'experiments': [],
+                'strand_map': {'BPR_3M03FN01': {}},  # raw form in preview
+                'new_compounds': [],
+                'assay_name': '',
+                'cell_line': '',
+                'notes': '',
+            },
+            'invivo_groups': [],
+            'source_files': [],
+            'attachment_files': [],
+            'errors': [],
+            'has_no_seq': True,
+        }
+        session['upload_meta'] = {
+            'batch_label': '',
+            'assay_name': '',
+            'exp_date': None,
+            'target_name': 'FASN',
+            'source_batch': '',
+            'attach_vitro': False,
+            'attach_vivo': False,
+        }
+        session['pipeline_result'] = {
+            'errors': [], 'warnings': [], 'remap_log': [],
+            'strand_diffs': [],
+            'dedup_report': {'exp_conflicts': [], 'dp_conflicts': []},
+        }
+        session['normalize_id_map'] = {'BPR_3M03FN01': 'BPR3M03-FN01'}
+        session.save()
+        self.client.post('/upload/smart/confirm/', {})
+        self.assertEqual(Compound.objects.get(compound_id='BPR3M03-FN01').target_name, 'FASN')
+
 
 # ---- BuildInvivoChartDataTest ----
 class BuildInvivoChartDataTest(TestCase):

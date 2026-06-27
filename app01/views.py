@@ -2529,12 +2529,12 @@ def smart_upload_confirm_view(request):
         touched_cids = set()
         if invitro:
             for cid in invitro.get('strand_map', {}):
-                touched_cids.add(cid)
+                touched_cids.add(_resolve_cid(cid))
             for exp_data in invitro.get('experiments', []):
-                touched_cids.add(exp_data['compound_id'])
+                touched_cids.add(_resolve_cid(exp_data['compound_id']))
         for group in invivo_groups:
             for g in group['groups']:
-                touched_cids.add(g['compound_id'])
+                touched_cids.add(_resolve_cid(g['compound_id']))
         if touched_cids:
             Compound.objects.filter(compound_id__in=touched_cids, target_name='').update(
                 target_name=target_name_input
