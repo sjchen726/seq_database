@@ -2061,6 +2061,21 @@ def smart_upload_preview_view(request):
     })
 
 
+def _cleanup_upload_session(request, smart_preview):
+    for det in (smart_preview or {}).get('file_detections', []):
+        path = det.get('saved_path', '')
+        if path:
+            try:
+                if default_storage.exists(path):
+                    default_storage.delete(path)
+            except Exception:
+                pass
+    request.session.pop('smart_preview', None)
+    request.session.pop('pipeline_result', None)
+    request.session.pop('upload_meta', None)
+    request.session.pop('normalize_id_map', None)
+
+
 def _build_user_cid_remap(post_data: dict):
     """Parse cid_orig_N / cid_new_N POST pairs into a remap dict.
 
@@ -2185,6 +2200,7 @@ def smart_upload_confirm_view(request):
         })
 
     if errors:
+        _cleanup_upload_session(request, smart_preview)
         import json as _json
         from app01.models import UploadVocabulary
         qs_err = Experiment.objects.filter(compound__project=project_code) if project_code else Experiment.objects

@@ -1816,6 +1816,58 @@ class SmartUploadConfirmTargetNameTest(TestCase):
         self.assertEqual(Compound.objects.get(compound_id='BPR3M03-FN01').target_name, 'FASN')
 
 
+class SmartUploadConfirmCleanupTest(TestCase):
+    def setUp(self):
+        self.tmp_media = tempfile.mkdtemp()
+        self.user = LmsUser.objects.create_user(
+            username='cleanup_test', password='pw',
+            user_type='sub_admin', module_permissions='upload,data,compound,batch',
+        )
+        self.client.force_login(self.user)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp_media, ignore_errors=True)
+
+    def _set_session(self, target_name=''):
+        session = self.client.session
+        session['smart_preview'] = {
+            'project_code': 'TEST',
+            'file_detections': [],
+            'invitro': None,
+            'invivo_groups': [],
+            'source_files': [],
+            'attachment_files': [],
+            'errors': [],
+        }
+        session['upload_meta'] = {
+            'batch_label': '',
+            'assay_name': '',
+            'exp_date': None,
+            'target_name': target_name,
+            'source_batch': '',
+            'attach_vitro': False,
+            'attach_vivo': False,
+        }
+        session['pipeline_result'] = {
+            'errors': [], 'warnings': [], 'remap_log': [],
+            'strand_diffs': [],
+            'dedup_report': {'exp_conflicts': [], 'dp_conflicts': []},
+        }
+        session['normalize_id_map'] = {}
+        session.save()
+
+    def test_session_cleared_after_validation_error(self):
+        """All session upload keys are cleared when confirm validation fails."""
+        self._set_session(target_name='')  # blank triggers '靶点必填' error
+        with override_settings(MEDIA_ROOT=self.tmp_media):
+            resp = self.client.post('/upload/smart/confirm/', {})
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotIn('smart_preview', self.client.session)
+        self.assertNotIn('pipeline_result', self.client.session)
+        self.assertNotIn('upload_meta', self.client.session)
+        self.assertNotIn('normalize_id_map', self.client.session)
+
+
 # ---- BuildInvivoChartDataTest ----
 class BuildInvivoChartDataTest(TestCase):
     def _make_exp(self, batch='B1', time_unit='day', dose_info='10mpk SC'):
