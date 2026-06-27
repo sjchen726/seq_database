@@ -2436,72 +2436,77 @@ def smart_upload_confirm_view(request):
                 except Exception as e:
                     logger.error(f'smart_upload source-only attachment error: {e}')
 
-    # Write each in-vivo group in its own atomic transaction (independent)
+    # Write all in-vivo groups in a single outer transaction (all-or-nothing)
     all_invivo_exps = []
-    for i, group in enumerate(invivo_groups):
-        meta = invivo_meta[i]
-        batch_label_iv = batch_label
-        readout_code = group['readout_code']
-        readout_label = group.get('readout_label', readout_code)
-        assay_name_iv = f'{readout_label} 时间曲线'
-        invivo_exps = []
+    try:
+        with transaction.atomic():                     # outer: all-or-nothing
+            for i, group in enumerate(invivo_groups):
+                meta = invivo_meta[i]
+                batch_label_iv = batch_label
+                readout_code = group['readout_code']
+                readout_label = group.get('readout_label', readout_code)
+                assay_name_iv = f'{readout_label} 时间曲线'
+                invivo_exps = []
 
-        try:
-            with transaction.atomic():
-                for g in group['groups']:
-                    compound, _ = Compound.objects.get_or_create(
-                        compound_id=_resolve_cid(g['compound_id'])
-                    )
-                    if project_code:
-                        compound.project = project_code
-                        compound.save(update_fields=['project'])
-                    dose_info = g.get('dose') or meta['dose_override']
-                    schedule = g.get('schedule', '')
+                try:
+                    with transaction.atomic():         # inner: savepoint per group
+                        for g in group['groups']:
+                            compound, _ = Compound.objects.get_or_create(
+                                compound_id=_resolve_cid(g['compound_id'])
+                            )
+                            if project_code:
+                                compound.project = project_code
+                                compound.save(update_fields=['project'])
+                            dose_info = g.get('dose') or meta['dose_override']
+                            schedule = g.get('schedule', '')
 
-                    exp = Experiment.objects.create(
-                        compound=compound,
-                        exp_type='in_vivo',
-                        assay_name=assay_name_iv,
-                        batch_label=batch_label_iv,
-                        animal_species=meta['animal_species'],
-                        animal_strain=meta['animal_strain'],
-                        route=meta['route'],
-                        gender=meta['gender'],
-                        time_unit=meta['time_unit'],
-                        dose_info=dose_info,
-                        schedule=schedule,
-                    )
-                    invivo_exps.append(exp)
-                    n_invivo += 1
+                            exp = Experiment.objects.create(
+                                compound=compound,
+                                exp_type='in_vivo',
+                                assay_name=assay_name_iv,
+                                batch_label=batch_label_iv,
+                                animal_species=meta['animal_species'],
+                                animal_strain=meta['animal_strain'],
+                                route=meta['route'],
+                                gender=meta['gender'],
+                                time_unit=meta['time_unit'],
+                                dose_info=dose_info,
+                                schedule=schedule,
+                            )
+                            invivo_exps.append(exp)
+                            n_invivo += 1
 
-                    dp_objs = []
-                    for tp in g['timepoints']:
-                        dp_objs.append(DataPoint(
-                            experiment=exp, x_value=tp['time'], x_type='timepoint',
-                            replicate='Mean', value=tp['mean'], readout_type=readout_code,
-                        ))
-                        dp_objs.append(DataPoint(
-                            experiment=exp, x_value=tp['time'], x_type='timepoint',
-                            replicate='SD', value=tp['sd'], readout_type=readout_code,
-                        ))
-                    DataPoint.objects.bulk_create(dp_objs)
+                            dp_objs = []
+                            for tp in g['timepoints']:
+                                dp_objs.append(DataPoint(
+                                    experiment=exp, x_value=tp['time'], x_type='timepoint',
+                                    replicate='Mean', value=tp['mean'], readout_type=readout_code,
+                                ))
+                                dp_objs.append(DataPoint(
+                                    experiment=exp, x_value=tp['time'], x_type='timepoint',
+                                    replicate='SD', value=tp['sd'], readout_type=readout_code,
+                                ))
+                            DataPoint.objects.bulk_create(dp_objs)
 
-                # Attach source file to the FIRST experiment only (batch-level)
-                saved_path = group.get('saved_path', '')
-                if invivo_exps and saved_path and default_storage.exists(saved_path):
-                    from django.core.files.base import ContentFile as CF
-                    with default_storage.open(saved_path, 'rb') as fh:
-                        content = fh.read()
-                    att = ExperimentAttachment(
-                        experiment=invivo_exps[0], label=group['filename'])
-                    att.file.save(group['filename'], CF(content), save=True)
-                    n_attachments += 1
-                    default_storage.delete(saved_path)
+                        # Attach source file to the FIRST experiment only (batch-level)
+                        saved_path = group.get('saved_path', '')
+                        if invivo_exps and saved_path and default_storage.exists(saved_path):
+                            from django.core.files.base import ContentFile as CF
+                            with default_storage.open(saved_path, 'rb') as fh:
+                                content = fh.read()
+                            att = ExperimentAttachment(
+                                experiment=invivo_exps[0], label=group['filename'])
+                            att.file.save(group['filename'], CF(content), save=True)
+                            n_attachments += 1
+                            default_storage.delete(saved_path)
 
-                all_invivo_exps.extend(invivo_exps)
-        except Exception as e:
-            logger.error(f'smart_upload_confirm invivo error: {e}')
-            invivo_errors.append(f'文件 {group["filename"]}: {e}')
+                        all_invivo_exps.extend(invivo_exps)
+                except Exception as e:
+                    logger.error(f'smart_upload_confirm invivo error: {e}')
+                    invivo_errors.append(f'文件 {group["filename"]}: {e}')
+                    raise                              # trigger outer rollback
+    except Exception:
+        pass                                           # invivo_errors already populated
 
     # Auto-attach source files to the first new in-vivo experiment (once, post-loop)
     if all_invivo_exps and source_files and not vitro_experiments and not invivo_errors:

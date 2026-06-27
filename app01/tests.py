@@ -2978,3 +2978,104 @@ class GenerateBatchLabelTests(TestCase):
         )
         label = _generate_batch_label()
         self.assertEqual(label, f'{today}-002')
+
+
+# ---- SmartUploadConfirmInvivoRollbackTest ----
+class SmartUploadConfirmInvivoRollbackTest(TestCase):
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='rollback_test', password='pw',
+            user_type='sub_admin', module_permissions='upload,data,compound,batch',
+        )
+        self.client.force_login(self.user)
+
+    def _make_invivo_group(self, filename, compound_id, bad_timepoints=False):
+        """Build a minimal in_vivo group dict.
+
+        If bad_timepoints=True the timepoints contain an invalid 'mean' value that
+        will cause DataPoint.objects.bulk_create to raise, triggering a group failure.
+        """
+        if bad_timepoints:
+            timepoints = [{'time': 7.0, 'mean': 'NOT_A_FLOAT', 'sd': 3.0}]
+        else:
+            timepoints = [
+                {'time': 7.0, 'mean': -50.0, 'sd': 3.0},
+                {'time': 14.0, 'mean': -80.0, 'sd': 2.5},
+            ]
+        return {
+            'filename': filename,
+            'readout_code': 'knockdown_pct',
+            'readout_label': 'KD%',
+            'saved_path': '',
+            'needs_dose': False,
+            'groups': [
+                {
+                    'compound_id': compound_id,
+                    'dose': '10mpk SC',
+                    'schedule': '',
+                    'timepoints': timepoints,
+                }
+            ],
+        }
+
+    def _set_session(self, invivo_groups):
+        """Populate session with minimal smart_preview / upload_meta for in_vivo-only upload."""
+        upload_meta = {
+            'batch_label': 'ROLLBACK_BATCH',
+            'assay_name': '',
+            'exp_date': None,
+            'target_name': 'FASN',
+            'source_batch': '',
+            'attach_vitro': False,
+            'attach_vivo': False,
+        }
+        for i in range(len(invivo_groups)):
+            upload_meta[f'time_unit_{i}'] = 'day'
+            upload_meta[f'dose_override_{i}'] = '10mpk SC'
+            upload_meta[f'animal_species_{i}'] = 'mouse'
+            upload_meta[f'animal_strain_{i}'] = 'C57BL/6'
+            upload_meta[f'route_{i}'] = 'SC'
+            upload_meta[f'gender_{i}'] = 'male'
+
+        session = self.client.session
+        session['smart_preview'] = {
+            'project_code': 'TEST',
+            'file_detections': [],
+            'invitro': None,
+            'invivo_groups': invivo_groups,
+            'source_files': [],
+            'attachment_files': [],
+            'errors': [],
+        }
+        session['upload_meta'] = upload_meta
+        session['pipeline_result'] = {
+            'errors': [], 'warnings': [], 'remap_log': [],
+            'strand_diffs': [],
+            'dedup_report': {'exp_conflicts': [], 'dp_conflicts': []},
+        }
+        session['normalize_id_map'] = {}
+        session.save()
+
+    def test_invivo_rollback_on_group_failure(self):
+        """If the second in_vivo group fails, the first group must also be rolled back."""
+        Compound.objects.create(compound_id='BPR_RB01', target_name='FASN')
+        Compound.objects.create(compound_id='BPR_RB02', target_name='FASN')
+
+        # Group 1: valid data; Group 2: bad timepoints → bulk_create raises
+        group1 = self._make_invivo_group('file1.csv', 'BPR_RB01', bad_timepoints=False)
+        group2 = self._make_invivo_group('file2.csv', 'BPR_RB02', bad_timepoints=True)
+        self._set_session([group1, group2])
+
+        self.client.post('/upload/smart/confirm/', {})
+
+        # The outer transaction.atomic() must have rolled back group1's writes too.
+        self.assertEqual(
+            Experiment.objects.filter(exp_type='in_vivo', batch_label='ROLLBACK_BATCH').count(),
+            0,
+            'Expected full rollback: no in_vivo Experiment rows should exist after group 2 fails',
+        )
+        self.assertEqual(
+            DataPoint.objects.filter(experiment__batch_label='ROLLBACK_BATCH').count(),
+            0,
+            'Expected full rollback: no DataPoint rows should exist after group 2 fails',
+        )
