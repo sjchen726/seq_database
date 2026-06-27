@@ -551,6 +551,80 @@ def normalize_phase(compound_ids: list, project_code: str) -> NormalizeResult:
     return NormalizeResult(remap_log=remap_log, errors=errors, warnings=warnings, id_map=id_map)
 
 
+def dedup_phase(upload_records: list) -> dict:
+    """Detect duplicate experiments and datapoints at two levels.
+
+    Level 1: Experiment-level dedupe
+    - Finds existing Experiment with same (compound_id, batch_label, assay_name)
+    - Records as exp_conflict with action='new_version'
+
+    Level 2: DataPoint-level dedupe (only if exp_conflict found)
+    - Compares fingerprints: (x_value, replicate, value, readout_type, is_control)
+    - All are rounded/normalized for comparison
+    - Identical datapoints recorded in dp_conflicts
+
+    Returns: dict with 'exp_conflicts' and 'dp_conflicts' lists
+    """
+    from app01.models import Experiment, DataPoint
+    exp_conflicts = []
+    dp_conflicts = []
+
+    for rec in upload_records:
+        cid = rec['compound_id']
+        batch = rec['batch_label']
+        assay = rec['assay_name']
+
+        # Level 1: experiment-level
+        existing_exps = list(
+            Experiment.objects.filter(
+                compound__compound_id=cid,
+                batch_label=batch,
+                assay_name=assay,
+            ).order_by('-version')
+        )
+        if existing_exps:
+            latest = existing_exps[0]
+            exp_conflicts.append({
+                'compound_id': cid,
+                'batch_label': batch,
+                'assay_name': assay,
+                'existing_exp_id': latest.pk,
+                'existing_version': latest.version,
+                'action': 'new_version',
+            })
+
+            # Level 2: datapoint-level (against the latest version)
+            existing_fps = set(
+                (round(float(dp.x_value or 0), 4),
+                 dp.replicate,
+                 round(float(dp.value or 0), 4) if dp.value is not None else None,
+                 dp.readout_type,
+                 dp.is_control)
+                for dp in DataPoint.objects.filter(experiment=latest)
+            )
+            dup_dps = []
+            for dp in rec.get('datapoints', []):
+                fp = (
+                    round(float(dp.get('x_value') or 0), 4),
+                    dp.get('replicate', ''),
+                    round(float(dp.get('value') or 0), 4) if dp.get('value') is not None else None,
+                    dp.get('readout_type', ''),
+                    bool(dp.get('is_control', False)),
+                )
+                if fp in existing_fps:
+                    dup_dps.append(dp)
+            if dup_dps:
+                dp_conflicts.append({
+                    'compound_id': cid,
+                    'batch_label': batch,
+                    'assay_name': assay,
+                    'datapoints': dup_dps,
+                    'skip': True,  # default: skip duplicates
+                })
+
+    return {'exp_conflicts': exp_conflicts, 'dp_conflicts': dp_conflicts}
+
+
 def build_preview(seq_parsed, summary_parsed, cp_parsed_list,
                   batch_label: str, assay_name: str, exp_date: str = None,
                   transfection_parsed=None) -> dict:

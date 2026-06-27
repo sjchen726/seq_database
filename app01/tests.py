@@ -2764,3 +2764,59 @@ class NormalizePhaseTests(TestCase):
         result = normalize_phase([], '3M03')
         self.assertEqual(result.errors, [])
         self.assertEqual(result.remap_log, [])
+
+
+class DedupPhaseTests(TestCase):
+    def setUp(self):
+        self.compound = Compound.objects.create(compound_id='BPR3M03-FN01')
+        self.exp = Experiment.objects.create(
+            compound=self.compound, exp_type='in_vitro',
+            assay_name='siRNA knockdown', batch_label='20260601-001',
+        )
+        DataPoint.objects.create(
+            experiment=self.exp, x_value=10.0, x_type='concentration',
+            replicate='A', value=23.4, readout_type='mRNA_remaining', is_control=False,
+        )
+
+    def test_no_existing_experiment_returns_empty_report(self):
+        from app01.upload_pipeline import dedup_phase
+        upload_records = [{
+            'compound_id': 'BPR3M03-FN02',  # different compound
+            'batch_label': '20260627-001',
+            'assay_name': 'siRNA knockdown',
+            'datapoints': [{'x_value': 10.0, 'replicate': 'A', 'value': 23.4,
+                            'readout_type': 'mRNA_remaining', 'is_control': False}],
+        }]
+        report = dedup_phase(upload_records)
+        self.assertEqual(report['exp_conflicts'], [])
+        self.assertEqual(report['dp_conflicts'], [])
+
+    def test_same_exp_detected_as_conflict(self):
+        from app01.upload_pipeline import dedup_phase
+        upload_records = [{
+            'compound_id': 'BPR3M03-FN01',
+            'batch_label': '20260601-001',  # same batch
+            'assay_name': 'siRNA knockdown',  # same assay
+            'datapoints': [{'x_value': 10.0, 'replicate': 'A', 'value': 99.0,
+                            'readout_type': 'mRNA_remaining', 'is_control': False}],
+        }]
+        report = dedup_phase(upload_records)
+        self.assertEqual(len(report['exp_conflicts']), 1)
+        self.assertEqual(report['exp_conflicts'][0]['compound_id'], 'BPR3M03-FN01')
+        self.assertEqual(report['exp_conflicts'][0]['action'], 'new_version')
+
+    def test_identical_datapoints_detected(self):
+        from app01.upload_pipeline import dedup_phase
+        upload_records = [{
+            'compound_id': 'BPR3M03-FN01',
+            'batch_label': '20260601-001',
+            'assay_name': 'siRNA knockdown',
+            'datapoints': [
+                # identical to existing DataPoint
+                {'x_value': 10.0, 'replicate': 'A', 'value': 23.4,
+                 'readout_type': 'mRNA_remaining', 'is_control': False},
+            ],
+        }]
+        report = dedup_phase(upload_records)
+        self.assertEqual(len(report['dp_conflicts']), 1)
+        self.assertEqual(report['dp_conflicts'][0]['compound_id'], 'BPR3M03-FN01')
