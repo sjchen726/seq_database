@@ -3079,3 +3079,93 @@ class SmartUploadConfirmInvivoRollbackTest(TestCase):
             0,
             'Expected full rollback: no DataPoint rows should exist after group 2 fails',
         )
+
+
+# ---- SmartUploadConfirmDiffChoiceTest ----
+class SmartUploadConfirmDiffChoiceTest(TestCase):
+    """Verify that the diff_choice lookup uses _resolve_cid so that a remapped
+    compound ID in strand_diffs still matches the resolved canonical ID."""
+
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='diffchoice_test', password='pw',
+            user_type='sub_admin', module_permissions='upload,data,compound,batch',
+        )
+        self.client.force_login(self.user)
+
+    def test_overwrite_choice_respected_after_id_remap(self):
+        """When strand_diffs stores a raw ID that normalize_id_map remaps to the
+        canonical form, the overwrite choice must be applied to the existing Strand."""
+        # Create the compound under its canonical ID
+        compound = Compound.objects.create(compound_id='BPR3M03-FN01', target_name='FASN')
+        # Create an existing Strand that would be overwritten
+        strand = Strand.objects.create(
+            compound=compound,
+            strand_type='AS',
+            sequence_id='BPR3M03-FN01_AS',
+            modify_seq='OLD_MODIFY_SEQ',
+        )
+
+        # Build session: pipeline stored the raw ID; normalize_id_map provides the remap
+        session = self.client.session
+        session['smart_preview'] = {
+            'project_code': '3M03',
+            'file_detections': [],
+            'invitro': {
+                'experiments': [],
+                # strand_map uses the raw key; as_seq triggers AS strand processing
+                'strand_map': {
+                    'BPR_3M03FN01': {'as_seq': 'NEW_MODIFY_SEQ'},
+                },
+                'new_compounds': [],
+                'assay_name': '',
+                'cell_line': '',
+                'notes': '',
+                # no id_format_mismatch — the remap is purely through normalize_id_map
+            },
+            'invivo_groups': [],
+            'source_files': [],
+            'attachment_files': [],
+            'errors': [],
+            'has_no_seq': True,
+        }
+        session['upload_meta'] = {
+            'batch_label': '',
+            'assay_name': '',
+            'exp_date': None,
+            'target_name': 'FASN',
+            'source_batch': '',
+            'attach_vitro': False,
+            'attach_vivo': False,
+        }
+        session['pipeline_result'] = {
+            'errors': [],
+            'warnings': [],
+            'remap_log': [],
+            # strand_diffs stores the raw compound ID from the pipeline preview
+            'strand_diffs': [
+                {'compound_id': 'BPR_3M03FN01', 'strand_type': 'AS'},
+            ],
+            'dedup_report': {'exp_conflicts': [], 'dp_conflicts': []},
+        }
+        # normalize_id_map maps raw → canonical (mirrors Phase 2 pipeline output)
+        session['normalize_id_map'] = {'BPR_3M03FN01': 'BPR3M03-FN01'}
+        session.save()
+
+        # POST confirm with overwrite choice; POST key uses the raw compound_id + strand_type
+        self.client.post(
+            '/upload/smart/confirm/',
+            {
+                'target_name': 'FASN',
+                'strand_choice_BPR_3M03FN01_AS': 'overwrite',
+            },
+        )
+
+        strand.refresh_from_db()
+        self.assertEqual(
+            strand.modify_seq,
+            'NEW_MODIFY_SEQ',
+            'Strand.modify_seq should have been updated to NEW_MODIFY_SEQ because '
+            'the overwrite choice was selected, but the ID remap caused the lookup '
+            'to miss without the _resolve_cid fix.',
+        )

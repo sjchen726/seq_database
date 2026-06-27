@@ -2270,7 +2270,7 @@ def smart_upload_confirm_view(request):
                             continue
                         diff_choice = next(
                             (d['user_choice'] for d in strand_diffs
-                             if d['compound_id'] == resolved and d['strand_type'] == strand_type),
+                             if _resolve_cid(d['compound_id']) == resolved and d['strand_type'] == strand_type),
                             None,
                         )
                         existing = Strand.objects.filter(
