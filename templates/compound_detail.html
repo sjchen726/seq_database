@@ -394,7 +394,8 @@ function initInvivoBatchCharts() {
     var ypad = Math.max((ymax - ymin) * 0.12, 2);
     var yOpts;
     if (d.readout_type === 'knockdown_pct') {
-      yOpts = { min: 0, max: Math.max(ymax + ypad, 110), labelWidth: 30 };
+      var yminKd = (ymin - ypad < 0) ? Math.floor((ymin - ypad) / 10) * 10 : 0;
+      yOpts = { min: yminKd, max: Math.max(ymax + ypad, 110), labelWidth: 30 };
     } else {
       yOpts = { min: ymin - ypad, max: ymax + ypad, labelWidth: 30 };
     }
