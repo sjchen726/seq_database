@@ -346,9 +346,17 @@ function initInvivoChart() {
       points: { show: true, radius: 4 }
     };
   });
+  var allKd = [];
+  INVIVO_DATA.forEach(function(b) {
+    (b.timepoints || []).forEach(function(tp) {
+      if (tp.kd_pct != null) allKd.push(tp.kd_pct);
+    });
+  });
+  var kdMax = allKd.length ? Math.max.apply(null, allKd) : 100;
+  var ymax  = Math.max(Math.ceil(kdMax * 1.1 / 10) * 10, 110);
   $.plot('#chart-invivo', series, {
     xaxis: { axisLabel: '时间点 (day)', tickLength: 4 },
-    yaxis: { min: 0, max: 105, axisLabel: 'KD %', labelWidth: 30 },
+    yaxis: { min: 0, max: ymax, axisLabel: 'KD %', labelWidth: 30 },
     grid:  { hoverable: false, borderWidth: 1, borderColor: '#fde68a' },
     legend: { show: true, position: 'topright', backgroundOpacity: 0.7 }
   });
