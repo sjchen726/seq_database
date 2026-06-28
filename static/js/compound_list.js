@@ -93,7 +93,6 @@ function _clInitVitroChart(canvas) {
           ticks: { font: { size: 9 } },
         },
         y: {
-          min: 0,
           title: { display: true, text: 'mRNA%', font: { size: 9 } },
           ticks: { font: { size: 9 } },
         },
@@ -462,6 +461,7 @@ function clToggleVitroReadout(btn, chartId, readout) {
   chart.data.datasets[0].data  = pts.map(([x, y]) => ({ x, y }));
   chart.data.datasets[0].label = readout === 'kd' ? 'KD%' : 'mRNA残余%';
   chart.options.scales.y.title.text = readout === 'kd' ? 'KD%' : 'mRNA%';
+  chart.options.scales.y.min = undefined;
   chart.update();
 }
 
