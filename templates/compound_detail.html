@@ -353,7 +353,7 @@ function initInvivoChart() {
     });
   });
   var kdMax = allKd.length ? Math.max.apply(null, allKd) : 100;
-  var ymax  = Math.max(Math.ceil(kdMax * 1.1 / 10) * 10, 110);
+  var ymax = Math.max(Math.ceil(kdMax * 1.1 / 10) * 10, 110);
   $.plot('#chart-invivo', series, {
     xaxis: { axisLabel: '时间点 (day)', tickLength: 4 },
     yaxis: { min: 0, max: ymax, axisLabel: 'KD %', labelWidth: 30 },
