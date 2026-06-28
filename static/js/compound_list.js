@@ -337,7 +337,7 @@ function _clBuildVitroCompare(readout) {
       responsive: true, maintainAspectRatio: false,
       scales: {
         x: {type:'linear', title:{display:true,text:'log₁₀(nM)',font:{size:10}}, ticks:{font:{size:10}}},
-        y: {min:0, title:{display:true,text:readout==='kd'?'KD%':'mRNA%',font:{size:10}}, ticks:{font:{size:10}}},
+        y: {title:{display:true,text:readout==='kd'?'KD%':'mRNA%',font:{size:10}}, ticks:{font:{size:10}}},
       },
       plugins: {legend:{display:true, labels:{font:{size:10},boxWidth:14,padding:10}}},
     },
