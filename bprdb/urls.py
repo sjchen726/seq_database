@@ -16,6 +16,7 @@ urlpatterns = [
     path('compounds/<str:compound_id>/', views.compound_detail, name='compound_detail'),
     path('profile/', views.user_profile, name='user_profile'),
     path('profile/request-project/', views.profile_request_project, name='profile_request_project'),
+    path('profile/request-edit/', views.profile_request_edit, name='profile_request_edit'),
     path('batches/', views.batch_list, name='batch_list'),
     path('batches/<str:batch_label>/delete/', views.batch_delete, name='batch_delete'),
     path('upload/invivo/', RedirectView.as_view(url='/upload/smart/', permanent=True), name='invivo_upload'),

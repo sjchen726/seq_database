@@ -655,6 +655,36 @@ def profile_request_project(request):
     return redirect('user_profile')
 
 
+@login_required
+def profile_request_edit(request):
+    if request.method != 'POST':
+        return redirect('compound_list')
+    project_code = request.POST.get('project_code', '').strip()
+    if not project_code:
+        messages.error(request, '项目代码不能为空')
+        return redirect('compound_list')
+    user = request.user
+    edit_set = set(p.strip() for p in (user.edit_projects or '').split(',') if p.strip())
+    if project_code in edit_set:
+        messages.info(request, f'你已拥有项目 {project_code} 的编辑权限')
+        return redirect('compound_list')
+    if ProjectAccessRequest.objects.filter(
+        user=user, project_code=project_code, request_type='edit', status='pending'
+    ).exists():
+        messages.info(request, f'项目 {project_code} 的编辑权限申请已在审批中')
+        return redirect('compound_list')
+    ProjectAccessRequest.objects.create(
+        user=user, project_code=project_code, request_type='edit',
+    )
+    AuditLog.objects.create(
+        actor=user,
+        action='edit_request',
+        detail=json.dumps({'project': project_code}),
+    )
+    messages.success(request, f'已提交项目 {project_code} 的编辑权限申请，等待 admin 审批')
+    return redirect('compound_list')
+
+
 def _build_vitro_rows(datapoints):
     """One row per concentration, only Mean replicate, sorted high to low."""
     mean_points = [

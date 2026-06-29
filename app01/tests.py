@@ -3708,3 +3708,48 @@ class CanEditCompoundTest(TestCase):
         self.client.login(username='ep8', password='pass')
         resp = self.client.get(f'/api/experiments/{self.exp.pk}/')
         self.assertEqual(resp.status_code, 403)
+
+
+class ProfileRequestEditTest(TestCase):
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='req_user', password='pass', user_type='user',
+        )
+        self.client.login(username='req_user', password='pass')
+
+    def test_post_creates_edit_request(self):
+        self.client.post('/profile/request-edit/', {'project_code': 'BPR350'})
+        self.assertEqual(ProjectAccessRequest.objects.filter(
+            user=self.user, project_code='BPR350', request_type='edit', status='pending'
+        ).count(), 1)
+
+    def test_post_creates_audit_log(self):
+        self.client.post('/profile/request-edit/', {'project_code': 'BPR350'})
+        self.assertEqual(AuditLog.objects.filter(
+            actor=self.user, action='edit_request'
+        ).count(), 1)
+
+    def test_post_redirects_to_compound_list(self):
+        resp = self.client.post('/profile/request-edit/', {'project_code': 'BPR350'})
+        self.assertRedirects(resp, '/compounds/', fetch_redirect_response=False)
+
+    def test_duplicate_pending_request_not_created(self):
+        self.client.post('/profile/request-edit/', {'project_code': 'BPR350'})
+        self.client.post('/profile/request-edit/', {'project_code': 'BPR350'})
+        self.assertEqual(ProjectAccessRequest.objects.filter(
+            user=self.user, project_code='BPR350', request_type='edit'
+        ).count(), 1)
+
+    def test_already_has_edit_permission_no_request_created(self):
+        self.user.edit_projects = 'BPR350'
+        self.user.save()
+        self.client.post('/profile/request-edit/', {'project_code': 'BPR350'})
+        self.assertEqual(ProjectAccessRequest.objects.filter(
+            user=self.user, project_code='BPR350', request_type='edit'
+        ).count(), 0)
+
+    def test_requires_login(self):
+        self.client.logout()
+        resp = self.client.post('/profile/request-edit/', {'project_code': 'BPR350'})
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/login/', resp['Location'])
