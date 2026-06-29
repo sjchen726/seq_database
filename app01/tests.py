@@ -748,6 +748,7 @@ class CompoundListViewTest(TestCase):
         self.assertEqual(len(resp.context['compound_entries']), 20)
 
     def test_can_delete_true_for_data_user(self):
+        self.user.user_type = 'sub_admin'
         self.user.module_permissions = 'data'
         self.user.save()
         resp = self.client.get('/compounds/')
