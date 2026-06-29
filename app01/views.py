@@ -2255,6 +2255,7 @@ def smart_upload_confirm_view(request):
     n_experiments = 0
     n_strands = 0
     n_invivo = 0
+    n_invivo_skipped = 0
     n_attachments = 0
     invitro_errors = []
     n_skipped_dps = 0
@@ -2488,19 +2489,24 @@ def smart_upload_confirm_view(request):
                             dose_info = g.get('dose') or meta['dose_override']
                             schedule = g.get('schedule', '')
 
-                            exp = Experiment.objects.create(
+                            exp, created = Experiment.objects.get_or_create(
                                 compound=compound,
                                 exp_type='in_vivo',
                                 assay_name=assay_name_iv,
                                 batch_label=batch_label_iv,
-                                animal_species=meta['animal_species'],
-                                animal_strain=meta['animal_strain'],
-                                route=meta['route'],
-                                gender=meta['gender'],
-                                time_unit=meta['time_unit'],
                                 dose_info=dose_info,
-                                schedule=schedule,
+                                defaults={
+                                    'animal_species': meta['animal_species'],
+                                    'animal_strain': meta['animal_strain'],
+                                    'route': meta['route'],
+                                    'gender': meta['gender'],
+                                    'time_unit': meta['time_unit'],
+                                    'schedule': schedule,
+                                }
                             )
+                            if not created:
+                                n_invivo_skipped += 1
+                                continue
                             invivo_exps.append(exp)
                             n_invivo += 1
 
@@ -2611,6 +2617,8 @@ def smart_upload_confirm_view(request):
     if all_err:
         messages.warning(request, f'部分写入失败：{"；".join(all_err)}')
     else:
+        if n_invivo_skipped:
+            messages.warning(request, f'体内实验：{n_invivo_skipped} 条已存在，已跳过重复写入')
         messages.success(request, f'数据已上传：{", ".join(parts) or "0 条"}')
 
     if dup_warnings:
