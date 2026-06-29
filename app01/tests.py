@@ -3803,3 +3803,76 @@ class EditRequestApprovalTest(TestCase):
         self.client.post(f'/users/requests/{self.edit_req.pk}/reject/')
         self.regular_user.refresh_from_db()
         self.assertEqual(self.regular_user.edit_projects, '')
+
+
+class CompoundListEditProjectSetTest(TestCase):
+    def setUp(self):
+        self.compound = Compound.objects.create(
+            compound_id='BPR_CL01', project='PROJ_A', target='TS',
+        )
+        Experiment.objects.create(
+            compound=self.compound, exp_type='in_vitro',
+            assay_name='assay', batch_label='B001',
+        )
+        self.user = LmsUser.objects.create_user(
+            username='cl_ep_user', password='pass',
+            user_type='sub_admin', permissions_project='PROJ_A',
+            edit_projects='PROJ_A',
+            module_permissions='upload',
+        )
+        self.client.login(username='cl_ep_user', password='pass')
+
+    def test_context_has_edit_project_set(self):
+        resp = self.client.get('/compounds/')
+        self.assertIn('edit_project_set', resp.context)
+
+    def test_edit_project_set_contains_user_edit_projects(self):
+        resp = self.client.get('/compounds/')
+        self.assertIn('PROJ_A', resp.context['edit_project_set'])
+
+    def test_edit_project_set_empty_for_user_with_no_edit_projects(self):
+        u2 = LmsUser.objects.create_user(
+            username='cl_ep_user2', password='pass',
+            user_type='sub_admin', permissions_project='PROJ_A',
+            module_permissions='upload',
+        )
+        self.client.login(username='cl_ep_user2', password='pass')
+        resp = self.client.get('/compounds/')
+        self.assertEqual(resp.context['edit_project_set'], set())
+
+
+class UserEditViewEditProjectsTest(TestCase):
+    def setUp(self):
+        self.admin = LmsUser.objects.create_user(
+            username='ue_admin', password='pass', user_type='superadmin',
+        )
+        self.target_user = LmsUser.objects.create_user(
+            username='ue_target', password='pass', user_type='user',
+        )
+        self.client.login(username='ue_admin', password='pass')
+
+    def _user_edit_url(self):
+        from django.urls import reverse
+        return reverse('user_edit', args=[self.target_user.pk])
+
+    def test_post_saves_edit_projects(self):
+        self.client.post(self._user_edit_url(), {
+            'user_type': 'user',
+            'module_permissions': [],
+            'permissions_project': '',
+            'edit_projects': 'BPR350,BPR3M03',
+        })
+        self.target_user.refresh_from_db()
+        self.assertEqual(self.target_user.edit_projects, 'BPR350,BPR3M03')
+
+    def test_post_clears_edit_projects(self):
+        self.target_user.edit_projects = 'BPR350'
+        self.target_user.save()
+        self.client.post(self._user_edit_url(), {
+            'user_type': 'user',
+            'module_permissions': [],
+            'permissions_project': '',
+            'edit_projects': '',
+        })
+        self.target_user.refresh_from_db()
+        self.assertEqual(self.target_user.edit_projects, '')

@@ -39,6 +39,13 @@
                placeholder="如 BPR350,BPR3M03">
       </div>
 
+      <div style="margin-bottom:20px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:5px;">可编辑项目（逗号分隔）</label>
+        <input type="text" name="edit_projects" class="ds-form-control"
+               value="{{ target.edit_projects }}" style="width:100%;"
+               placeholder="如 BPR350,BPR3M03">
+      </div>
+
       <div style="display:flex;gap:8px;">
         <button type="submit" class="ds-btn ds-btn-primary">保存</button>
         <a href="{% url 'user_management' %}" class="ds-btn ds-btn-ghost">取消</a>

@@ -1413,6 +1413,10 @@ def compound_list(request):
         or _has_module(request.user, 'data')
     )
 
+    edit_project_set = set(
+        p.strip() for p in (request.user.edit_projects or '').split(',') if p.strip()
+    )
+
     return render(request, 'compound_list.html', {
         'batch_groups': batch_groups,
         'page_obj': page_obj,
@@ -1434,6 +1438,7 @@ def compound_list(request):
         'page_end': page_end,
         'page_total': page_total,
         'can_delete': can_delete,
+        'edit_project_set': edit_project_set,
     })
 
 
@@ -2861,12 +2866,15 @@ def user_edit_view(request, user_id):
         old_type = target.user_type
         old_mods = target.module_permissions
         old_proj = target.permissions_project
+        old_edit = target.edit_projects
         new_type = request.POST.get('user_type', target.user_type)
         new_mods = ','.join(m.strip() for m in request.POST.getlist('module_permissions') if m.strip())
         new_proj = request.POST.get('permissions_project', '').strip()
+        new_edit = request.POST.get('edit_projects', '').strip()
         target.user_type = new_type
         target.module_permissions = new_mods
         target.permissions_project = new_proj
+        target.edit_projects = new_edit
         target.save()
         import json as _json_mod
         AuditLog.objects.create(
@@ -2874,8 +2882,18 @@ def user_edit_view(request, user_id):
             action='user_role_changed',
             target_user=target,
             detail=_json_mod.dumps({
-                'before': {'user_type': old_type, 'module_permissions': old_mods, 'permissions_project': old_proj},
-                'after':  {'user_type': new_type, 'module_permissions': new_mods, 'permissions_project': new_proj},
+                'before': {
+                    'user_type': old_type,
+                    'module_permissions': old_mods,
+                    'permissions_project': old_proj,
+                    'edit_projects': old_edit,
+                },
+                'after': {
+                    'user_type': new_type,
+                    'module_permissions': new_mods,
+                    'permissions_project': new_proj,
+                    'edit_projects': new_edit,
+                },
             }),
         )
         messages.success(request, f'用户 {target.username} 已更新')
