@@ -272,7 +272,7 @@ def parse_summary_csv(file) -> 'ParsedSummary':
         # Right table: extract mapping and summaries
         r_id = row[r_id_col].strip()
         r_name = row[r_name_col].strip()
-        if re.match(r'^siRNA-\d+$', r_id) and re.match(r'^BPR_', r_name):
+        if re.match(r'^siRNA-\d+$', r_id) and re.match(r'^BPR', r_name):
             mapping[r_id] = r_name
             summaries.append({
                 'compound_id': r_name,
