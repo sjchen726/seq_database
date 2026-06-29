@@ -1884,7 +1884,7 @@ class SmartUploadConfirmCleanupTest(TestCase):
         self.assertIn('upload_meta', self.client.session)
         self.assertIn('normalize_id_map', self.client.session)
 
-    def test_temp_file_deleted_after_validation_error(self):
+    def test_temp_file_preserved_after_validation_error(self):
         """Temp file referenced in file_detections is preserved when confirm validation fails."""
         saved_path = '_tmp_smart/test_cleanup_file.txt'
         with override_settings(MEDIA_ROOT=self.tmp_media):
