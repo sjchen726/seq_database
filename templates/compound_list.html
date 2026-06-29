@@ -221,7 +221,7 @@
       <th style="width:150px">体重最大变化 (vs D0)</th>
       <th style="width:120px">峰值KD%</th>
       <th style="width:32px"></th>
-      {% if request.user.is_superuser or request.user.user_type == 'superadmin' or 'data' in request.user.module_permissions %}<th style="width:36px"></th>{% endif %}
+      {% if can_delete %}<th style="width:56px"></th>{% endif %}
     </tr></thead>
     <tbody>
     {% for vc in bg.vivo_compounds %}
@@ -244,15 +244,18 @@
       <td>{% if vc.summary.max_bw_drop is not None %}<span class="{{ vc.summary.max_bw_drop|bw_drop_class }}">{{ vc.summary.max_bw_drop|floatformat:1 }}%</span>{% else %}<span class="cl-dim">—</span>{% endif %}</td>
       <td>{% if vc.summary.peak_kd is not None %}<span class="{{ vc.summary.peak_kd|vivo_kd_class }}">{{ vc.summary.peak_kd|floatformat:0 }}%</span>{% else %}<span class="cl-dim">—</span>{% endif %}</td>
       <td><span class="cl-chevron">▶</span></td>
-      {% if request.user.is_superuser or request.user.user_type == 'superadmin' or 'data' in request.user.module_permissions %}
-      <td style="width:36px;padding:4px 2px;text-align:center;">
-        <button class="ds-btn ds-btn-danger" style="font-size:10px;padding:2px 6px;height:24px;min-width:0;"
-                onclick="event.stopPropagation();clDeleteRow({{ vc.exp_ids|join:',' }})"
-                title="删除该化合物的实验数据">🗑</button>
+      {% if can_delete %}
+      <td class="cl-row-actions" onclick="event.stopPropagation()">
+        <button class="cl-icon-btn cl-icon-edit"
+                onclick="clEditRow('{{ vc.compound.compound_id }}')"
+                title="编辑">✏️</button>
+        <button class="cl-icon-btn cl-icon-del"
+                onclick="clDeleteRow({{ vc.exp_ids|join:',' }})"
+                title="删除">🗑</button>
       </td>
       {% endif %}
     </tr>
-    <tr class="expand-row"><td colspan="{% if request.user.is_superuser or request.user.user_type == 'superadmin' or 'data' in request.user.module_permissions %}10{% else %}9{% endif %}"><div class="cl-ep" id="{{ ipid }}">
+    <tr class="expand-row"><td colspan="{% if can_delete %}10{% else %}9{% endif %}"><div class="cl-ep" id="{{ ipid }}">
       <div class="cl-mini-expand vivo-bg">
         <div class="cl-meta-row">
           {% if bg.meta.animal %}<span><strong>动物:</strong> {{ bg.meta.animal }}</span>{% endif %}
@@ -367,7 +370,11 @@
 {# ── Comparison sticky bar ── #}
 <div id="cl-cmp-bar" class="cl-cmp-bar" style="display:none">
   <span id="cl-cmp-count" class="cl-cmp-count-label"></span>
-  <button class="ds-btn ds-btn-primary" style="font-size:12px;padding:4px 16px;" onclick="clOpenCmpModal()">对比曲线</button>
+  <button class="ds-btn ds-btn-ghost" style="font-size:12px;padding:4px 14px;" onclick="clDownloadCmpCsv()">⬇ 下载 CSV</button>
+  <button id="cl-cmp-btn" class="ds-btn ds-btn-primary" style="font-size:12px;padding:4px 16px;" onclick="clOpenCmpModal()">对比曲线</button>
+  {% if can_delete %}
+  <button class="ds-btn cl-bar-delete" onclick="clDeleteSelected()">🗑 批量删除</button>
+  {% endif %}
   <button class="cl-cmp-clear-btn" onclick="clClearCmpSelection()">✕ 清除</button>
 </div>
 
