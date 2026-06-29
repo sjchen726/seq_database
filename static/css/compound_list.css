@@ -405,3 +405,56 @@ tr.open .cl-chevron { transform: rotate(90deg); color: #64748b; }
 .cl-sort-arrow { font-size: 9px; color: #cbd5e1; }
 .cl-sort-active .cl-sort-arrow { color: #1e293b; }
 th:first-child .cl-sort-link { justify-content: flex-start; }
+
+/* ── Row action icon buttons ── */
+.cl-row-actions {
+  width: 56px;
+  padding: 0 4px;
+  text-align: right;
+  white-space: nowrap;
+}
+.cl-icon-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 3px 5px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, border-color 0.15s;
+}
+.cmp-row:hover .cl-icon-btn { opacity: 1; }
+.cl-icon-edit { color: #3b82f6; }
+.cl-icon-edit:hover { background: #eff6ff; border-color: #bfdbfe; }
+.cl-icon-del  { color: #94a3b8; }
+.cl-icon-del:hover  { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
+
+/* ── Batch bar delete button ── */
+.cl-bar-delete {
+  background: #7f1d1d;
+  border: 1px solid #991b1b;
+  color: #fca5a5;
+  font-size: 12px;
+  padding: 4px 14px;
+}
+.cl-bar-delete:hover { background: #991b1b; }
+
+/* ── Toast notification ── */
+.cl-toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: #f1f5f9;
+  padding: 8px 18px;
+  border-radius: 6px;
+  font-size: 13px;
+  z-index: 9999;
+  pointer-events: none;
+  animation: cl-toast-in 0.2s ease;
+}
+@keyframes cl-toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+}
