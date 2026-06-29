@@ -1906,7 +1906,7 @@ def smart_upload_view(request):
             filename = f.name
             file_bytes = f.read()
 
-            saved_path_key = f'_tmp_smart/{filename}'
+            saved_path_key = f'_tmp_smart/{request.user.pk}/{filename}'
             if default_storage.exists(saved_path_key):
                 default_storage.delete(saved_path_key)
             actual_path = default_storage.save(saved_path_key, ContentFile(file_bytes))
@@ -2710,7 +2710,7 @@ def attachment_preview(request, pk):
 
         return JsonResponse({'headers': raw_headers, 'rows': data_rows})
     except Exception:
-        return JsonResponse({'headers': [], 'rows': []})
+        return JsonResponse({'headers': [], 'rows': [], 'error': '预览失败，请直接下载文件'})
 
 
 @login_required
