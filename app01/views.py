@@ -1349,7 +1349,10 @@ def compound_list(request):
     )
 
     # ── Stats bar data ──
-    total_compounds = Compound.objects.count()
+    _cmpd_count_qs = Compound.objects.all()
+    if _permitted is not None:
+        _cmpd_count_qs = _cmpd_count_qs.filter(project__in=_permitted)
+    total_compounds = _cmpd_count_qs.count()
     total_vitro_batches = (
         exp_qs.filter(exp_type='in_vitro')
         .values('batch_label').distinct().count()
