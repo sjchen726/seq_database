@@ -3644,9 +3644,9 @@ class CanEditCompoundTest(TestCase):
         u = self._make_user('sa', user_type='superadmin')
         self.assertTrue(_can_edit_compound(u, self.compound))
 
-    def test_data_module_user_can_edit(self):
+    def test_data_module_sub_admin_can_edit(self):
         from app01.views import _can_edit_compound
-        u = self._make_user('dm', module_permissions='data')
+        u = self._make_user('dm', user_type='sub_admin', module_permissions='data')
         self.assertTrue(_can_edit_compound(u, self.compound))
 
     def test_edit_project_matching_compound_project_can_edit(self):

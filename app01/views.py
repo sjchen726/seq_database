@@ -36,9 +36,7 @@ def _has_module(user, module: str) -> bool:
 
 
 def _can_edit_compound(user, compound):
-    if user.is_superuser or user.user_type == 'superadmin':
-        return True
-    if 'data' in (user.module_permissions or '').split(','):
+    if _has_module(user, 'data'):
         return True
     edit_set = set(p.strip() for p in (user.edit_projects or '').split(',') if p.strip())
     return compound.project in edit_set
