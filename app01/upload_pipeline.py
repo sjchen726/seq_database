@@ -856,7 +856,7 @@ def parse_transfection_file(file) -> ParsedTransfectionFile:
             continue
         sirna = row[16].strip()
         cid = row[17].strip()
-        if re.match(r'^siRNA-\d+$', sirna) and re.match(r'^BPR_', cid):
+        if re.match(r'^siRNA-\d+$', sirna) and re.match(r'^BPR', cid):
             if sirna in mapping and mapping[sirna] != cid:
                 _logger.warning(
                     'parse_transfection_file: duplicate siRNA key %s maps to %s and %s; keeping first',

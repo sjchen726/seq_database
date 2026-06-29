@@ -2536,6 +2536,8 @@ def smart_upload_confirm_view(request):
                             att.file.save(group['filename'], CF(content), save=True)
                             n_attachments += 1
                             default_storage.delete(saved_path)
+                        elif saved_path and default_storage.exists(saved_path):
+                            default_storage.delete(saved_path)
 
                         all_invivo_exps.extend(invivo_exps)
                 except Exception as e:
