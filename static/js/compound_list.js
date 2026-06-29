@@ -627,9 +627,129 @@ function clDeleteRow(...expIds) {
     .catch(() => alert('删除失败，请重试'));
 }
 
-// ── Edit row (stub — full modal in Spec 2) ────────────────────
-function clEditRow(compoundId) {
-  _clShowToast('编辑功能即将上线');
+// ── Edit modal state ──────────────────────────────────────────
+let _clEditCompoundId = null;
+let _clEditExpId = null;
+
+// ── Open edit modal ───────────────────────────────────────────
+async function clEditRow(compoundId, expId) {
+  _clEditCompoundId = compoundId;
+  _clEditExpId = expId;
+
+  document.getElementById('cl-edit-title').textContent = `编辑 — ${compoundId}`;
+  const saveBtn = document.getElementById('cl-edit-save-btn');
+  saveBtn.disabled = true;
+  document.getElementById('cl-edit-overlay').style.display = 'block';
+  document.getElementById('cl-edit-modal').style.display = 'flex';
+
+  try {
+    const [cmpRes, expRes] = await Promise.all([
+      fetch(`/api/compounds/${compoundId}/`),
+      fetch(`/api/experiments/${expId}/`),
+    ]);
+    if (!cmpRes.ok || !expRes.ok) throw new Error('fetch failed');
+    const cmp = await cmpRes.json();
+    const exp = await expRes.json();
+
+    document.getElementById('cl-edit-target-name').value    = cmp.target_name    || '';
+    document.getElementById('cl-edit-transcript-ref').value = cmp.transcript_ref || '';
+    document.getElementById('cl-edit-remarks').value        = cmp.remarks        || '';
+
+    document.getElementById('cl-edit-assay-name').value  = exp.assay_name  || '';
+    document.getElementById('cl-edit-batch-label').value = exp.batch_label || '';
+    document.getElementById('cl-edit-notes').value       = exp.notes       || '';
+    document.getElementById('cl-edit-date').value        = exp.date        || '';
+
+    const isVivo = exp.exp_type === 'in_vivo';
+    document.getElementById('cl-edit-vitro-fields').style.display = isVivo ? 'none' : 'block';
+    document.getElementById('cl-edit-vivo-fields').style.display  = isVivo ? 'block' : 'none';
+
+    if (isVivo) {
+      document.getElementById('cl-edit-animal-species').value = exp.animal_species || '';
+      document.getElementById('cl-edit-animal-strain').value  = exp.animal_strain  || '';
+      document.getElementById('cl-edit-route').value          = exp.route          || '';
+      document.getElementById('cl-edit-gender').value         = exp.gender         || '';
+      document.getElementById('cl-edit-time-unit').value      = exp.time_unit      || '';
+      document.getElementById('cl-edit-dose-info').value      = exp.dose_info      || '';
+      document.getElementById('cl-edit-schedule').value       = exp.schedule       || '';
+    } else {
+      document.getElementById('cl-edit-cell-line').value = exp.cell_line || '';
+    }
+
+    saveBtn.disabled = false;
+  } catch (e) {
+    clCloseEditModal();
+    alert('加载数据失败，请重试');
+  }
+}
+
+// ── Save edit ─────────────────────────────────────────────────
+async function clSaveEdit() {
+  const saveBtn = document.getElementById('cl-edit-save-btn');
+  saveBtn.disabled = true;
+
+  const cmpData = {
+    target_name:    document.getElementById('cl-edit-target-name').value,
+    transcript_ref: document.getElementById('cl-edit-transcript-ref').value,
+    remarks:        document.getElementById('cl-edit-remarks').value,
+  };
+
+  const isVivo = document.getElementById('cl-edit-vivo-fields').style.display !== 'none';
+  const expData = {
+    assay_name:  document.getElementById('cl-edit-assay-name').value,
+    batch_label: document.getElementById('cl-edit-batch-label').value,
+    notes:       document.getElementById('cl-edit-notes').value,
+    date:        document.getElementById('cl-edit-date').value || null,
+  };
+  if (isVivo) {
+    Object.assign(expData, {
+      animal_species: document.getElementById('cl-edit-animal-species').value,
+      animal_strain:  document.getElementById('cl-edit-animal-strain').value,
+      route:          document.getElementById('cl-edit-route').value,
+      gender:         document.getElementById('cl-edit-gender').value,
+      time_unit:      document.getElementById('cl-edit-time-unit').value,
+      dose_info:      document.getElementById('cl-edit-dose-info').value,
+      schedule:       document.getElementById('cl-edit-schedule').value,
+    });
+  } else {
+    expData.cell_line = document.getElementById('cl-edit-cell-line').value;
+  }
+
+  try {
+    const [cmpRes, expRes] = await Promise.all([
+      fetch(`/api/compounds/${_clEditCompoundId}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': _clCsrfToken() },
+        body: JSON.stringify(cmpData),
+      }),
+      fetch(`/api/experiments/${_clEditExpId}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': _clCsrfToken() },
+        body: JSON.stringify(expData),
+      }),
+    ]);
+    if (cmpRes.ok && expRes.ok) {
+      clCloseEditModal();
+      _clShowToast('保存成功');
+      setTimeout(() => location.reload(), 800);
+    } else {
+      const errRes = cmpRes.ok ? expRes : cmpRes;
+      const err = await errRes.json();
+      alert(err.error || '保存失败，请重试');
+      saveBtn.disabled = false;
+    }
+  } catch (e) {
+    alert('网络错误，请重试');
+    saveBtn.disabled = false;
+  }
+}
+
+// ── Close edit modal ──────────────────────────────────────────
+function clCloseEditModal() {
+  document.getElementById('cl-edit-overlay').style.display = 'none';
+  document.getElementById('cl-edit-modal').style.display   = 'none';
+  _clEditCompoundId = null;
+  _clEditExpId      = null;
 }
 
 // ── Toast helper ──────────────────────────────────────────────
