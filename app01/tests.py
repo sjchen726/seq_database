@@ -747,6 +747,20 @@ class CompoundListViewTest(TestCase):
         resp = self.client.get('/compounds/?view=compound')
         self.assertEqual(len(resp.context['compound_entries']), 20)
 
+    def test_can_delete_true_for_data_user(self):
+        self.user.module_permissions = 'data'
+        self.user.save()
+        resp = self.client.get('/compounds/')
+        self.assertTrue(resp.context['can_delete'])
+
+    def test_can_delete_false_for_regular_user(self):
+        self.user.user_type = 'user'
+        self.user.module_permissions = ''
+        self.user.is_superuser = False
+        self.user.save()
+        resp = self.client.get('/compounds/')
+        self.assertFalse(resp.context['can_delete'])
+
 
 # ---- CompoundDetailViewTest ----
 class CompoundDetailViewTest(TestCase):

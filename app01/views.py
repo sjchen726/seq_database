@@ -1370,6 +1370,12 @@ def compound_list(request):
     page_end   = min(page_obj.number * per_page, page_obj.paginator.count)
     page_total = page_obj.paginator.count
 
+    can_delete = (
+        request.user.is_superuser
+        or request.user.user_type == 'superadmin'
+        or _has_module(request.user, 'data')
+    )
+
     return render(request, 'compound_list.html', {
         'batch_groups': batch_groups,
         'page_obj': page_obj,
@@ -1390,6 +1396,7 @@ def compound_list(request):
         'page_start': page_start,
         'page_end': page_end,
         'page_total': page_total,
+        'can_delete': can_delete,
     })
 
 
