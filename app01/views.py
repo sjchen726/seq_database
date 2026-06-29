@@ -1634,6 +1634,79 @@ def experiments_export_csv(request):
     return response
 
 
+@login_required
+def api_compound_detail(request, compound_id):
+    if not (request.user.is_superuser
+            or request.user.user_type == 'superadmin'
+            or _has_module(request.user, 'data')):
+        return JsonResponse({'error': '权限不足'}, status=403)
+    compound = get_object_or_404(Compound, pk=compound_id)
+    if request.method == 'GET':
+        return JsonResponse({
+            'target_name':    compound.target_name,
+            'transcript_ref': compound.transcript_ref,
+            'remarks':        compound.remarks,
+        })
+    if request.method == 'PATCH':
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return JsonResponse({'error': 'invalid JSON'}, status=400)
+        allowed = {'target_name', 'transcript_ref', 'remarks'}
+        fields = list(set(data.keys()) & allowed)
+        for f in fields:
+            setattr(compound, f, data[f])
+        if fields:
+            compound.save(update_fields=fields)
+        return JsonResponse({'ok': True})
+    return JsonResponse({'error': 'method not allowed'}, status=405)
+
+
+@login_required
+def api_experiment_detail(request, exp_id):
+    if not (request.user.is_superuser
+            or request.user.user_type == 'superadmin'
+            or _has_module(request.user, 'data')):
+        return JsonResponse({'error': '权限不足'}, status=403)
+    exp = get_object_or_404(Experiment, pk=exp_id)
+    if request.method == 'GET':
+        return JsonResponse({
+            'exp_type':       exp.exp_type,
+            'assay_name':     exp.assay_name,
+            'batch_label':    exp.batch_label,
+            'cell_line':      exp.cell_line,
+            'notes':          exp.notes,
+            'date':           exp.date.isoformat() if exp.date else '',
+            'animal_species': exp.animal_species,
+            'animal_strain':  exp.animal_strain,
+            'route':          exp.route,
+            'gender':         exp.gender,
+            'time_unit':      exp.time_unit,
+            'dose_info':      exp.dose_info,
+            'schedule':       exp.schedule,
+        })
+    if request.method == 'PATCH':
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return JsonResponse({'error': 'invalid JSON'}, status=400)
+        allowed = {
+            'assay_name', 'batch_label', 'cell_line', 'notes',
+            'animal_species', 'animal_strain', 'route', 'gender',
+            'time_unit', 'dose_info', 'schedule',
+        }
+        fields = list(set(data.keys()) & allowed)
+        for f in fields:
+            setattr(exp, f, data[f])
+        if 'date' in data:
+            exp.date = data['date'] if data['date'] else None
+            fields.append('date')
+        if fields:
+            exp.save(update_fields=fields)
+        return JsonResponse({'ok': True})
+    return JsonResponse({'error': 'method not allowed'}, status=405)
+
+
 def _read_from_storage(path: str):
     """Read bytes from default_storage path; returns None if missing or on error."""
     try:

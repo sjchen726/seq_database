@@ -1,4 +1,5 @@
 from django.test import TestCase
+import json
 from django.core.management import call_command
 from io import StringIO
 from app01.models import (
@@ -761,6 +762,111 @@ class CompoundListViewTest(TestCase):
         self.user.save()
         resp = self.client.get('/compounds/')
         self.assertFalse(resp.context['can_delete'])
+
+
+# ---- CompoundApiTest ----
+class CompoundApiTest(TestCase):
+    def setUp(self):
+        self.user = LmsUser.objects.create_user(
+            username='apitest', password='pass', user_type='superadmin',
+        )
+        self.client.login(username='apitest', password='pass')
+        self.compound = Compound.objects.create(
+            compound_id='BPR_APITEST01', project='API', target='TS',
+            target_name='FASN', transcript_ref='NM_004104', remarks='initial remark',
+        )
+        self.exp_vitro = Experiment.objects.create(
+            compound=self.compound,
+            exp_type='in_vitro',
+            assay_name='lipid_assay',
+            batch_label='B20260629',
+            cell_line='HepG2',
+            notes='vitro notes',
+        )
+        self.exp_vivo = Experiment.objects.create(
+            compound=self.compound,
+            exp_type='in_vivo',
+            assay_name='mouse_assay',
+            batch_label='M20260629',
+            animal_species='mouse',
+            animal_strain='C57BL/6',
+            route='IV',
+            gender='M',
+            time_unit='day',
+            dose_info='3 mg/kg',
+            schedule='QW',
+        )
+
+    # ── Compound endpoint ──────────────────────────────────────
+    def test_get_compound_returns_fields(self):
+        resp = self.client.get('/api/compounds/BPR_APITEST01/')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['target_name'], 'FASN')
+        self.assertEqual(data['transcript_ref'], 'NM_004104')
+        self.assertEqual(data['remarks'], 'initial remark')
+
+    def test_patch_compound_updates_fields(self):
+        resp = self.client.patch(
+            '/api/compounds/BPR_APITEST01/',
+            data=json.dumps({'target_name': 'NEW_TARGET', 'remarks': 'updated'}),
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()['ok'])
+        self.compound.refresh_from_db()
+        self.assertEqual(self.compound.target_name, 'NEW_TARGET')
+        self.assertEqual(self.compound.remarks, 'updated')
+
+    def test_compound_api_requires_data_permission(self):
+        LmsUser.objects.create_user(
+            username='noperm', password='pass', user_type='user',
+        )
+        self.client.logout()
+        self.client.login(username='noperm', password='pass')
+        resp = self.client.get('/api/compounds/BPR_APITEST01/')
+        self.assertEqual(resp.status_code, 403)
+
+    # ── Experiment endpoint ────────────────────────────────────
+    def test_get_experiment_returns_fields(self):
+        resp = self.client.get(f'/api/experiments/{self.exp_vitro.pk}/')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['exp_type'], 'in_vitro')
+        self.assertEqual(data['assay_name'], 'lipid_assay')
+        self.assertEqual(data['cell_line'], 'HepG2')
+
+    def test_patch_experiment_vitro_updates_cell_line(self):
+        resp = self.client.patch(
+            f'/api/experiments/{self.exp_vitro.pk}/',
+            data=json.dumps({'assay_name': 'updated_assay', 'cell_line': 'Hela'}),
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()['ok'])
+        self.exp_vitro.refresh_from_db()
+        self.assertEqual(self.exp_vitro.assay_name, 'updated_assay')
+        self.assertEqual(self.exp_vitro.cell_line, 'Hela')
+
+    def test_patch_experiment_vivo_updates_animal_fields(self):
+        resp = self.client.patch(
+            f'/api/experiments/{self.exp_vivo.pk}/',
+            data=json.dumps({'animal_species': 'rat', 'route': 'SC'}),
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.exp_vivo.refresh_from_db()
+        self.assertEqual(self.exp_vivo.animal_species, 'rat')
+        self.assertEqual(self.exp_vivo.route, 'SC')
+
+    def test_experiment_api_requires_data_permission(self):
+        LmsUser.objects.create_user(
+            username='noperm2', password='pass', user_type='user',
+        )
+        self.client.logout()
+        self.client.login(username='noperm2', password='pass')
+        resp = self.client.get(f'/api/experiments/{self.exp_vitro.pk}/')
+        self.assertEqual(resp.status_code, 403)
 
 
 # ---- CompoundDetailViewTest ----
