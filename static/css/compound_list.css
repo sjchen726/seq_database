@@ -429,6 +429,14 @@ th:first-child .cl-sort-link { justify-content: flex-start; }
 .cl-icon-edit:hover { background: #eff6ff; border-color: #bfdbfe; }
 .cl-icon-del  { color: #94a3b8; }
 .cl-icon-del:hover  { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
+.cl-icon-locked {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.cmp-row:hover .cl-icon-locked {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 /* ── Batch bar delete button ── */
 .cl-bar-delete {

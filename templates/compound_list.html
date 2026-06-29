@@ -106,7 +106,7 @@
       <th style="width:80px" class="cl-r">最高 KD%</th>
       <th style="width:90px">细胞系</th>
       <th style="width:32px"></th>
-      {% if can_delete %}<th style="width:56px"></th>{% endif %}
+      <th style="width:56px"></th>
     </tr></thead>
     <tbody>
     {% for vc in bg.vitro_compounds %}
@@ -124,18 +124,25 @@
       <td class="cl-num cl-r {{ vc.max_kd_pct|kd_class }}">{% if vc.max_kd_pct is not None %}{{ vc.max_kd_pct|floatformat:0 }}%{% else %}<span class="cl-dim">—</span>{% endif %}</td>
       <td style="font-size:11px;color:#64748b;">{{ vc.experiment.cell_line|default:"—" }}</td>
       <td><span class="cl-chevron">▶</span></td>
-      {% if can_delete %}
       <td class="cl-row-actions" onclick="event.stopPropagation()">
+        {% if can_delete or vc.compound.project in edit_project_set %}
         <button class="cl-icon-btn cl-icon-edit"
                 onclick="clEditRow('{{ vc.compound.compound_id }}', {{ vc.exp_ids.0 }})"
                 title="编辑">✏️</button>
         <button class="cl-icon-btn cl-icon-del"
                 onclick="clDeleteRow({{ vc.exp_ids|join:',' }})"
                 title="删除">🗑</button>
+        {% else %}
+        <button class="cl-icon-btn cl-icon-edit cl-icon-locked"
+                onclick="clRequestEditPerm('{{ vc.compound.project }}')"
+                title="申请编辑权限">✏️</button>
+        <button class="cl-icon-btn cl-icon-del cl-icon-locked"
+                onclick="clRequestEditPerm('{{ vc.compound.project }}')"
+                title="申请编辑权限">🗑</button>
+        {% endif %}
       </td>
-      {% endif %}
     </tr>
-    <tr class="expand-row"><td colspan="{% if can_delete %}10{% else %}9{% endif %}"><div class="cl-ep" id="{{ vpid }}">
+    <tr class="expand-row"><td colspan="10"><div class="cl-ep" id="{{ vpid }}">
       <div class="cl-mini-expand">
         <div class="cl-meta-row">
           {% if vc.experiment.cell_line %}<span><strong>细胞系:</strong> {{ vc.experiment.cell_line }}</span>{% endif %}
@@ -221,7 +228,7 @@
       <th style="width:150px">体重最大变化 (vs D0)</th>
       <th style="width:120px">峰值KD%</th>
       <th style="width:32px"></th>
-      {% if can_delete %}<th style="width:56px"></th>{% endif %}
+      <th style="width:56px"></th>
     </tr></thead>
     <tbody>
     {% for vc in bg.vivo_compounds %}
@@ -244,18 +251,25 @@
       <td>{% if vc.summary.max_bw_drop is not None %}<span class="{{ vc.summary.max_bw_drop|bw_drop_class }}">{{ vc.summary.max_bw_drop|floatformat:1 }}%</span>{% else %}<span class="cl-dim">—</span>{% endif %}</td>
       <td>{% if vc.summary.peak_kd is not None %}<span class="{{ vc.summary.peak_kd|vivo_kd_class }}">{{ vc.summary.peak_kd|floatformat:0 }}%</span>{% else %}<span class="cl-dim">—</span>{% endif %}</td>
       <td><span class="cl-chevron">▶</span></td>
-      {% if can_delete %}
       <td class="cl-row-actions" onclick="event.stopPropagation()">
+        {% if can_delete or vc.compound.project in edit_project_set %}
         <button class="cl-icon-btn cl-icon-edit"
                 onclick="clEditRow('{{ vc.compound.compound_id }}', {{ vc.exp_ids.0 }})"
                 title="编辑">✏️</button>
         <button class="cl-icon-btn cl-icon-del"
                 onclick="clDeleteRow({{ vc.exp_ids|join:',' }})"
                 title="删除">🗑</button>
+        {% else %}
+        <button class="cl-icon-btn cl-icon-edit cl-icon-locked"
+                onclick="clRequestEditPerm('{{ vc.compound.project }}')"
+                title="申请编辑权限">✏️</button>
+        <button class="cl-icon-btn cl-icon-del cl-icon-locked"
+                onclick="clRequestEditPerm('{{ vc.compound.project }}')"
+                title="申请编辑权限">🗑</button>
+        {% endif %}
       </td>
-      {% endif %}
     </tr>
-    <tr class="expand-row"><td colspan="{% if can_delete %}10{% else %}9{% endif %}"><div class="cl-ep" id="{{ ipid }}">
+    <tr class="expand-row"><td colspan="10"><div class="cl-ep" id="{{ ipid }}">
       <div class="cl-mini-expand vivo-bg">
         <div class="cl-meta-row">
           {% if bg.meta.animal %}<span><strong>动物:</strong> {{ bg.meta.animal }}</span>{% endif %}
@@ -494,6 +508,27 @@
   <div class="cl-edit-footer">
     <button class="ds-btn ds-btn-ghost" onclick="clCloseEditModal()">取消</button>
     <button class="ds-btn ds-btn-primary" id="cl-edit-save-btn" onclick="clSaveEdit()">保存</button>
+  </div>
+</div>
+
+{# ── 编辑权限申请 modal ── #}
+<div id="cl-req-overlay" class="cl-cmp-overlay" onclick="clCloseReqModal()" style="display:none"></div>
+<div id="cl-req-modal" class="cl-edit-modal" style="display:none;max-width:360px;">
+  <div class="cl-edit-hdr">
+    <span class="cl-edit-title">申请编辑权限</span>
+    <button class="cl-cmp-close" onclick="clCloseReqModal()">✕</button>
+  </div>
+  <div class="cl-edit-body" style="padding:20px 18px;">
+    <p style="margin:0 0 16px;font-size:13px;color:#475569;">
+      您需要项目 <strong id="cl-req-project"></strong> 的编辑权限才能执行此操作。
+    </p>
+    <form id="cl-req-form" method="POST" action="{% url 'profile_request_edit' %}">
+      {% csrf_token %}
+      <input type="hidden" name="project_code" id="cl-req-project-input">
+      <button type="submit" class="ds-btn ds-btn-primary" style="width:100%;">
+        申请编辑权限
+      </button>
+    </form>
   </div>
 </div>
 

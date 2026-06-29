@@ -760,3 +760,16 @@ function _clShowToast(msg) {
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 2000);
 }
+
+// ── 编辑权限申请 modal ──────────────────────────────────────────
+function clRequestEditPerm(projectCode) {
+  document.getElementById('cl-req-project').textContent    = projectCode;
+  document.getElementById('cl-req-project-input').value   = projectCode;
+  document.getElementById('cl-req-overlay').style.display = 'block';
+  document.getElementById('cl-req-modal').style.display   = 'flex';
+}
+
+function clCloseReqModal() {
+  document.getElementById('cl-req-overlay').style.display = 'none';
+  document.getElementById('cl-req-modal').style.display   = 'none';
+}
