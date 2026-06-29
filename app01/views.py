@@ -35,6 +35,15 @@ def _has_module(user, module: str) -> bool:
     return False
 
 
+def _can_edit_compound(user, compound):
+    if user.is_superuser or user.user_type == 'superadmin':
+        return True
+    if 'data' in (user.module_permissions or '').split(','):
+        return True
+    edit_set = set(p.strip() for p in (user.edit_projects or '').split(',') if p.strip())
+    return compound.project in edit_set
+
+
 def _get_permitted_projects(user):
     if user.is_superuser or user.user_type == 'superadmin':
         return None
@@ -1636,11 +1645,9 @@ def experiments_export_csv(request):
 
 @login_required
 def api_compound_detail(request, compound_id):
-    if not (request.user.is_superuser
-            or request.user.user_type == 'superadmin'
-            or _has_module(request.user, 'data')):
-        return JsonResponse({'error': '权限不足'}, status=403)
     compound = get_object_or_404(Compound, pk=compound_id)
+    if not _can_edit_compound(request.user, compound):
+        return JsonResponse({'error': '权限不足'}, status=403)
     if request.method == 'GET':
         return JsonResponse({
             'target_name':    compound.target_name,
@@ -1664,11 +1671,9 @@ def api_compound_detail(request, compound_id):
 
 @login_required
 def api_experiment_detail(request, exp_id):
-    if not (request.user.is_superuser
-            or request.user.user_type == 'superadmin'
-            or _has_module(request.user, 'data')):
+    exp = get_object_or_404(Experiment.objects.select_related('compound'), pk=exp_id)
+    if not _can_edit_compound(request.user, exp.compound):
         return JsonResponse({'error': '权限不足'}, status=403)
-    exp = get_object_or_404(Experiment, pk=exp_id)
     if request.method == 'GET':
         return JsonResponse({
             'exp_type':       exp.exp_type,

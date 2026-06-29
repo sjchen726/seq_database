@@ -3609,4 +3609,102 @@ class EditPermissionModelTest(TestCase):
         choices = dict(AuditLog.ACTION_CHOICES)
         self.assertIn('edit_request', choices)
         self.assertIn('edit_approved', choices)
-        self.assertIn('edit_rejected', choices)
+
+
+class CanEditCompoundTest(TestCase):
+    def setUp(self):
+        self.compound = Compound.objects.create(
+            compound_id='BPR_CE01', project='PROJ_A', target='TS',
+        )
+        self.exp = Experiment.objects.create(
+            compound=self.compound, exp_type='in_vitro',
+            assay_name='assay', batch_label='B001',
+        )
+
+    def _make_user(self, username, user_type='user', module_permissions='',
+                   edit_projects='', is_superuser=False):
+        u = LmsUser.objects.create_user(
+            username=username, password='pass',
+            user_type=user_type, module_permissions=module_permissions,
+            edit_projects=edit_projects,
+        )
+        if is_superuser:
+            u.is_superuser = True
+            u.save()
+        return u
+
+    # ── _can_edit_compound helper ──────────────────────────────
+    def test_superuser_can_edit(self):
+        from app01.views import _can_edit_compound
+        u = self._make_user('su', is_superuser=True)
+        self.assertTrue(_can_edit_compound(u, self.compound))
+
+    def test_superadmin_can_edit(self):
+        from app01.views import _can_edit_compound
+        u = self._make_user('sa', user_type='superadmin')
+        self.assertTrue(_can_edit_compound(u, self.compound))
+
+    def test_data_module_user_can_edit(self):
+        from app01.views import _can_edit_compound
+        u = self._make_user('dm', module_permissions='data')
+        self.assertTrue(_can_edit_compound(u, self.compound))
+
+    def test_edit_project_matching_compound_project_can_edit(self):
+        from app01.views import _can_edit_compound
+        u = self._make_user('ep', edit_projects='PROJ_A,PROJ_B')
+        self.assertTrue(_can_edit_compound(u, self.compound))
+
+    def test_edit_project_not_matching_cannot_edit(self):
+        from app01.views import _can_edit_compound
+        u = self._make_user('ep2', edit_projects='PROJ_B')
+        self.assertFalse(_can_edit_compound(u, self.compound))
+
+    def test_no_permissions_cannot_edit(self):
+        from app01.views import _can_edit_compound
+        u = self._make_user('plain')
+        self.assertFalse(_can_edit_compound(u, self.compound))
+
+    # ── API endpoint integration ───────────────────────────────
+    def test_edit_project_user_can_get_compound(self):
+        self._make_user('ep3', edit_projects='PROJ_A')
+        self.client.login(username='ep3', password='pass')
+        resp = self.client.get('/api/compounds/BPR_CE01/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_edit_project_user_can_patch_compound(self):
+        self._make_user('ep4', edit_projects='PROJ_A')
+        self.client.login(username='ep4', password='pass')
+        resp = self.client.patch(
+            '/api/compounds/BPR_CE01/',
+            data=json.dumps({'target_name': 'NEW'}),
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 200)
+
+    def test_wrong_edit_project_user_gets_403_on_compound(self):
+        self._make_user('ep5', edit_projects='PROJ_B')
+        self.client.login(username='ep5', password='pass')
+        resp = self.client.get('/api/compounds/BPR_CE01/')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_edit_project_user_can_get_experiment(self):
+        self._make_user('ep6', edit_projects='PROJ_A')
+        self.client.login(username='ep6', password='pass')
+        resp = self.client.get(f'/api/experiments/{self.exp.pk}/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_edit_project_user_can_patch_experiment(self):
+        self._make_user('ep7', edit_projects='PROJ_A')
+        self.client.login(username='ep7', password='pass')
+        resp = self.client.patch(
+            f'/api/experiments/{self.exp.pk}/',
+            data=json.dumps({'assay_name': 'new_assay'}),
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 200)
+
+    def test_wrong_edit_project_user_gets_403_on_experiment(self):
+        self._make_user('ep8', edit_projects='PROJ_B')
+        self.client.login(username='ep8', password='pass')
+        resp = self.client.get(f'/api/experiments/{self.exp.pk}/')
+        self.assertEqual(resp.status_code, 403)
