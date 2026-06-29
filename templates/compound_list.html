@@ -127,7 +127,7 @@
       {% if can_delete %}
       <td class="cl-row-actions" onclick="event.stopPropagation()">
         <button class="cl-icon-btn cl-icon-edit"
-                onclick="clEditRow('{{ vc.compound.compound_id }}')"
+                onclick="clEditRow('{{ vc.compound.compound_id }}', {{ vc.exp_ids.0 }})"
                 title="编辑">✏️</button>
         <button class="cl-icon-btn cl-icon-del"
                 onclick="clDeleteRow({{ vc.exp_ids|join:',' }})"
@@ -247,7 +247,7 @@
       {% if can_delete %}
       <td class="cl-row-actions" onclick="event.stopPropagation()">
         <button class="cl-icon-btn cl-icon-edit"
-                onclick="clEditRow('{{ vc.compound.compound_id }}')"
+                onclick="clEditRow('{{ vc.compound.compound_id }}', {{ vc.exp_ids.0 }})"
                 title="编辑">✏️</button>
         <button class="cl-icon-btn cl-icon-del"
                 onclick="clDeleteRow({{ vc.exp_ids|join:',' }})"
@@ -403,6 +403,97 @@
       <div id="cl-cmp-vivo-rt-tabs" class="cl-tab-row" style="margin:0 0 10px;padding:0;border-bottom:1px solid #e2e8f0;"></div>
       <div id="cl-cmp-vivo-charts"></div>
     </div>
+  </div>
+</div>
+
+{# ── Edit modal ── #}
+<div id="cl-edit-overlay" class="cl-cmp-overlay" onclick="clCloseEditModal()" style="display:none"></div>
+<div id="cl-edit-modal" class="cl-edit-modal" style="display:none">
+  <div class="cl-edit-hdr">
+    <span class="cl-edit-title" id="cl-edit-title">编辑</span>
+    <button class="cl-cmp-close" onclick="clCloseEditModal()">✕</button>
+  </div>
+  <div class="cl-edit-body">
+
+    <div class="cl-edit-section">
+      <div class="cl-edit-section-hd">化合物信息</div>
+      <div class="cl-edit-row">
+        <label class="cl-edit-lbl">靶点名称</label>
+        <input class="cl-edit-inp" type="text" id="cl-edit-target-name">
+      </div>
+      <div class="cl-edit-row">
+        <label class="cl-edit-lbl">转录本参考</label>
+        <input class="cl-edit-inp" type="text" id="cl-edit-transcript-ref">
+      </div>
+      <div class="cl-edit-row">
+        <label class="cl-edit-lbl">备注</label>
+        <textarea class="cl-edit-inp" id="cl-edit-remarks" rows="2"></textarea>
+      </div>
+    </div>
+
+    <div class="cl-edit-section">
+      <div class="cl-edit-section-hd">实验信息</div>
+      <div class="cl-edit-row">
+        <label class="cl-edit-lbl">测定方法</label>
+        <input class="cl-edit-inp" type="text" id="cl-edit-assay-name">
+      </div>
+      <div class="cl-edit-row">
+        <label class="cl-edit-lbl">批次号</label>
+        <input class="cl-edit-inp" type="text" id="cl-edit-batch-label">
+      </div>
+
+      <div id="cl-edit-vitro-fields">
+        <div class="cl-edit-row">
+          <label class="cl-edit-lbl">细胞系</label>
+          <input class="cl-edit-inp" type="text" id="cl-edit-cell-line">
+        </div>
+      </div>
+
+      <div id="cl-edit-vivo-fields" style="display:none">
+        <div class="cl-edit-row">
+          <label class="cl-edit-lbl">动物种类</label>
+          <input class="cl-edit-inp" type="text" id="cl-edit-animal-species">
+        </div>
+        <div class="cl-edit-row">
+          <label class="cl-edit-lbl">动物品系</label>
+          <input class="cl-edit-inp" type="text" id="cl-edit-animal-strain">
+        </div>
+        <div class="cl-edit-row">
+          <label class="cl-edit-lbl">给药途径</label>
+          <input class="cl-edit-inp" type="text" id="cl-edit-route">
+        </div>
+        <div class="cl-edit-row">
+          <label class="cl-edit-lbl">性别</label>
+          <input class="cl-edit-inp" type="text" id="cl-edit-gender">
+        </div>
+        <div class="cl-edit-row">
+          <label class="cl-edit-lbl">时间单位</label>
+          <input class="cl-edit-inp" type="text" id="cl-edit-time-unit">
+        </div>
+        <div class="cl-edit-row">
+          <label class="cl-edit-lbl">剂量信息</label>
+          <input class="cl-edit-inp" type="text" id="cl-edit-dose-info">
+        </div>
+        <div class="cl-edit-row">
+          <label class="cl-edit-lbl">给药方案</label>
+          <input class="cl-edit-inp" type="text" id="cl-edit-schedule">
+        </div>
+      </div>
+
+      <div class="cl-edit-row">
+        <label class="cl-edit-lbl">实验备注</label>
+        <textarea class="cl-edit-inp" id="cl-edit-notes" rows="2"></textarea>
+      </div>
+      <div class="cl-edit-row">
+        <label class="cl-edit-lbl">日期</label>
+        <input class="cl-edit-inp" type="date" id="cl-edit-date">
+      </div>
+    </div>
+
+  </div>
+  <div class="cl-edit-footer">
+    <button class="ds-btn ds-btn-ghost" onclick="clCloseEditModal()">取消</button>
+    <button class="ds-btn ds-btn-primary" id="cl-edit-save-btn" onclick="clSaveEdit()">保存</button>
   </div>
 </div>
 
