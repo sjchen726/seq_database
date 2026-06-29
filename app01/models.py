@@ -15,6 +15,8 @@ class LmsUser(AbstractUser):
         max_length=64, blank=True, default='',
         help_text="逗号分隔，可选值: upload,data,compound,batch",
     )
+    edit_projects = models.TextField(blank=True, default='',
+                                     help_text='逗号分隔的可编辑 project_code')
 
     class Meta:
         db_table = 'lms_user'
@@ -26,9 +28,14 @@ class ProjectAccessRequest(models.Model):
         ('approved', '已批准'),
         ('rejected', '已拒绝'),
     ]
+    REQUEST_TYPE_CHOICES = [
+        ('view', '查看权限'),
+        ('edit', '编辑权限'),
+    ]
     user         = models.ForeignKey(LmsUser, on_delete=models.CASCADE,
                                      related_name='project_requests')
     project_code = models.CharField(max_length=64)
+    request_type = models.CharField(max_length=8, choices=REQUEST_TYPE_CHOICES, default='view')
     status       = models.CharField(max_length=16, choices=STATUS_CHOICES, default='pending')
     note         = models.TextField(blank=True, default='')
     created_at   = models.DateTimeField(auto_now_add=True)
@@ -50,6 +57,9 @@ class AuditLog(models.Model):
         ('project_rejected',  '项目拒绝'),
         ('user_role_changed', '角色变更'),
         ('user_deleted',      '用户删除'),
+        ('edit_request',      '申请编辑权限'),
+        ('edit_approved',     '编辑权限批准'),
+        ('edit_rejected',     '编辑权限拒绝'),
     ]
     actor       = models.ForeignKey(LmsUser, on_delete=models.SET_NULL,
                                     null=True, related_name='audit_actions')

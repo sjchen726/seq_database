@@ -3577,3 +3577,36 @@ class ParseSummaryCsvBoundsTest(TestCase):
         with self.assertRaises(ValueError) as cm:
             parse_summary_csv(f)
         self.assertIn('IC50', str(cm.exception))
+
+
+class EditPermissionModelTest(TestCase):
+    def test_project_access_request_has_request_type(self):
+        user = LmsUser.objects.create_user(username='rt_user', password='pass')
+        req = ProjectAccessRequest.objects.create(
+            user=user, project_code='BPR350', request_type='edit'
+        )
+        req.refresh_from_db()
+        self.assertEqual(req.request_type, 'edit')
+
+    def test_project_access_request_default_request_type_is_view(self):
+        user = LmsUser.objects.create_user(username='rt_user2', password='pass')
+        req = ProjectAccessRequest.objects.create(user=user, project_code='BPR350')
+        req.refresh_from_db()
+        self.assertEqual(req.request_type, 'view')
+
+    def test_lms_user_has_edit_projects(self):
+        user = LmsUser.objects.create_user(
+            username='ep_user', password='pass', edit_projects='BPR350,BPR3M03'
+        )
+        user.refresh_from_db()
+        self.assertEqual(user.edit_projects, 'BPR350,BPR3M03')
+
+    def test_lms_user_edit_projects_default_empty(self):
+        user = LmsUser.objects.create_user(username='ep_user2', password='pass')
+        self.assertEqual(user.edit_projects, '')
+
+    def test_audit_log_has_edit_action_choices(self):
+        choices = dict(AuditLog.ACTION_CHOICES)
+        self.assertIn('edit_request', choices)
+        self.assertIn('edit_approved', choices)
+        self.assertIn('edit_rejected', choices)
