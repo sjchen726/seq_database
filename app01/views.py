@@ -2414,17 +2414,17 @@ def smart_upload_confirm_view(request):
             saved_path = sf.get('saved_path', '')
             if not saved_path or not default_storage.exists(saved_path):
                 continue
-            if ExperimentAttachment.objects.filter(
-                    experiment=vitro_experiments[0], label=sf['filename']).exists():
-                dup_warnings.append(sf['filename'])
-                continue
             try:
                 with default_storage.open(saved_path, 'rb') as fh:
                     content = fh.read()
-                att = ExperimentAttachment(
-                    experiment=vitro_experiments[0], label=sf['filename'])
-                att.file.save(sf['filename'], CF(content), save=True)
-                n_attachments += 1
+                for exp in vitro_experiments:
+                    if ExperimentAttachment.objects.filter(
+                            experiment=exp, label=sf['filename']).exists():
+                        dup_warnings.append(sf['filename'])
+                        continue
+                    att = ExperimentAttachment(experiment=exp, label=sf['filename'])
+                    att.file.save(sf['filename'], CF(content), save=True)
+                    n_attachments += 1
             except Exception as e:
                 logger.error(f'smart_upload source vitro attachment error: {e}')
 
