@@ -1696,10 +1696,18 @@ def api_experiment_detail(request, exp_id):
             'time_unit', 'dose_info', 'schedule',
         }
         fields = list(set(data.keys()) & allowed)
+        if 'assay_name' in fields and not data.get('assay_name', '').strip():
+            return JsonResponse({'error': 'assay_name cannot be empty'}, status=400)
         for f in fields:
             setattr(exp, f, data[f])
         if 'date' in data:
-            exp.date = data['date'] if data['date'] else None
+            if data['date']:
+                try:
+                    exp.date = date_type.fromisoformat(data['date'])
+                except (ValueError, TypeError):
+                    return JsonResponse({'error': 'invalid date format'}, status=400)
+            else:
+                exp.date = None
             fields.append('date')
         if fields:
             exp.save(update_fields=fields)

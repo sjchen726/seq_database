@@ -868,6 +868,52 @@ class CompoundApiTest(TestCase):
         resp = self.client.get(f'/api/experiments/{self.exp_vitro.pk}/')
         self.assertEqual(resp.status_code, 403)
 
+    def test_patch_experiment_updates_date(self):
+        resp = self.client.patch(
+            f'/api/experiments/{self.exp_vitro.pk}/',
+            data=json.dumps({'date': '2026-06-29'}),
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.exp_vitro.refresh_from_db()
+        from datetime import date
+        self.assertEqual(self.exp_vitro.date, date(2026, 6, 29))
+
+    def test_patch_experiment_invalid_date_returns_400(self):
+        resp = self.client.patch(
+            f'/api/experiments/{self.exp_vitro.pk}/',
+            data=json.dumps({'date': 'not-a-date'}),
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_patch_compound_invalid_json_returns_400(self):
+        resp = self.client.patch(
+            '/api/compounds/BPR_APITEST01/',
+            data='not json',
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_patch_experiment_blank_assay_name_returns_400(self):
+        resp = self.client.patch(
+            f'/api/experiments/{self.exp_vitro.pk}/',
+            data=json.dumps({'assay_name': ''}),
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_patch_compound_disallowed_field_not_updated(self):
+        resp = self.client.patch(
+            '/api/compounds/BPR_APITEST01/',
+            data=json.dumps({'project': 'HACKED', 'target_name': 'OK'}),
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.compound.refresh_from_db()
+        self.assertEqual(self.compound.project, 'API')   # unchanged
+        self.assertEqual(self.compound.target_name, 'OK')  # updated
+
 
 # ---- CompoundDetailViewTest ----
 class CompoundDetailViewTest(TestCase):
