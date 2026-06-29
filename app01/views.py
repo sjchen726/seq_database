@@ -848,7 +848,7 @@ def _build_vivo_schedule_data(vivo_exps_for_compound):
         }
         if readout_type == 'body_weight':
             day0 = mean_map.get(0.0)
-            if day0:
+            if day0 is not None and day0 != 0:
                 return [
                     round((mean_map[d] - day0) / day0 * 100, 2) if d in mean_map else None
                     for d in days
@@ -932,7 +932,7 @@ def _build_vivo_schedule_data(vivo_exps_for_compound):
             if dp.readout_type == 'body_weight' and dp.replicate == 'Mean'
         }
         day0 = bw_map.get(0.0)
-        if day0:
+        if day0 is not None and day0 != 0:
             for val in bw_map.values():
                 pct = (val - day0) / day0 * 100
                 if max_bw_drop is None or pct < max_bw_drop:
