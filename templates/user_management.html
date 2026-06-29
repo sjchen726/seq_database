@@ -27,6 +27,7 @@
       <tr style="border-bottom:1px solid #fbbf24;color:#92400e;font-weight:600;">
         <th style="padding:6px 10px;text-align:left;">用户</th>
         <th style="padding:6px 10px;text-align:left;">申请项目</th>
+        <th style="padding:6px 10px;text-align:left;">类型</th>
         <th style="padding:6px 10px;text-align:left;">申请时间</th>
         <th style="padding:6px 10px;text-align:left;">备注</th>
         <th style="padding:6px 10px;text-align:left;">操作</th>
@@ -40,6 +41,13 @@
           <span style="color:#a16207;font-size:12px;margin-left:4px;">({{ req.user.user_type }})</span>
         </td>
         <td style="padding:7px 10px;font-family:monospace;font-weight:600;color:#b45309;">{{ req.project_code }}</td>
+        <td style="padding:7px 10px;">
+          {% if req.request_type == 'edit' %}
+          <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#fed7aa;color:#c2410c;">编辑权限</span>
+          {% else %}
+          <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#dbeafe;color:#1d4ed8;">查看权限</span>
+          {% endif %}
+        </td>
         <td style="padding:7px 10px;color:#78716c;font-size:12px;">{{ req.created_at|date:"Y-m-d H:i" }}</td>
         <td style="padding:7px 10px;color:#57534e;font-size:12px;">{{ req.note|default:"—" }}</td>
         <td style="padding:7px 10px;">
