@@ -3753,3 +3753,53 @@ class ProfileRequestEditTest(TestCase):
         resp = self.client.post('/profile/request-edit/', {'project_code': 'BPR350'})
         self.assertEqual(resp.status_code, 302)
         self.assertIn('/login/', resp['Location'])
+
+
+class EditRequestApprovalTest(TestCase):
+    def setUp(self):
+        self.admin = LmsUser.objects.create_user(
+            username='appr_admin', password='pass', user_type='superadmin',
+        )
+        self.regular_user = LmsUser.objects.create_user(
+            username='appr_user', password='pass', user_type='user',
+        )
+        self.edit_req = ProjectAccessRequest.objects.create(
+            user=self.regular_user, project_code='BPR350', request_type='edit',
+        )
+        self.view_req = ProjectAccessRequest.objects.create(
+            user=self.regular_user, project_code='BPR3M03', request_type='view',
+        )
+        self.client.login(username='appr_admin', password='pass')
+
+    def test_approve_edit_request_writes_edit_projects(self):
+        self.client.post(f'/users/requests/{self.edit_req.pk}/approve/')
+        self.regular_user.refresh_from_db()
+        self.assertIn('BPR350', self.regular_user.edit_projects.split(','))
+
+    def test_approve_edit_request_does_not_write_permissions_project(self):
+        self.client.post(f'/users/requests/{self.edit_req.pk}/approve/')
+        self.regular_user.refresh_from_db()
+        self.assertNotIn('BPR350', (self.regular_user.permissions_project or '').split(','))
+
+    def test_approve_view_request_writes_permissions_project(self):
+        self.client.post(f'/users/requests/{self.view_req.pk}/approve/')
+        self.regular_user.refresh_from_db()
+        self.assertIn('BPR3M03', self.regular_user.permissions_project.split(','))
+
+    def test_approve_edit_request_logs_edit_approved(self):
+        self.client.post(f'/users/requests/{self.edit_req.pk}/approve/')
+        self.assertEqual(AuditLog.objects.filter(action='edit_approved').count(), 1)
+
+    def test_approve_edit_request_sets_status_approved(self):
+        self.client.post(f'/users/requests/{self.edit_req.pk}/approve/')
+        self.edit_req.refresh_from_db()
+        self.assertEqual(self.edit_req.status, 'approved')
+
+    def test_reject_edit_request_logs_edit_rejected(self):
+        self.client.post(f'/users/requests/{self.edit_req.pk}/reject/')
+        self.assertEqual(AuditLog.objects.filter(action='edit_rejected').count(), 1)
+
+    def test_reject_edit_request_does_not_write_edit_projects(self):
+        self.client.post(f'/users/requests/{self.edit_req.pk}/reject/')
+        self.regular_user.refresh_from_db()
+        self.assertEqual(self.regular_user.edit_projects, '')

@@ -2918,18 +2918,29 @@ def project_request_approve(request, req_id):
     req.reviewed_at = datetime.datetime.now()
     req.save()
     user = req.user
-    existing = [p.strip() for p in (user.permissions_project or '').split(',') if p.strip()]
-    if req.project_code not in existing:
-        existing.append(req.project_code)
-    user.permissions_project = ','.join(existing)
-    user.save()
+    if req.request_type == 'edit':
+        existing = [p.strip() for p in (user.edit_projects or '').split(',') if p.strip()]
+        if req.project_code not in existing:
+            existing.append(req.project_code)
+        user.edit_projects = ','.join(existing)
+        user.save(update_fields=['edit_projects'])
+        audit_action = 'edit_approved'
+        msg = f'已批准 {user.username} 编辑 {req.project_code}'
+    else:
+        existing = [p.strip() for p in (user.permissions_project or '').split(',') if p.strip()]
+        if req.project_code not in existing:
+            existing.append(req.project_code)
+        user.permissions_project = ','.join(existing)
+        user.save(update_fields=['permissions_project'])
+        audit_action = 'project_approved'
+        msg = f'已批准 {user.username} 访问 {req.project_code}'
     AuditLog.objects.create(
         actor=request.user,
-        action='project_approved',
+        action=audit_action,
         target_user=user,
         detail=_json_mod.dumps({'project': req.project_code}),
     )
-    messages.success(request, f'已批准 {user.username} 访问 {req.project_code}')
+    messages.success(request, msg)
     return redirect('user_management')
 
 
@@ -2949,7 +2960,7 @@ def project_request_reject(request, req_id):
     req.save()
     AuditLog.objects.create(
         actor=request.user,
-        action='project_rejected',
+        action='edit_rejected' if req.request_type == 'edit' else 'project_rejected',
         target_user=req.user,
         detail=_json_mod.dumps({'project': req.project_code}),
     )
