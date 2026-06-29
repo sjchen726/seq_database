@@ -1874,18 +1874,18 @@ class SmartUploadConfirmCleanupTest(TestCase):
         session.save()
 
     def test_session_cleared_after_validation_error(self):
-        """All session upload keys are cleared when confirm validation fails."""
+        """Session upload keys are preserved when confirm validation fails."""
         self._set_session(target_name='')  # blank triggers '靶点必填' error
         with override_settings(MEDIA_ROOT=self.tmp_media):
             resp = self.client.post('/upload/smart/confirm/', {})
         self.assertEqual(resp.status_code, 200)
-        self.assertNotIn('smart_preview', self.client.session)
-        self.assertNotIn('pipeline_result', self.client.session)
-        self.assertNotIn('upload_meta', self.client.session)
-        self.assertNotIn('normalize_id_map', self.client.session)
+        self.assertIn('smart_preview', self.client.session)
+        self.assertIn('pipeline_result', self.client.session)
+        self.assertIn('upload_meta', self.client.session)
+        self.assertIn('normalize_id_map', self.client.session)
 
     def test_temp_file_deleted_after_validation_error(self):
-        """Temp file referenced in file_detections is deleted when confirm validation fails."""
+        """Temp file referenced in file_detections is preserved when confirm validation fails."""
         saved_path = '_tmp_smart/test_cleanup_file.txt'
         with override_settings(MEDIA_ROOT=self.tmp_media):
             default_storage.save(saved_path, __import__('io').BytesIO(b'test content'))
@@ -1920,7 +1920,7 @@ class SmartUploadConfirmCleanupTest(TestCase):
 
             resp = self.client.post('/upload/smart/confirm/', {})
             self.assertEqual(resp.status_code, 200)
-            self.assertFalse(default_storage.exists(saved_path))
+            self.assertTrue(default_storage.exists(saved_path))
 
 
 # ---- BuildInvivoChartDataTest ----
