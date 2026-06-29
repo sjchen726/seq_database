@@ -270,7 +270,9 @@ function _clUpdateCmpBar() {
   const bar = document.getElementById('cl-cmp-bar');
   document.getElementById('cl-cmp-count').textContent =
     `已选 ${_clCmpSelected.length} 个化合物`;
-  bar.style.display = _clCmpSelected.length >= 2 ? 'flex' : 'none';
+  bar.style.display = _clCmpSelected.length >= 1 ? 'flex' : 'none';
+  const cmpBtn = document.getElementById('cl-cmp-btn');
+  if (cmpBtn) cmpBtn.disabled = _clCmpSelected.length < 2;
 }
 
 function clClearCmpSelection() {
@@ -623,4 +625,18 @@ function clDeleteRow(...expIds) {
       location.reload();
     })
     .catch(() => alert('删除失败，请重试'));
+}
+
+// ── Edit row (stub — full modal in Spec 2) ────────────────────
+function clEditRow(compoundId) {
+  _clShowToast('编辑功能即将上线');
+}
+
+// ── Toast helper ──────────────────────────────────────────────
+function _clShowToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'cl-toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2000);
 }
